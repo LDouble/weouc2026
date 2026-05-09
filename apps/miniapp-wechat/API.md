@@ -111,6 +111,8 @@
 
 **无需认证**
 
+说明：该接口仅用于兼容非微信场景或后台账号体系，学生端默认登录入口为 `1.3 微信登录`。
+
 请求体：
 
 | 字段 | 类型 | 必填 | 说明 |
@@ -141,6 +143,8 @@
 `POST /auth/wechat/login`
 
 **无需认证**
+
+说明：学生端默认通过该接口建立会话；登录后是否已完成教务绑定，以用户资料或会话态接口返回为准。
 
 请求体：
 
@@ -1324,6 +1328,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 Token 通过 `/auth/login` 或 `/auth/wechat/login` 接口获取。
 
+学生端默认应通过 `/auth/wechat/login` 获取 Token，`/auth/login` 仅用于兼容或非微信场景。
+
 ### X-API-Key 认证
 
 通知模块接口需要在请求头中携带 API Key：
@@ -1351,3 +1357,8 @@ X-API-Key: your_api_key_here
 | updated_at | string | 更新时间（ISO 8601） |
 | review_status | string | 审核状态：reviewing/approved/rejected |
 | review_remark | string/null | 审核备注 |
+
+补充约束：
+
+- 详情接口中如果返回 `contact` 字段，该字段属于受限信息，仅对已完成教务绑定的账号可见。
+- 未完成教务绑定时，服务端应返回空值或省略 `contact` 字段，客户端不得自行推断或拼接联系方式。

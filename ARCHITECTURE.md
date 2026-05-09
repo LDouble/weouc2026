@@ -16,9 +16,9 @@
 
 本方案适用于以下目标场景：
 
-- 学生端：校园信息、课程、活动、办事、消息、个人中心
-- 教师端：通知、活动、基础服务、部分教学信息查看
-- 管理端：内容运营、用户与角色、活动管理、工单/表单管理、通知发布、统计分析
+- 学生端：跑腿、组局（含拼车等轻社交撮合）、二手交易、资料、失物招领、消息、个人中心，后续扩展教务能力
+- 教师端：通知、活动协作、基础服务、部分教学信息查看
+- 管理端：内容运营、用户与角色、校园生活内容审核、联系方式权限策略配置、通知发布、统计分析
 - 外部系统接入：统一身份认证、教务系统、学工系统、对象存储、短信、微信开放平台
 
 ## 3. 总体系统图
@@ -82,17 +82,18 @@ graph TD
 
 | 业务域            | 说明               | 核心对象                          |
 | -------------- | ---------------- | ----------------------------- |
-| `iam`          | 统一身份、角色、组织、租户/校区 | user、role、permission、org      |
-| `portal`       | 首页内容、公告、轮播、资讯    | article、banner、notice         |
-| `academic`     | 课程表、考试、成绩、学期信息   | course、schedule、exam、grade    |
-| `activity`     | 校园活动、报名、签到       | activity、registration、checkin |
-| `service_desk` | 报修、办事、工单、咨询      | ticket、form、workflow、reply    |
-| `notification` | 站内信、短信、微信订阅消息、推送 | message、template、delivery     |
-| `file_center`  | 文件上传、附件引用、媒体资源   | file、bucket、attachment        |
-| `analytics`    | 审计、运营统计、行为汇总     | audit\_log、event、dashboard    |
+| `iam`          | 统一身份、角色、组织、租户/校区 | user、role、permission、org                                  |
+| `portal`       | 首页内容、公告、轮播、资讯    | article、banner、notice                                     |
+| `campus_life`  | 跑腿、组局、二手交易、资料、失物招领 | errand、meetup、listing、resource、lost_item、claim、contact_acl |
+| `academic`     | 后续教务能力：课程表、考试、成绩、学期信息 | course、schedule、exam、grade                                |
+| `notification` | 站内信、短信、微信订阅消息、推送 | message、template、delivery                                 |
+| `file_center`  | 文件上传、附件引用、媒体资源   | file、bucket、attachment                                    |
+| `analytics`    | 审计、运营统计、行为汇总     | audit\_log、event、dashboard                                |
 
 说明：
 
+- 学生端首发与默认登录入口以微信小程序为主，Flutter App 复用同一后端语义，提供更完整体验。
+- `campus_life` 中的联系方式属于受限字段，必须由后端基于教务绑定状态裁剪后返回，客户端不得自行放开。
 - `academic` 强依赖校园现有系统时，采用“连接器 + 同步任务”方式接入，不把第三方逻辑污染到领域层。
 - 如果未来做多校区或 SaaS 化，`iam` 中应保留 `tenant_id` 或 `campus_id` 维度。
 
@@ -120,9 +121,8 @@ services/api-server/
 │   ├── modules/
 │   │   ├── iam/
 │   │   ├── portal/
+│   │   ├── campus_life/
 │   │   ├── academic/
-│   │   ├── activity/
-│   │   ├── service_desk/
 │   │   ├── notification/
 │   │   ├── file_center/
 │   │   └── analytics/
@@ -180,13 +180,14 @@ types -> config -> repo -> service -> runtime -> transport
 统一采用 `RBAC + 资源动作码`：
 
 - 角色：学生、教师、辅导员、学院管理员、超级管理员
-- 资源动作：`portal:publish`、`activity:approve`、`ticket:assign`
-- 数据权限：院系、班级、校区、活动归属范围
+- 资源动作：`portal:publish`、`campus_life:moderate`、`contact:view`
+- 数据权限：院系、班级、校区、内容归属范围
 
 注意：
 
 - 前端只能做权限展示优化，最终权限裁决在后端
 - 管理端按钮级权限必须由服务端返回的权限码控制
+- 联系方式等受限字段必须由服务端在读取时二次校验教务绑定状态，不能依赖前端隐藏按钮
 
 ## 8. 管理员后台架构
 
@@ -215,8 +216,8 @@ apps/admin-web/
 │   ├── modules/
 │   │   ├── iam/
 │   │   ├── portal/
-│   │   ├── activity/
-│   │   ├── service-desk/
+│   │   ├── campus-life/
+│   │   ├── moderation/
 │   │   └── analytics/
 │   └── shared/
 └── tests/
@@ -231,6 +232,7 @@ apps/admin-web/
 原因：
 
 - 校园场景会大量依赖微信登录、订阅消息、分享、二维码、支付、定位等原生能力
+- 当前学生端默认登录入口就是微信小程序，原生能力可以最短路径承接登录和传播
 - 原生小程序包体和性能更可控
 - 与 Flutter 已经天然分端，没有必要再为“跨端统一”引入额外抽象层
 
@@ -251,9 +253,11 @@ apps/miniapp-wechat/
 
 关键约束：
 
-- 主包只保留登录、首页、个人中心等高频入口
-- 活动、报修、办事等中长流程放入分包
+- 主包只保留登录、首页、信息流、个人中心等高频入口
+- 跑腿、组局、二手交易、资料、失物招领等中长流程放入分包
 - 服务层统一封装 `request`、鉴权、重试、错误码映射
+- 默认使用微信小程序登录建立会话，教务绑定状态由后端会话与资料接口统一返回
+- 未完成教务绑定的账号不能查看联系方式，前端只根据服务端返回的可见性状态渲染
 - 使用局部 `setData` 更新，避免大对象全量覆盖
 - 可复用区域优先写 `Component`
 
@@ -277,8 +281,8 @@ apps/mobile-flutter/
 │   ├── features/
 │   │   ├── auth/
 │   │   ├── home/
+│   │   ├── campus_life/
 │   │   ├── academic/
-│   │   ├── activity/
 │   │   └── profile/
 │   ├── shared/
 │   └── main.dart
@@ -295,6 +299,8 @@ apps/mobile-flutter/
 
 - 离线缓存仅做体验优化，不改变后端业务真相
 - 复杂状态机规则不在 Flutter 重写
+- 当前以跑腿、组局、二手交易、资料、失物招领等校园生活能力为主，后续再扩展教务功能
+- 联系方式可见性与教务绑定状态必须完全复用后端语义
 - 多端共用一套错误码和接口语义
 
 ## 11. 契约优先策略
@@ -362,17 +368,18 @@ apps/mobile-flutter/
 - 统一 `trace_id`
 - 结构化日志
 - 核心接口耗时与错误率监控
-- 登录、课程查询、活动报名、工单提交等关键链路埋点
+- 登录、首页信息流浏览、信息发布、教务绑定、联系方式查看等关键链路埋点
 - 数据库备份与恢复演练
 
 建议 SLO：
 
-| 指标         | 目标        |
-| ---------- | --------- |
-| 核心 API 可用性 | `99.9%`   |
-| 登录接口 p95   | `< 500ms` |
-| 首页接口 p95   | `< 300ms` |
-| 活动报名成功率    | `> 99.5%` |
+| 指标              | 目标        |
+| --------------- | --------- |
+| 核心 API 可用性      | `99.9%`   |
+| 登录接口 p95        | `< 500ms` |
+| 首页信息流接口 p95     | `< 300ms` |
+| 联系方式解锁成功率       | `> 99.5%` |
+| 校园生活信息发布成功率     | `> 99%`   |
 
 ## 15. AI 协作要求
 
@@ -403,13 +410,15 @@ apps/mobile-flutter/
 
 ### 阶段 2：校园核心能力
 
-- 课程表 / 考试 / 成绩接入
-- 活动与报名
-- 报修 / 办事 / 工单
+- 跑腿
+- 组局 / 拼车等轻社交撮合
+- 二手交易
+- 资料共享
+- 失物招领
 
-### 阶段 3：体验增强
+### 阶段 3：体验增强与教务扩展
 
+- 教务能力接入（课程表 / 考试 / 成绩）
 - 推送与订阅消息
 - 数据分析看板
 - 多校区或多租户演进
-
