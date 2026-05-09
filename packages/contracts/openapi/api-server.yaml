@@ -1,0 +1,247 @@
+openapi: 3.1.0
+info:
+  title: WEOUC API Server Baseline
+  version: 0.1.0
+  description: 校园综合应用后端基础工程的最小契约基线。
+servers:
+  - url: http://localhost:8080
+    description: Local development
+tags:
+  - name: System
+    description: 系统级健康检查、就绪检查与会话画像接口
+paths:
+  /healthz:
+    get:
+      tags:
+        - System
+      summary: 存活检查
+      operationId: getHealthz
+      responses:
+        '200':
+          description: 服务存活
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponseEnvelope'
+  /readyz:
+    get:
+      tags:
+        - System
+      summary: 就绪检查
+      operationId: getReadyz
+      responses:
+        '200':
+          description: 服务就绪
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponseEnvelope'
+  /api/v1/system/profile:
+    get:
+      tags:
+        - System
+      summary: 获取当前会话画像
+      operationId: getSystemProfile
+      parameters:
+        - $ref: '#/components/parameters/XUserId'
+        - $ref: '#/components/parameters/XUserRoles'
+        - $ref: '#/components/parameters/XUserPermissions'
+        - $ref: '#/components/parameters/XAcademicBound'
+      responses:
+        '200':
+          description: 当前会话画像
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProfileResponseEnvelope'
+        '401':
+          description: 未登录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponseEnvelope'
+components:
+  parameters:
+    XUserId:
+      name: X-User-ID
+      in: header
+      required: true
+      schema:
+        type: string
+      description: 当前登录用户标识
+    XUserRoles:
+      name: X-User-Roles
+      in: header
+      required: false
+      schema:
+        type: string
+      description: 逗号分隔的角色列表
+      example: student,editor
+    XUserPermissions:
+      name: X-User-Permissions
+      in: header
+      required: false
+      schema:
+        type: string
+      description: 逗号分隔的权限码列表
+      example: portal:publish,contact:view
+    XAcademicBound:
+      name: X-Academic-Bound
+      in: header
+      required: false
+      schema:
+        type: boolean
+      description: 当前账号是否已完成教务绑定
+  schemas:
+    RequestEnvelope:
+      type: object
+      required:
+        - request_id
+      properties:
+        request_id:
+          type: string
+    HealthStatus:
+      type: object
+      required:
+        - status
+        - service
+        - version
+        - timestamp
+      properties:
+        status:
+          type: string
+          example: ok
+        service:
+          type: string
+          example: api-server
+        version:
+          type: string
+          example: dev
+        timestamp:
+          type: string
+          format: date-time
+    DependencyStatus:
+      type: object
+      required:
+        - name
+        - status
+        - required
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          example: skipped
+        required:
+          type: boolean
+        detail:
+          type: string
+    ReadinessStatus:
+      type: object
+      required:
+        - status
+        - dependencies
+        - timestamp
+      properties:
+        status:
+          type: string
+          example: ready
+        dependencies:
+          type: array
+          items:
+            $ref: '#/components/schemas/DependencyStatus'
+        timestamp:
+          type: string
+          format: date-time
+    ProfileService:
+      type: object
+      required:
+        - name
+        - environment
+        - version
+      properties:
+        name:
+          type: string
+        environment:
+          type: string
+        version:
+          type: string
+    ProfileAuth:
+      type: object
+      required:
+        - authenticated
+        - academic_bound
+      properties:
+        authenticated:
+          type: boolean
+        user_id:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        academic_bound:
+          type: boolean
+    Profile:
+      type: object
+      required:
+        - service
+        - auth
+      properties:
+        service:
+          $ref: '#/components/schemas/ProfileService'
+        auth:
+          $ref: '#/components/schemas/ProfileAuth'
+    ErrorDetail:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+    HealthResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              $ref: '#/components/schemas/HealthStatus'
+    ReadinessResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              $ref: '#/components/schemas/ReadinessStatus'
+    ProfileResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required:
+            - data
+          properties:
+            data:
+              $ref: '#/components/schemas/Profile'
+    ErrorResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required:
+            - error
+          properties:
+            error:
+              $ref: '#/components/schemas/ErrorDetail'
