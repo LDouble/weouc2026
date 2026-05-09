@@ -1,0 +1,153 @@
+<view class="errand-publish-page" style="padding-top: {{navHeight}}px;">
+  <view class="errand-publish-bg"></view>
+
+  <view class="publish-nav" style="height: {{navHeight}}px;">
+    <view
+      class="publish-nav__back"
+      style="top: {{menuTop}}px; width: {{menuButtonHeight}}px; height: {{menuButtonHeight}}px;"
+      hover-class="tap-button"
+      bindtap="onBack"
+    >
+      <t-icon name="arrow-left" size="32rpx" />
+    </view>
+  </view>
+
+  <view class="publish-content">
+    <view class="publish-card category-card">
+      <view class="publish-card__label">你要办什么事？</view>
+      <view class="category-grid">
+        <view
+          wx:for="{{categoryList}}"
+          wx:key="value"
+          class="category-item {{form.category === item.value ? 'category-item--active' : ''}}"
+          data-value="{{item.value}}"
+          hover-class="tap-button"
+          bindtap="onCategorySelect"
+        >
+          <t-icon name="{{item.icon}}" size="42rpx" />
+          <text>{{item.label}}</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="publish-card compose-card">
+      <input
+        class="todo-input"
+        value="{{form.todo}}"
+        placeholder="代办事项，如：南区菜鸟驿站代拿"
+        placeholder-class="publish-placeholder publish-placeholder--strong"
+        data-field="todo"
+        bindinput="onFieldChange"
+      />
+
+      <view class="image-row">
+        <view
+          wx:for="{{imageFiles}}"
+          wx:key="url"
+          class="image-item"
+          data-index="{{index}}"
+          bindtap="previewImage"
+        >
+          <image src="{{item.url}}" mode="aspectFill" />
+          <view class="image-item__remove" catchtap="removeImage" data-index="{{index}}">
+            <t-icon name="close" size="18rpx" />
+          </view>
+        </view>
+        <view wx:if="{{imageFiles.length < 3}}" class="image-add" hover-class="tap-button" bindtap="chooseImages">
+          <t-icon name="image" size="38rpx" />
+          <text>加图</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="publish-card route-form">
+      <route-input
+        startValue="{{form.startPlace}}"
+        endValue="{{form.endPlace}}"
+        startPlaceholder="去哪取 / 起点"
+        endPlaceholder="送到哪 / 终点"
+        bind:startChange="onStartPlaceChange"
+        bind:endChange="onEndPlaceChange"
+      />
+      <view class="route-divider"></view>
+      <view class="deadline-block">
+        <view class="deadline-input__label">
+          <view class="deadline-input__icon">
+            <t-icon name="time" size="26rpx" />
+          </view>
+          <text>自动关闭时间</text>
+        </view>
+        <view class="deadline-options">
+          <view
+            wx:for="{{deadlineOptions}}"
+            wx:key="hours"
+            class="deadline-option {{form.deadlineHours === item.hours ? 'deadline-option--active' : ''}}"
+            data-hours="{{item.hours}}"
+            hover-class="tap-button"
+            bindtap="onDeadlineSelect"
+          >
+            {{item.label}}
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="publish-card contact-card">
+      <view class="contact-row">
+        <view class="contact-row__icon">
+          <t-icon name="chat" size="28rpx" />
+        </view>
+        <input
+          class="contact-input"
+          value="{{form.contact}}"
+          placeholder="联系方式（微信号、手机号或站内私信）"
+          placeholder-class="publish-placeholder"
+          data-field="contact"
+          bindinput="onFieldChange"
+        />
+      </view>
+    </view>
+
+    <view class="publish-card reward-card">
+      <view class="reward-row">
+        <view class="reward-row__title">
+          <text>跑腿赏金</text>
+          <view>建议 3-15元</view>
+        </view>
+        <view class="reward-input">
+          <text>¥</text>
+          <input value="{{form.reward}}" type="digit" data-field="reward" bindinput="onFieldChange" />
+        </view>
+      </view>
+
+      <view class="reward-divider"></view>
+
+      <view class="urgent-row" hover-class="tap-button" bindtap="onUrgentToggle">
+        <view>
+          <view class="urgent-row__title">
+            <text>加急订单</text>
+            <t-icon name="thunder" size="24rpx" />
+          </view>
+          <view class="urgent-row__desc">勾选后将显示专属急单标识，提高接单率</view>
+        </view>
+        <view class="urgent-switch {{form.urgent ? 'urgent-switch--active' : ''}}">
+          <view></view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="publish-bottom">
+    <view class="publish-total">
+      <text>需支付金额</text>
+      <view>
+        <text>¥</text>
+        <text>{{form.reward || '0.00'}}</text>
+      </view>
+    </view>
+    <view class="publish-submit {{canPublish ? 'publish-submit--ready' : ''}}" hover-class="tap-button" bindtap="release">
+      <text>确认发布</text>
+      <t-icon name="send" size="30rpx" />
+    </view>
+  </view>
+</view>

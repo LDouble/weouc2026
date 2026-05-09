@@ -1,0 +1,42 @@
+<view class="market-product-card" hover-class="tap-card" bindtap="onSelect">
+  <view class="market-product-card__media" style="height: {{product.imageHeight}}rpx;">
+    <block wx:if="{{product.mode === 'wanted' || !product.image}}">
+      <view class="market-product-card__wanted market-product-card__wanted--{{product.cardBg}}">
+        <view class="market-product-card__quote market-product-card__quote--left">“</view>
+        <view class="market-product-card__wanted-text">{{product.title}}</view>
+        <view class="market-product-card__quote market-product-card__quote--right">”</view>
+      </view>
+    </block>
+    <image wx:else class="market-product-card__image" src="{{product.image}}" mode="aspectFill" />
+
+    <view class="market-product-card__condition">
+      <t-icon name="{{product.mode === 'wanted' ? 'search' : 'star'}}" size="16rpx" />
+      <text>{{product.condition}}</text>
+    </view>
+  </view>
+
+  <view class="market-product-card__body {{product.mode === 'wanted' ? 'market-product-card__body--wanted' : ''}}">
+    <view wx:if="{{product.mode !== 'wanted' && product.image}}" class="market-product-card__title">{{product.title}}</view>
+
+    <view class="market-product-card__price-row">
+      <view class="market-product-card__price">
+        <text class="market-product-card__currency">¥</text>
+        <text>{{product.price}}</text>
+      </view>
+      <view wx:if="{{product.originalPrice}}" class="market-product-card__original">¥{{product.originalPrice}}</view>
+    </view>
+
+    <view class="market-product-card__line"></view>
+
+    <view class="market-product-card__meta">
+      <view class="market-product-card__seller">
+        <view class="market-product-card__avatar market-product-card__avatar--{{product.avatarTone}}">{{product.sellerInitial}}</view>
+        <text>{{product.seller}}</text>
+      </view>
+      <view class="market-product-card__likes" catchtap="onFavorite">
+        <t-icon name="{{product.liked ? 'heart-filled' : 'heart'}}" size="20rpx" />
+        <text>{{product.likes}}</text>
+      </view>
+    </view>
+  </view>
+</view>

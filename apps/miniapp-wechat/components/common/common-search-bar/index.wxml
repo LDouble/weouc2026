@@ -1,0 +1,29 @@
+<view
+  class="common-search-bar common-search-bar--{{variant}} custom-class"
+  style="--common-search-bg: {{background}}; --common-search-color: {{color}}; --common-search-icon-color: {{iconColor}};"
+  hover-class="{{disabled ? '' : 'tap-button'}}"
+  bindtap="onTap"
+>
+  <view class="common-search-bar__icon">
+    <t-icon name="{{icon}}" size="{{iconSize}}" />
+  </view>
+  <input
+    class="common-search-bar__input input-class"
+    type="text"
+    value="{{value}}"
+    disabled="{{disabled}}"
+    placeholder="{{placeholder}}"
+    placeholder-class="common-search-bar__placeholder"
+    confirm-type="{{confirmType}}"
+    bindinput="onInput"
+    bindconfirm="onConfirm"
+  />
+  <view
+    wx:if="{{clearable && value}}"
+    class="common-search-bar__clear"
+    hover-class="tap-button"
+    catchtap="onClear"
+  >
+    <t-icon name="{{clearIcon}}" size="{{clearIconSize}}" />
+  </view>
+</view>

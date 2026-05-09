@@ -1,0 +1,59 @@
+<view class="errand-task-card" hover-class="tap-card" bindtap="onSelect">
+  <view class="errand-task-card__head">
+    <view class="errand-task-card__publisher">
+      <view class="errand-task-card__avatar errand-task-card__avatar--{{task.avatarTone}}">{{task.publisherInitial}}</view>
+      <view class="errand-task-card__meta">
+        <view class="errand-task-card__name-row">
+          <text class="errand-task-card__name">{{task.publisher}}</text>
+          <view class="errand-task-card__credit">
+            <t-icon name="check-circle" size="14rpx" />
+            <text>{{task.credit}}</text>
+          </view>
+        </view>
+        <view class="errand-task-card__time">{{task.time}}</view>
+      </view>
+    </view>
+
+    <view wx:if="{{task.urgent}}" class="errand-task-card__urgent">
+      <t-icon name="thunder" size="18rpx" />
+      <text>急单</text>
+    </view>
+  </view>
+
+  <view class="errand-task-card__title">{{task.title}}</view>
+  <view class="errand-task-card__desc">{{task.desc}}</view>
+
+  <view class="errand-route">
+    <view class="errand-route__line"></view>
+    <view class="errand-route__point">
+      <view class="errand-route__dot errand-route__dot--start"></view>
+      <text>{{task.routeStart}}</text>
+    </view>
+    <view class="errand-route__point">
+      <view class="errand-route__dot errand-route__dot--end"></view>
+      <text>{{task.routeEnd}}</text>
+    </view>
+  </view>
+
+  <view class="errand-task-card__bottom">
+    <view class="errand-task-card__reward-wrap">
+      <view class="errand-task-card__deadline">
+        <t-icon name="time" size="18rpx" />
+        <text>{{task.deadline}}</text>
+      </view>
+      <view class="errand-task-card__reward">
+        <text>¥</text>
+        <text>{{task.reward}}</text>
+      </view>
+    </view>
+
+    <view
+      class="errand-task-card__button {{!task.canAccept ? 'errand-task-card__button--accepted' : ''}}"
+      hover-class="tap-button"
+      catchtap="onAccept"
+    >
+      <text>{{task.actionText}}</text>
+      <t-icon wx:if="{{task.canAccept}}" name="chevron-right" size="22rpx" />
+    </view>
+  </view>
+</view>

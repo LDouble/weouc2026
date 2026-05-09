@@ -1,0 +1,23 @@
+<scroll-view
+  class="common-filter-tabs common-filter-tabs--{{variant}} custom-class"
+  scroll-x="{{scrollable}}"
+  enhanced="{{scrollable}}"
+  show-scrollbar="{{false}}"
+  style="--common-filter-active-color: {{activeColor}}; --common-filter-active-text: {{activeTextColor}}; --common-filter-bg: {{itemBackground}}; --common-filter-text: {{textColor}};"
+>
+  <view class="common-filter-tabs__track common-filter-tabs__track--{{justify}}">
+    <view
+      wx:for="{{normalizedItems}}"
+      wx:key="value"
+      class="common-filter-tabs__item {{active === item.value ? 'common-filter-tabs__item--active' : ''}}"
+      style="min-width: {{itemMinWidth}}rpx;"
+      data-value="{{item.value}}"
+      data-index="{{index}}"
+      hover-class="tap-button"
+      bindtap="onTap"
+    >
+      <text>{{item.label}}</text>
+      <view wx:if="{{variant === 'line' && active === item.value}}" class="common-filter-tabs__line"></view>
+    </view>
+  </view>
+</scroll-view>

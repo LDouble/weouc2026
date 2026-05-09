@@ -1,0 +1,73 @@
+@import '/variable.less';
+
+/**app.wxss**/
+page {
+  --td-brand-color: @campus-primary;
+  --td-brand-color-active: @campus-primary-dark;
+  --td-brand-color-focus: #eef2ff;
+  --td-brand-color-light: #eef2ff;
+  --td-brand-color-light-active: #e0e7ff;
+  --td-text-color-brand: @campus-primary-dark;
+  color: @campus-text-strong;
+  background:
+    radial-gradient(circle at 12% 4%, rgba(99, 102, 241, 0.16), transparent 34%),
+    radial-gradient(circle at 92% 12%, rgba(236, 72, 153, 0.12), transparent 30%),
+    linear-gradient(135deg, #f8f7ff 0%, #eef2ff 48%, #fdf2f8 100%);
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Noto Sans SC', 'Helvetica Neue', Arial, sans-serif;
+}
+
+.page {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 12% 4%, rgba(99, 102, 241, 0.16), transparent 34%),
+    radial-gradient(circle at 92% 12%, rgba(236, 72, 153, 0.12), transparent 30%),
+    linear-gradient(135deg, #f8f7ff 0%, #eef2ff 48%, #fdf2f8 100%);
+}
+
+.tap-card {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+
+.tap-button {
+  transform: scale(0.9);
+  opacity: 0.88;
+}
+
+@keyframes campus-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes campus-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes glass-shine {
+  0% {
+    transform: translateX(-160%) skewX(-18deg);
+    opacity: 0;
+  }
+  24% {
+    opacity: 0.55;
+  }
+  48%,
+  100% {
+    transform: translateX(180%) skewX(-18deg);
+    opacity: 0;
+  }
+}

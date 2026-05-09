@@ -1,0 +1,7 @@
+<nav nav-type="title" title-text="全部消息"></nav>
+<view class="message-empty">
+  <view class="message-empty__icon">
+    <t-icon name="chat" size="96rpx" color="#dcdfe6" />
+  </view>
+  <view class="message-empty__text">{{ emptyText }}</view>
+</view>

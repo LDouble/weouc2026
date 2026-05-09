@@ -1,0 +1,142 @@
+<view class="market-detail">
+  <view class="market-detail__bg"></view>
+
+  <view class="detail-hero">
+    <swiper
+      wx:if="{{product.images.length}}"
+      class="detail-hero__swiper"
+      current="{{currentImageIndex}}"
+      circular="{{product.images.length > 1}}"
+      duration="360"
+      bindchange="onImageChange"
+    >
+      <swiper-item wx:for="{{product.images}}" wx:key="key" class="detail-hero__slide">
+        <image
+          class="detail-hero__image detail-hero__image--{{item.variant}}"
+          src="{{item.url}}"
+          mode="aspectFill"
+          data-index="{{index}}"
+          bindtap="onPreviewImages"
+        />
+      </swiper-item>
+    </swiper>
+    <view wx:else class="detail-hero__wanted detail-hero__wanted--{{product.cardBg}}">
+      <view class="detail-hero__quote detail-hero__quote--left">“</view>
+      <view class="detail-hero__wanted-text">{{product.title}}</view>
+      <view class="detail-hero__quote detail-hero__quote--right">”</view>
+    </view>
+    <view class="detail-hero__mask"></view>
+    <view wx:if="{{product.images.length > 1}}" class="detail-hero__pager">
+      <view class="detail-hero__dots">
+        <view
+          wx:for="{{product.images}}"
+          wx:key="key"
+          class="detail-hero__dot {{currentImageIndex === index ? 'detail-hero__dot--active' : ''}}"
+        ></view>
+      </view>
+      <view class="detail-hero__count">{{currentImageIndex + 1}}/{{product.images.length}}</view>
+    </view>
+  </view>
+
+  <view class="detail-nav">
+    <view
+      class="detail-nav__button"
+      style="top: {{menuTop}}px; height: {{menuButtonHeight}}px; width: {{menuButtonHeight}}px;"
+      hover-class="tap-button"
+      bindtap="onBack"
+    >
+      <t-icon name="arrow-left" size="34rpx" />
+    </view>
+    <view class="detail-nav__actions" style="top: {{menuTop}}px; right: {{menuSafeRight}}px; height: {{menuButtonHeight}}px;">
+      <button class="detail-nav__action detail-nav__action--button" open-type="share" hover-class="tap-button">
+        <t-icon name="share" size="30rpx" />
+      </button>
+      <view class="detail-nav__action" hover-class="tap-button" bindtap="onToggleWanted">
+        <t-icon name="{{wanted ? 'heart-filled' : 'heart'}}" size="30rpx" />
+      </view>
+    </view>
+  </view>
+
+  <view class="detail-sheet">
+    <view class="detail-price-row">
+      <view class="detail-price">
+        <text class="detail-price__currency">¥</text>
+        <text>{{product.price}}</text>
+      </view>
+      <view wx:if="{{product.originalPrice}}" class="detail-price__original">原价 ¥{{product.originalPrice}}</view>
+      <view class="detail-condition">
+        <t-icon name="{{product.mode === 'wanted' ? 'search' : 'star'}}" size="20rpx" />
+        <text>{{product.condition}}</text>
+      </view>
+    </view>
+
+    <view class="detail-title">{{product.title}}</view>
+
+    <view class="detail-tags">
+      <view wx:for="{{product.tags}}" wx:key="label" class="detail-tag detail-tag--{{item.tone}}">
+        <t-icon name="{{item.icon}}" size="18rpx" />
+        <text>{{item.label}}</text>
+      </view>
+    </view>
+
+    <view class="detail-divider"></view>
+
+    <view class="detail-section">
+      <view class="detail-section__title">
+        <view class="detail-section__bar"></view>
+        <text>物品详情</text>
+      </view>
+      <view class="detail-section__content">{{product.detail}}</view>
+    </view>
+
+    <view class="seller-card">
+      <view class="seller-card__head">
+        <view class="seller-card__profile">
+          <view class="seller-card__avatar seller-card__avatar--{{product.avatarTone}}">{{product.sellerInitial}}</view>
+          <view class="seller-card__info">
+            <view class="seller-card__name">{{product.seller}}</view>
+            <view class="seller-card__verify">
+              <t-icon name="check-circle" size="22rpx" />
+              <text>{{product.sellerMeta.verified ? '已实名认证' : '未认证'}}</text>
+            </view>
+          </view>
+        </view>
+        <view class="seller-card__home" hover-class="tap-button" bindtap="onSellerHome">进主页</view>
+      </view>
+
+      <view class="seller-stats">
+        <view class="seller-stat">
+          <text>信誉评级</text>
+          <view class="seller-stat__value seller-stat__value--green">{{product.sellerMeta.rating}}</view>
+        </view>
+        <view class="seller-stats__line"></view>
+        <view class="seller-stat">
+          <text>在售闲置</text>
+          <view class="seller-stat__value">{{product.sellerMeta.onSale}}</view>
+        </view>
+        <view class="seller-stats__line"></view>
+        <view class="seller-stat">
+          <text>历史成交</text>
+          <view class="seller-stat__value">{{product.sellerMeta.deals}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="detail-bottom">
+    <view class="detail-bottom__inner">
+      <view class="detail-want {{wanted ? 'detail-want--active' : ''}}" hover-class="tap-button" bindtap="onToggleWanted">
+        <t-icon name="{{wanted ? 'heart-filled' : 'heart'}}" size="34rpx" />
+        <text>想要</text>
+      </view>
+      <view wx:if="{{!product.canViewContact}}" class="detail-contact" hover-class="tap-button" bindtap="onContact">
+        <t-icon name="lock-on" size="34rpx" />
+        <text>绑定后查看</text>
+      </view>
+      <view wx:else class="detail-contact" hover-class="tap-button" bindtap="onContact">
+        <t-icon name="chat" size="34rpx" />
+        <text>获取联系方式</text>
+      </view>
+    </view>
+  </view>
+</view>

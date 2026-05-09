@@ -1,0 +1,296 @@
+<view class="release-page" style="padding-top: {{navHeight}}px;">
+  <view class="release-bg"></view>
+
+  <view class="release-nav">
+    <view
+      class="release-nav__close"
+      style="top: {{menuTop}}px; width: {{menuButtonHeight}}px; height: {{menuButtonHeight}}px;"
+      hover-class="tap-button"
+      bindtap="onBack"
+    >
+      <t-icon name="close" size="30rpx" />
+    </view>
+    <view class="release-nav__title" style="top: {{menuTop}}px; height: {{menuButtonHeight}}px; line-height: {{menuButtonHeight}}px;">
+      {{currentScene.title}}
+    </view>
+  </view>
+
+  <view class="release-content">
+    <view class="release-card release-compose">
+      <textarea
+        class="release-compose__textarea"
+        value="{{form.desc}}"
+        placeholder="{{currentScene.descPlaceholder}}"
+        placeholder-class="release-placeholder"
+        maxlength="300"
+        data-field="desc"
+        bindinput="onFieldChange"
+      />
+
+      <view class="release-images">
+        <view
+          wx:for="{{imageFiles}}"
+          wx:key="url"
+          class="release-image"
+          data-index="{{index}}"
+          bindtap="previewImage"
+        >
+          <image class="release-image__media" src="{{item.url}}" mode="aspectFill" />
+          <view class="release-image__remove" catchtap="removeImage" data-index="{{index}}">
+            <t-icon name="close" size="20rpx" />
+          </view>
+        </view>
+        <view wx:if="{{imageFiles.length < 4}}" class="release-image release-image--add" hover-class="tap-button" bindtap="chooseImages">
+          <t-icon name="image" size="48rpx" />
+          <text>添加图片</text>
+        </view>
+      </view>
+
+      <view wx:if="{{currentScene.showCardBg}}" class="release-palette">
+        <view class="release-palette__title">
+          <t-icon name="palette" size="24rpx" />
+          <text>纯文本卡片背景色</text>
+        </view>
+        <view class="release-palette__list">
+          <view
+            wx:for="{{paletteOptions}}"
+            wx:key="key"
+            class="release-swatch {{form.cardBg === item.key ? 'release-swatch--active' : ''}}"
+            style="background: {{item.background}};"
+            data-value="{{item.key}}"
+            hover-class="tap-button"
+            bindtap="onPaletteChange"
+          ></view>
+        </view>
+      </view>
+    </view>
+
+    <view class="release-card release-price">
+      <view class="release-row release-row--price">
+        <view class="release-row__label">
+          <view class="release-row__icon release-row__icon--price">¥</view>
+          <text>{{currentScene.priceLabel}}</text>
+        </view>
+        <view class="release-price-input">
+          <text>¥</text>
+          <input
+            class="release-price-input__control"
+            value="{{form.price}}"
+            type="digit"
+            placeholder="0.00"
+            placeholder-class="release-price-placeholder"
+            data-field="price"
+            bindinput="onFieldChange"
+          />
+        </view>
+      </view>
+
+      <view wx:if="{{currentScene.showOriginal}}" class="release-row">
+        <view class="release-row__label release-row__label--muted">
+          <view class="release-row__icon release-row__icon--muted">
+            <t-icon name="tag" size="28rpx" />
+          </view>
+          <text>原价（选填）</text>
+        </view>
+        <view class="release-price-input release-price-input--muted">
+          <text>¥</text>
+          <input
+            class="release-price-input__control release-price-input__control--small"
+            value="{{form.originalPrice}}"
+            type="digit"
+            placeholder="0.00"
+            placeholder-class="release-price-placeholder"
+            data-field="originalPrice"
+            bindinput="onFieldChange"
+          />
+        </view>
+      </view>
+    </view>
+
+    <view class="release-card release-options">
+      <view class="release-option-block">
+        <view class="release-option-title">
+          <t-icon name="filter" size="30rpx" />
+          <text>{{currentScene.categoryTitle}}</text>
+        </view>
+        <view class="release-chip-row release-chip-row--category">
+          <view
+            wx:for="{{currentScene.categories}}"
+            wx:key="*this"
+            class="release-chip {{form.category === item ? 'release-chip--active' : ''}}"
+            data-field="category"
+            data-value="{{item}}"
+            hover-class="tap-button"
+            bindtap="onOptionChange"
+          >
+            {{item}}
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{currentScene.conditions.length}}" class="release-divider"></view>
+
+      <view wx:if="{{currentScene.conditions.length}}" class="release-option-block">
+        <view class="release-option-title release-option-title--orange">
+          <t-icon name="star" size="30rpx" />
+          <text>{{currentScene.conditionTitle}}</text>
+        </view>
+        <view class="release-chip-row release-chip-row--condition">
+          <view
+            wx:for="{{currentScene.conditions}}"
+            wx:key="*this"
+            class="release-chip release-chip--condition {{form.condition === item ? 'release-chip--condition-active' : ''}}"
+            data-field="condition"
+            data-value="{{item}}"
+            hover-class="tap-button"
+            bindtap="onOptionChange"
+          >
+            {{item}}
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{activeType !== 'market'}}" class="release-divider"></view>
+
+      <view wx:if="{{activeType === 'errand'}}" class="release-extra">
+        <view class="release-extra__row">
+          <view class="release-extra__label">
+            <t-icon name="location" size="28rpx" />
+            <text>起点</text>
+          </view>
+          <input
+            class="release-extra__input"
+            value="{{form.startPlace}}"
+            placeholder="东门快递驿站"
+            placeholder-class="release-placeholder"
+            data-field="startPlace"
+            bindinput="onFieldChange"
+          />
+        </view>
+        <view class="release-extra__row">
+          <view class="release-extra__label">
+            <t-icon name="send" size="28rpx" />
+            <text>终点</text>
+          </view>
+          <input
+            class="release-extra__input"
+            value="{{form.endPlace}}"
+            placeholder="7号楼楼下"
+            placeholder-class="release-placeholder"
+            data-field="endPlace"
+            bindinput="onFieldChange"
+          />
+        </view>
+        <view class="release-extra__row">
+          <view class="release-extra__label">
+            <t-icon name="time" size="28rpx" />
+            <text>截止</text>
+          </view>
+          <input
+            class="release-extra__input"
+            value="{{form.deadline}}"
+            placeholder="今天 19:00 前"
+            placeholder-class="release-placeholder"
+            data-field="deadline"
+            bindinput="onFieldChange"
+          />
+        </view>
+      </view>
+
+      <view wx:if="{{activeType === 'lostFound'}}" class="release-extra">
+        <view class="release-extra__row">
+          <view class="release-extra__label">
+            <t-icon name="time" size="28rpx" />
+            <text>时间</text>
+          </view>
+          <input
+            class="release-extra__input"
+            value="{{form.eventTime}}"
+            placeholder="今天 12:30 左右"
+            placeholder-class="release-placeholder"
+            data-field="eventTime"
+            bindinput="onFieldChange"
+          />
+        </view>
+        <view class="release-extra__row">
+          <view class="release-extra__label">
+            <t-icon name="tag" size="28rpx" />
+            <text>特征</text>
+          </view>
+          <input
+            class="release-extra__input"
+            value="{{form.itemFeature}}"
+            placeholder="蓝色卡套、背面有贴纸"
+            placeholder-class="release-placeholder"
+            data-field="itemFeature"
+            bindinput="onFieldChange"
+          />
+        </view>
+      </view>
+
+      <view wx:if="{{activeType === 'resource'}}" class="release-extra">
+        <view class="release-extra__row">
+          <view class="release-extra__label">
+            <t-icon name="file-copy" size="28rpx" />
+            <text>课程</text>
+          </view>
+          <input
+            class="release-extra__input"
+            value="{{form.courseName}}"
+            placeholder="高等数学 A / 转专业申请"
+            placeholder-class="release-placeholder"
+            data-field="courseName"
+            bindinput="onFieldChange"
+          />
+        </view>
+        <view class="release-extra__row">
+          <view class="release-extra__label">
+            <t-icon name="tag" size="28rpx" />
+            <text>范围</text>
+          </view>
+          <input
+            class="release-extra__input"
+            value="{{form.resourceScope}}"
+            placeholder="2025 秋季、计算机学院"
+            placeholder-class="release-placeholder"
+            data-field="resourceScope"
+            bindinput="onFieldChange"
+          />
+        </view>
+      </view>
+
+      <view class="release-divider"></view>
+
+      <view class="release-trade">
+        <view class="release-option-title">
+          <t-icon name="location" size="30rpx" />
+          <text>{{currentScene.tradeTitle}}</text>
+        </view>
+        <view class="release-trade__pill" hover-class="tap-button" bindtap="chooseLocation">
+          {{form.tradeMode}}
+        </view>
+      </view>
+
+      <view class="release-contact">
+        <input
+          class="release-contact__input"
+          value="{{form.contact}}"
+          placeholder="{{currentScene.contactPlaceholder}}"
+          placeholder-class="release-placeholder"
+          data-field="contact"
+          bindinput="onFieldChange"
+        />
+      </view>
+    </view>
+  </view>
+
+  <view class="release-bottom">
+    <view
+      class="release-submit {{canPublish ? 'release-submit--ready' : ''}}"
+      hover-class="tap-button"
+      bindtap="release"
+    >
+      <text>发布</text>
+    </view>
+  </view>
+</view>

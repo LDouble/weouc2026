@@ -1,0 +1,109 @@
+<view class="resource-page">
+  <view class="resource-bg"></view>
+
+  <common-page-header
+    title="资料汇总"
+    background="rgba(255, 255, 255, 0.82)"
+    border-color="rgba(241, 245, 249, 0.9)"
+    button-background="rgba(241, 245, 249, 0.96)"
+    bind:back="onBack"
+    bind:heightchange="onHeaderHeightChange"
+  >
+    <view slot="body" class="resource-header__body">
+      <common-search-bar
+        value="{{searchKeyword}}"
+        placeholder="搜索资料标题或描述"
+        bind:input="onSearchInput"
+        bind:confirm="onSearchConfirm"
+        bind:clear="onSearchClear"
+      />
+      <common-filter-tabs
+        custom-class="resource-category-filters"
+        items="{{categoryList}}"
+        active="{{activeCategory}}"
+        variant="pill"
+        active-color="#0ea5e9"
+        bind:change="onCategoryChange"
+      />
+    </view>
+  </common-page-header>
+
+  <view class="resource-content" style="padding-top: {{headerHeight}}px;">
+    <view class="resource-hero">
+      <view class="resource-hero__badge">知识共享</view>
+      <view class="resource-hero__title">课程资料共享</view>
+      <view class="resource-hero__desc">按课程、考试、实验和经验分类沉淀资料</view>
+      <view class="resource-hero__stats">
+        <view class="resource-pill">共 {{visibleResources.length}} 份资料</view>
+        <view class="resource-pill resource-pill--soft">持续更新中</view>
+      </view>
+      <view class="resource-hero__action" hover-class="tap-button" bindtap="goRelease">上传资料</view>
+    </view>
+
+    <view wx:if="{{visibleResources.length}}" class="resource-list">
+      <view
+        wx:for="{{visibleResources}}"
+        wx:key="id"
+        class="resource-card"
+        hover-class="tap-card"
+        data-resource="{{item}}"
+        bindtap="onOpenResource"
+      >
+        <view class="resource-card__top">
+          <view class="resource-card__author">
+            <view class="resource-card__avatar resource-card__avatar--{{item.avatarColor}}">{{item.sponsorInitial}}</view>
+            <view class="resource-card__author-meta">
+              <view class="resource-card__name">{{item.sponsor}}</view>
+              <view class="resource-card__role">{{item.sponsorTag}}</view>
+            </view>
+          </view>
+          <view class="resource-card__file-badge">
+            <t-icon name="{{item.fileIcon}}" size="24rpx" />
+            <text>{{item.fileType}}</text>
+          </view>
+        </view>
+
+        <view class="resource-card__title">{{item.title}}</view>
+        <view class="resource-card__desc">{{item.desc}}</view>
+
+        <view class="resource-card__meta">
+          <t-tag theme="primary" variant="light" size="small">{{item.categoryLabel}}</t-tag>
+          <view class="resource-meta-text">{{item.fileType}} · {{item.fileSize}}</view>
+          <view class="resource-meta-text">{{item.updatedAt}}</view>
+        </view>
+
+        <view class="resource-card__bottom">
+          <view class="resource-card__stats">
+            <view class="resource-stat">
+              <t-icon name="eye" size="22rpx" />
+              <text>{{item.views}}</text>
+            </view>
+            <view class="resource-stat">
+              <t-icon name="heart" size="22rpx" />
+              <text>{{item.likes}}</text>
+            </view>
+          </view>
+          <view class="resource-card__action" hover-class="tap-button">查看资料</view>
+        </view>
+      </view>
+    </view>
+
+    <common-empty-state
+      wx:else
+      icon="file-copy"
+      title="{{searchKeyword ? '未找到相关资料' : '暂无资料'}}"
+      description="{{searchKeyword ? '尝试更换关键词或清空搜索' : '还没有人上传资料，快来上传第一份资料吧'}}"
+      action-text="上传我的资料"
+      icon-color="#0ea5e9"
+      icon-background="#e0f2fe"
+      action-background="linear-gradient(135deg, #0ea5e9, #0284c7)"
+      bind:action="goRelease"
+    />
+  </view>
+
+  <common-fab
+    background="linear-gradient(135deg, #0ea5e9, #0284c7)"
+    shadow="0 16rpx 30rpx rgba(14, 165, 233, 0.32)"
+    bind:tap="goRelease"
+  />
+</view>

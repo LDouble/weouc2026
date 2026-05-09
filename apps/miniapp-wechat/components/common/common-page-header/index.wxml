@@ -1,0 +1,41 @@
+<view
+  class="common-page-header custom-class"
+  style="padding-top: {{menuTop}}px; background: {{background}}; border-bottom-color: {{borderColor}};"
+>
+  <view class="common-page-header__nav" style="height: {{menuButtonHeight}}px;">
+    <view
+      wx:if="{{showBack}}"
+      class="common-page-header__button common-page-header__button--back"
+      style="width: {{menuButtonHeight}}px; height: {{menuButtonHeight}}px; color: {{buttonColor}}; background: {{buttonBackground}};"
+      hover-class="tap-button"
+      bindtap="onBack"
+    >
+      <t-icon name="{{backIcon}}" size="{{iconSize}}" />
+    </view>
+
+    <view class="common-page-header__title-wrap">
+      <block wx:if="{{useTitleSlot}}">
+        <slot name="title"></slot>
+      </block>
+      <block wx:else>
+        <view class="common-page-header__title title-class" style="color: {{titleColor}};">{{title}}</view>
+        <view wx:if="{{subtitle}}" class="common-page-header__subtitle subtitle-class" style="color: {{subtitleColor}};">{{subtitle}}</view>
+      </block>
+    </view>
+
+    <view
+      wx:if="{{rightIcon || rightText}}"
+      class="common-page-header__button common-page-header__button--right"
+      style="right: {{menuSafeRight}}px; min-width: {{menuButtonHeight}}px; height: {{menuButtonHeight}}px; color: {{buttonColor}}; background: {{buttonBackground}};"
+      hover-class="tap-button"
+      bindtap="onRightTap"
+    >
+      <t-icon wx:if="{{rightIcon}}" name="{{rightIcon}}" size="{{iconSize}}" />
+      <text wx:if="{{rightText}}" class="common-page-header__right-text">{{rightText}}</text>
+    </view>
+  </view>
+
+  <view class="common-page-header__body">
+    <slot name="body"></slot>
+  </view>
+</view>

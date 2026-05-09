@@ -1,0 +1,82 @@
+<view class="market-page">
+  <view class="market-bg market-bg--top"></view>
+  <view class="market-bg market-bg--orb"></view>
+
+  <common-page-header
+    title="跳蚤市场"
+    subtitle="绿色校园 环保循环"
+    background="rgba(244, 247, 245, 0.82)"
+    border-color="rgba(255, 255, 255, 0.62)"
+    button-background="rgba(255, 255, 255, 0.82)"
+    subtitle-color="#009689"
+    bind:back="onBack"
+    bind:heightchange="onHeaderHeightChange"
+  >
+    <view slot="body" class="market-header__body">
+      <common-search-bar
+        value="{{searchKeyword}}"
+        placeholder="搜索商品、卖家、成色"
+        clear-icon="close"
+        clear-icon-size="24rpx"
+        variant="raised"
+        background="rgba(255, 255, 255, 0.88)"
+        icon-color="#00a896"
+        bind:input="onSearchInput"
+        bind:confirm="onSearchConfirm"
+        bind:clear="onSearchClear"
+      />
+      <common-filter-tabs
+        custom-class="market-category-filters"
+        items="{{categoryList}}"
+        active="{{activeCategory}}"
+        variant="pill"
+        item-min-width="142"
+        active-color="#00bba7"
+        item-background="rgba(255, 255, 255, 0.92)"
+        text-color="#62748e"
+        bind:change="onCategoryChange"
+      />
+    </view>
+  </common-page-header>
+
+  <view class="market-content" style="padding-top: {{headerHeight}}px;">
+    <view wx:if="{{productColumns.left.length || productColumns.right.length}}" class="market-waterfall">
+      <view class="market-waterfall__column">
+        <market-product-card
+          wx:for="{{productColumns.left}}"
+          wx:key="id"
+          product="{{item}}"
+          bind:select="onProductSelect"
+          bind:favorite="onFavorite"
+        />
+      </view>
+
+      <view class="market-waterfall__column">
+        <market-product-card
+          wx:for="{{productColumns.right}}"
+          wx:key="id"
+          product="{{item}}"
+          bind:select="onProductSelect"
+          bind:favorite="onFavorite"
+        />
+      </view>
+    </view>
+
+    <common-empty-state
+      wx:else
+      icon="shop"
+      title="{{searchKeyword ? '没有找到相关闲置' : '暂时没有相关闲置'}}"
+      description="{{searchKeyword ? '换个关键词试试，或清空搜索查看全部' : '换个分类看看，或者发布你想出售的物品'}}"
+      icon-color="#00a63e"
+      icon-background="#ecfdf5"
+      min-height="560"
+    />
+  </view>
+
+  <common-fab
+    text="发布"
+    background="#00bba7"
+    shadow="0 16rpx 24rpx rgba(20, 184, 166, 0.4)"
+    bind:tap="goRelease"
+  />
+</view>

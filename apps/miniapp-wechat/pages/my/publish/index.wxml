@@ -1,0 +1,68 @@
+<view class="pub-page">
+  <view class="pub-bg"></view>
+
+  <common-page-header
+    title="我的发布"
+    background="rgba(245, 243, 255, 0.88)"
+    border-color="rgba(238, 242, 255, 0.9)"
+    button-background="#eef2ff"
+    showBack="{{true}}"
+    bind:back="onBack"
+    bind:heightchange="onHeaderHeightChange"
+  />
+
+  <view class="pub-content" style="padding-top: {{headerHeight}}px;">
+    <view class="pub-filters">
+      <view
+        wx:for="{{typeFilters}}"
+        wx:key="key"
+        class="pub-pill {{activeType === item.key ? 'pub-pill--active' : ''}}"
+        data-key="{{item.key}}"
+        hover-class="tap-button"
+        bindtap="onTypeFilter"
+      >
+        {{item.label}}
+      </view>
+    </view>
+
+    <view class="pub-filters pub-filters--status">
+      <view
+        wx:for="{{statusFilters}}"
+        wx:key="key"
+        class="pub-pill pub-pill--status {{activeStatus === item.key ? 'pub-pill--status-active' : ''}}"
+        data-key="{{item.key}}"
+        hover-class="tap-button"
+        bindtap="onStatusFilter"
+      >
+        {{item.label}}
+      </view>
+    </view>
+
+    <view wx:if="{{filteredRecords.length}}" class="pub-list">
+      <view
+        wx:for="{{filteredRecords}}"
+        wx:key="id"
+        class="pub-card"
+        data-url="{{item.url}}"
+        data-id="{{item.id}}"
+        hover-class="tap-button"
+        bindtap="onRecordClick"
+      >
+        <view class="pub-card__header">
+          <view class="pub-card__type">{{item.typeName}}</view>
+          <view class="pub-card__status pub-card__status--{{item.status}}">{{item.statusText}}</view>
+        </view>
+        <view class="pub-card__title">{{item.title}}</view>
+        <view class="pub-card__footer">
+          <view class="pub-card__time">{{item.time}}</view>
+          <t-icon name="chevron-right" size="28rpx" color="#c0c4cc" />
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{!filteredRecords.length}}" class="pub-empty">
+      <t-icon name="file-copy" size="80rpx" color="#d1d5db" />
+      <view class="pub-empty__text">暂无发布记录</view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,144 @@
+<view class="lost-publish-page" style="padding-top: {{navHeight}}px;">
+  <view class="lost-publish-bg"></view>
+
+  <view class="publish-nav">
+    <view
+      class="publish-nav__back"
+      style="top: {{menuTop}}px; width: {{menuButtonHeight}}px; height: {{menuButtonHeight}}px;"
+      hover-class="tap-button"
+      bindtap="onBack"
+    >
+      <t-icon name="arrow-left" size="32rpx" />
+    </view>
+    <view class="publish-nav__title" style="top: {{menuTop}}px; height: {{menuButtonHeight}}px; line-height: {{menuButtonHeight}}px;">
+      发布登记
+    </view>
+  </view>
+
+  <view class="publish-content">
+    <view class="publish-hero">
+      <view class="publish-hero__tag">失物招领</view>
+      <view class="publish-hero__title">发布登记</view>
+      <view class="publish-hero__desc">填写物品信息和联系方式，发布后会直接回到失物招领列表。</view>
+    </view>
+
+    <view class="publish-card type-card">
+      <view class="type-grid">
+        <view
+          class="type-btn type-btn--lost {{form.type === 'lost' ? 'type-btn--active' : ''}}"
+          data-type="lost"
+          hover-class="tap-button"
+          bindtap="onTypeSelect"
+        >
+          <view class="type-btn__icon type-btn__icon--lost">
+            <t-icon name="search" size="36rpx" />
+          </view>
+          <view class="type-btn__label">我丢了</view>
+          <view class="type-btn__hint">发布寻物信息</view>
+        </view>
+        <view
+          class="type-btn type-btn--found {{form.type === 'found' ? 'type-btn--active' : ''}}"
+          data-type="found"
+          hover-class="tap-button"
+          bindtap="onTypeSelect"
+        >
+          <view class="type-btn__icon type-btn__icon--found">
+            <t-icon name="heart" size="36rpx" />
+          </view>
+          <view class="type-btn__label">我捡到</view>
+          <view class="type-btn__hint">发布招领信息</view>
+        </view>
+      </view>
+    </view>
+
+    <view class="publish-card">
+      <view class="publish-card__title">物品信息</view>
+      <view class="field-row">
+        <view class="field-row__label">物品名称</view>
+        <input
+          class="field-row__input"
+          value="{{form.title}}"
+          placeholder="如：校园卡、耳机、钥匙"
+          placeholder-class="publish-placeholder"
+          data-field="title"
+          bindinput="onInputChange"
+        />
+      </view>
+      <view class="category-pills">
+        <view
+          wx:for="{{categoryList}}"
+          wx:key="value"
+          class="category-pill {{form.category === item.value ? 'category-pill--active' : ''}}"
+          data-value="{{item.value}}"
+          hover-class="tap-button"
+          bindtap="onCategorySelect"
+        >
+          {{item.label}}
+        </view>
+      </view>
+      <textarea
+        class="publish-note"
+        value="{{form.desc}}"
+        placeholder="描述物品特征、丢失/拾到经过..."
+        placeholder-class="publish-placeholder"
+        maxlength="200"
+        data-field="desc"
+        bindinput="onInputChange"
+      />
+    </view>
+
+    <view class="publish-card">
+      <view class="publish-card__title">地点与时间</view>
+      <view class="field-row">
+        <view class="field-row__label">{{form.type === 'lost' ? '丢失地点' : '拾到地点'}}</view>
+        <input
+          class="field-row__input"
+          value="{{form.location}}"
+          placeholder="如：教学楼C区、二食堂"
+          placeholder-class="publish-placeholder"
+          data-field="location"
+          bindinput="onInputChange"
+        />
+      </view>
+      <view class="picker-row">
+        <picker mode="date" value="{{form.date}}" start="{{dateRange.start}}" end="{{dateRange.end}}" bindchange="onDateChange">
+          <view class="picker-field {{form.date ? 'picker-field--filled' : ''}}">
+            <view class="picker-field__label">{{form.type === 'lost' ? '丢失日期' : '拾到日期'}}</view>
+            <view class="picker-field__value">{{form.date || '选择日期'}}</view>
+          </view>
+        </picker>
+        <picker mode="time" value="{{form.time}}" bindchange="onTimeChange">
+          <view class="picker-field {{form.time ? 'picker-field--filled' : ''}}">
+            <view class="picker-field__label">时间</view>
+            <view class="picker-field__value">{{form.time || '选择时间'}}</view>
+          </view>
+        </picker>
+      </view>
+    </view>
+
+    <view class="publish-card">
+      <view class="publish-card__title">联系方式</view>
+      <view class="field-row">
+        <view class="field-row__label">联系方式</view>
+        <input
+          class="field-row__input"
+          value="{{form.contact}}"
+          placeholder="微信号或手机号"
+          placeholder-class="publish-placeholder"
+          data-field="contact"
+          bindinput="onInputChange"
+        />
+      </view>
+    </view>
+  </view>
+
+  <view class="publish-bottom">
+    <view class="publish-bottom__tips">
+      <view>发布后会写入本地列表</view>
+      <view>返回即可查看新登记</view>
+    </view>
+    <view class="publish-submit {{canPublish ? 'publish-submit--ready' : ''}}" hover-class="tap-button" bindtap="release">
+      发布登记
+    </view>
+  </view>
+</view>

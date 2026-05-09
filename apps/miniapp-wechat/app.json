@@ -1,0 +1,105 @@
+{
+  "pages": ["pages/home/index", "pages/message/index", "pages/my/index"],
+  "usingComponents": {
+    "t-toast": "tdesign-miniprogram/toast/toast"
+  },
+  "subpackages": [
+    {
+      "root": "pages/market",
+      "name": "market",
+      "pages": ["index", "detail/index"]
+    },
+    {
+      "root": "pages/errand",
+      "name": "errand",
+      "pages": ["index", "detail/index", "publish/index"]
+    },
+    {
+      "root": "pages/carpool",
+      "name": "carpool",
+      "pages": ["index", "publish/index"]
+    },
+    {
+      "root": "pages/lost-found",
+      "name": "lostFound",
+      "pages": ["index", "publish/index", "detail/index"]
+    },
+    {
+      "root": "pages/resource",
+      "name": "resource",
+      "pages": ["index", "publish/index"]
+    },
+    {
+      "root": "pages/my/info-edit",
+      "name": "edit",
+      "pages": ["index"]
+    },
+    {
+      "root": "pages/my/publish",
+      "name": "myPublish",
+      "pages": ["index"]
+    },
+    {
+      "root": "pages/my/accepted",
+      "name": "myAccepted",
+      "pages": ["index"]
+    },
+    {
+      "root": "pages/chat",
+      "name": "chat",
+      "pages": ["index"]
+    },
+    {
+      "root": "pages/login",
+      "name": "login",
+      "pages": ["login"]
+    },
+    {
+      "root": "pages/dataCenter",
+      "name": "dataCenter",
+      "pages": ["index"]
+    },
+    {
+      "root": "pages/setting",
+      "name": "setting",
+      "pages": ["index"]
+    },
+    {
+      "root": "pages/edu-bind",
+      "name": "eduBind",
+      "pages": ["index"]
+    },
+    {
+      "root": "pages/release",
+      "name": "release",
+      "pages": ["index"]
+    }
+  ],
+  "window": {
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#fff",
+    "navigationBarTitleText": "校园服务",
+    "navigationBarTextStyle": "black"
+  },
+  "tabBar": {
+    "custom": true,
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/message/index",
+        "text": "消息"
+      },
+      {
+        "pagePath": "pages/my/index",
+        "text": "我的"
+      }
+    ]
+  },
+  "resolveAlias": {
+    "~/*": "/*"
+  },
+  "sitemapLocation": "sitemap.json"
+}

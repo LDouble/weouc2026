@@ -1,0 +1,248 @@
+@import '/variable.less';
+
+.route-input-component {
+  width: 100%;
+}
+
+.publish-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.publish-card__title {
+  color: #1d293d;
+  font-size: 28rpx;
+  font-weight: 900;
+}
+
+.manage-link {
+  color: #615fff;
+  font-size: 22rpx;
+  font-weight: 700;
+}
+
+.route-group {
+  margin-top: 24rpx;
+}
+
+.route-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: 98rpx;
+  padding-left: 42rpx;
+  border-radius: 28rpx;
+  background: #f8fafc;
+}
+
+.route-input + .route-input {
+  margin-top: 18rpx;
+}
+
+.route-input__dot,
+.route-input__line {
+  position: absolute;
+  left: 18rpx;
+}
+
+.route-input__dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 999rpx;
+}
+
+.route-input__dot--start {
+  top: 42rpx;
+  background: #22c55e;
+}
+
+.route-input__dot--end {
+  top: 42rpx;
+  background: #615fff;
+}
+
+.route-input__line {
+  top: -12rpx;
+  width: 2rpx;
+  height: 42rpx;
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.4), rgba(97, 95, 255, 0.4));
+}
+
+.route-input__control {
+  width: 100%;
+  height: 98rpx;
+  color: #1d293d;
+  font-size: 27rpx;
+  font-weight: 800;
+}
+
+.route-placeholder {
+  color: #90a1b9;
+  font-weight: 600;
+}
+
+.address-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14rpx;
+  margin-top: 20rpx;
+}
+
+.address-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 52rpx;
+  padding: 0 22rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  font-weight: 700;
+}
+
+.address-tag--favorite {
+  color: #615fff;
+  background: #eef2ff;
+}
+
+.address-tag--history {
+  color: #4b5563;
+  background: #f1f5f9;
+}
+
+.address-manager {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.address-manager__mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.address-manager__card {
+  position: relative;
+  z-index: 1;
+  width: 620rpx;
+  max-height: 70vh;
+  padding: 40rpx;
+  border-radius: 40rpx;
+  box-sizing: border-box;
+  background: #fff;
+  box-shadow: 0 20rpx 60rpx rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+}
+
+.address-manager__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.address-manager__title {
+  color: #1d293d;
+  font-size: 32rpx;
+  font-weight: 900;
+}
+
+.address-manager__close {
+  width: 52rpx;
+  height: 52rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999rpx;
+  color: #64748b;
+  font-size: 28rpx;
+  background: #f1f5f9;
+}
+
+.address-manager__list {
+  margin-top: 28rpx;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.address-manager__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 80rpx;
+  padding: 0 20rpx;
+  border-radius: 20rpx;
+  background: #f8fafc;
+}
+
+.address-manager__item + .address-manager__item {
+  margin-top: 14rpx;
+}
+
+.address-manager__text {
+  flex: 1;
+  min-width: 0;
+  color: #1d293d;
+  font-size: 26rpx;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.address-manager__remove {
+  flex: 0 0 auto;
+  margin-left: 20rpx;
+  color: #ef4444;
+  font-size: 22rpx;
+  font-weight: 700;
+}
+
+.address-manager__empty {
+  margin-top: 40rpx;
+  text-align: center;
+  color: #90a1b9;
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.address-manager__footer {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 28rpx;
+}
+
+.address-manager__input {
+  flex: 1;
+  min-width: 0;
+  height: 80rpx;
+  padding: 0 24rpx;
+  border-radius: 20rpx;
+  color: #1d293d;
+  font-size: 26rpx;
+  font-weight: 700;
+  background: #f8fafc;
+}
+
+.address-manager__add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  height: 80rpx;
+  padding: 0 32rpx;
+  border-radius: 20rpx;
+  color: #fff;
+  font-size: 26rpx;
+  font-weight: 900;
+  background: linear-gradient(135deg, #615fff, #4f46e5);
+}

@@ -1,0 +1,18 @@
+<view class="custom-tab-bar">
+  <view class="custom-tab-bar__shine"></view>
+  <view
+    wx:for="{{tabs}}"
+    wx:key="value"
+    class="tab-item {{value === item.value ? 'tab-item--active' : ''}}"
+    data-value="{{item.value}}"
+    data-url="{{item.url}}"
+    hover-class="tap-button"
+    bindtap="handleTap"
+  >
+    <view class="tab-item__icon-wrap">
+      <t-icon name="{{item.icon}}" size="36rpx" />
+      <view wx:if="{{item.value === 'message' && unreadNum > 0}}" class="tab-item__badge">{{unreadNum}}</view>
+    </view>
+    <view class="tab-item__label">{{item.label}}</view>
+  </view>
+</view>

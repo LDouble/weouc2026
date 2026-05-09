@@ -1,0 +1,100 @@
+<view class="lf-detail-page">
+  <view class="lf-detail-bg"></view>
+
+  <common-page-header
+    title="{{detail.typeLabel || '失物招领'}}"
+    subtitle="{{detail.publisherMeta || '查看登记详情'}}"
+    background="rgba(255, 252, 245, 0.9)"
+    border-color="rgba(241, 245, 249, 0.9)"
+    button-background="#fef9ef"
+    bind:back="onBack"
+    bind:heightchange="onHeaderHeightChange"
+  />
+
+  <view class="lf-detail-content" style="padding-top: {{headerHeight}}px;">
+    <view wx:if="{{loading}}" class="lf-detail-card lf-detail-card--placeholder">
+      正在加载登记详情...
+    </view>
+
+    <block wx:elif="{{detail.id}}">
+      <view class="lf-hero">
+        <view class="lf-hero__status lf-hero__status--{{detail.type}}">
+          {{detail.status}}
+        </view>
+        <view class="lf-hero__title">{{detail.title}}</view>
+        <view class="lf-hero__meta">
+          <view class="lf-chip">{{detail.categoryLabel}}</view>
+          <view wx:if="{{detail.eventTime}}" class="lf-chip lf-chip--soft">{{detail.eventTime}}</view>
+        </view>
+        <view class="lf-hero__desc">
+          {{detail.desc || '登记人暂未补充更多说明，可先通过联系方式进一步确认。'}}
+        </view>
+      </view>
+
+      <view class="lf-detail-card">
+        <view class="lf-detail-card__title">登记信息</view>
+        <view class="lf-info-row">
+          <view class="lf-info-row__icon lf-info-row__icon--amber">
+            <t-icon name="location" size="26rpx" />
+          </view>
+          <view class="lf-info-row__body">
+            <view class="lf-info-row__label">地点</view>
+            <view class="lf-info-row__value">{{detail.location || '未填写'}}</view>
+          </view>
+        </view>
+        <view class="lf-info-row">
+          <view class="lf-info-row__icon lf-info-row__icon--green">
+            <t-icon name="time" size="26rpx" />
+          </view>
+          <view class="lf-info-row__body">
+            <view class="lf-info-row__label">时间</view>
+            <view class="lf-info-row__value">{{detail.eventTime || '未填写'}}</view>
+          </view>
+        </view>
+        <view class="lf-info-row">
+          <view class="lf-info-row__icon lf-info-row__icon--blue">
+            <t-icon name="tag" size="26rpx" />
+          </view>
+          <view class="lf-info-row__body">
+            <view class="lf-info-row__label">物品特征</view>
+            <view class="lf-info-row__value">{{detail.note || '登记人暂未填写物品特征'}}</view>
+          </view>
+        </view>
+      </view>
+
+      <view class="lf-detail-card">
+        <view class="lf-detail-card__title">登记人</view>
+        <view class="lf-publisher">
+          <view class="lf-publisher__avatar lf-publisher__avatar--{{detail.avatarColor}}">
+            {{detail.publisherInitial}}
+          </view>
+          <view class="lf-publisher__body">
+            <view class="lf-publisher__name">{{detail.publisher}}</view>
+            <view class="lf-publisher__meta">{{detail.publisherMeta || '校园登记'}}</view>
+          </view>
+        </view>
+      </view>
+    </block>
+
+    <common-empty-state
+      wx:else
+      icon="error-circle"
+      title="未找到这条登记"
+      description="可能已被删除，或链接已经失效"
+      action-text="返回列表"
+      icon-color="#f59e0b"
+      icon-background="#fffbeb"
+      action-background="linear-gradient(135deg, #f59e0b, #d97706)"
+      bind:action="onBack"
+    />
+  </view>
+
+  <view wx:if="{{detail.id}}" class="lf-detail-bottom">
+    <view class="lf-detail-bottom__inner">
+      <view class="lf-detail-bottom__button" hover-class="tap-button" bindtap="onCopyContact">
+        <t-icon name="chat" size="30rpx" />
+        <text>获取联系方式</text>
+      </view>
+    </view>
+  </view>
+</view>

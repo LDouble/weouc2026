@@ -1,0 +1,58 @@
+<view class="errand-page">
+  <view class="errand-bg"></view>
+
+  <common-page-header
+    title="校园跑腿"
+    background="rgba(255, 255, 255, 0.9)"
+    border-color="#f1f5f9"
+    button-background="#f1f5f9"
+    bind:back="onBack"
+    bind:heightchange="onHeaderHeightChange"
+  >
+    <view slot="body" class="errand-header__body">
+      <common-search-bar
+        value="{{searchKeyword}}"
+        placeholder="搜索任务标题或描述"
+        bind:input="onSearchInput"
+        bind:confirm="onSearchConfirm"
+        bind:clear="onSearchClear"
+      />
+      <common-filter-tabs
+        custom-class="errand-tabs"
+        items="{{categoryList}}"
+        active="{{activeCategory}}"
+        variant="line"
+        active-color="#7f22fe"
+        bind:change="onCategoryChange"
+      />
+    </view>
+  </common-page-header>
+
+  <view class="errand-content" style="padding-top: {{headerHeight}}px;">
+    <view wx:if="{{visibleTasks.length}}" class="errand-list">
+      <errand-task-card
+        wx:for="{{visibleTasks}}"
+        wx:key="id"
+        task="{{item}}"
+        bind:select="onTaskSelect"
+        bind:accept="onAcceptTask"
+      />
+    </view>
+
+    <common-empty-state
+      wx:else
+      icon="send"
+      title="暂时没有相关跑腿"
+      description="换个分类看看，或者发布一个新的校园互助需求"
+      icon-color="#7f22fe"
+      icon-background="#f5f3ff"
+      min-height="560"
+    />
+  </view>
+
+  <common-fab
+    background="linear-gradient(135deg, #7f22fe 0%, #615fff 100%)"
+    shadow="0 16rpx 30rpx rgba(139, 92, 246, 0.4)"
+    bind:tap="goRelease"
+  />
+</view>

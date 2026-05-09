@@ -1,0 +1,206 @@
+<view class="home-page">
+  <view class="home-bg"></view>
+
+  <view class="home-topbar">
+    <view class="home-topbar__title">发现</view>
+    <view class="home-topbar__notify" style="right: {{menuSafeRight}}px;" hover-class="tap-button" bindtap="goNotify">
+      <t-icon name="notification" size="36rpx" />
+      <view class="home-topbar__dot"></view>
+    </view>
+  </view>
+
+  <t-pull-down-refresh
+    value="{{enable}}"
+    bind:refresh="onRefresh"
+    bind:scrolltolower="onLoadMore"
+    lower-threshold="120"
+    show-scrollbar="{{false}}"
+    loading-texts="{{refreshTexts}}"
+    loading-props="{{refreshLoadingProps}}"
+    t-class-text="refresh-text"
+  >
+    <view slot="header" class="refresh-top-spacer"></view>
+    <view class="home-content">
+      <view class="hero-wrap">
+        <swiper
+          class="hero-swiper"
+          current="{{heroCurrent}}"
+          autoplay
+          circular
+          interval="4200"
+          duration="520"
+          bindchange="onHeroChange"
+        >
+          <swiper-item wx:for="{{heroCards}}" wx:key="id">
+            <view class="hero-card hero-card--{{item.theme}}" hover-class="tap-card">
+              <view class="hero-card__shine"></view>
+              <view class="hero-card__orb hero-card__orb--right"></view>
+              <view class="hero-card__orb hero-card__orb--left"></view>
+              <view class="hero-card__tag">
+                <t-icon name="notification" size="18rpx" />
+                <text>{{item.tag}}</text>
+              </view>
+              <view>
+                <view class="hero-card__title">{{item.title}}</view>
+                <view class="hero-card__desc">{{item.desc}}</view>
+              </view>
+            </view>
+          </swiper-item>
+        </swiper>
+
+        <view class="hero-dots">
+          <view
+            wx:for="{{heroCards}}"
+            wx:key="id"
+            class="hero-dot {{heroCurrent === index ? 'hero-dot--active' : ''}}"
+          ></view>
+        </view>
+      </view>
+
+      <view class="section-head section-head--compact">
+        <view class="section-head__left">
+          <t-icon name="app" size="28rpx" />
+          <text>热门探索</text>
+        </view>
+        <view class="section-head__more" hover-class="tap-button" bindtap="goExploreMore">
+          <text>全部</text>
+          <t-icon name="chevron-right" size="18rpx" />
+        </view>
+      </view>
+
+      <view class="quick-grid">
+        <view
+          wx:for="{{quickLinks}}"
+          wx:key="label"
+          class="quick-link {{item.disabled ? 'quick-link--disabled' : ''}}"
+          hover-class="{{item.disabled ? '' : 'tap-card'}}"
+          data-url="{{item.url}}"
+          data-tab="{{item.tab}}"
+          data-label="{{item.label}}"
+          data-disabled="{{item.disabled}}"
+          bindtap="goQuickLink"
+        >
+          <view class="quick-link__icon quick-link__icon--{{item.tone}}">
+            <t-icon name="{{item.icon}}" size="30rpx" />
+          </view>
+          <view class="quick-link__label">{{item.label}}</view>
+        </view>
+      </view>
+
+      <view class="section-head section-head--course">
+        <view class="section-head__left">
+          <t-icon name="time" size="28rpx" />
+          <text>正在进行</text>
+        </view>
+        <view class="week-pill">{{weekText}}</view>
+      </view>
+
+      <scroll-view class="course-scroll" scroll-x enhanced="{{true}}" show-scrollbar="{{false}}">
+        <view class="course-list">
+          <view
+            wx:for="{{courseList}}"
+            wx:key="id"
+            class="course-card {{item.active ? 'course-card--active' : ''}}"
+            hover-class="tap-card"
+          >
+            <view class="course-card__time">
+              <view>{{item.period}}</view>
+              <text>{{item.start}}</text>
+            </view>
+            <view class="course-card__body">
+              <view class="course-card__title">{{item.title}}</view>
+              <view class="course-card__meta">
+                <t-icon name="location" size="22rpx" />
+                <text>{{item.place}}</text>
+              </view>
+            </view>
+            <view wx:if="{{item.status}}" class="course-card__status">{{item.status}}</view>
+          </view>
+        </view>
+      </scroll-view>
+
+      <view class="section-head section-head--feed">
+        <view class="section-head__left section-head__left--purple">
+          <t-icon name="chart-line" size="28rpx" />
+          <text>校园动态</text>
+        </view>
+        <view class="section-head__more section-head__more--purple" hover-class="tap-button" bindtap="goFeedMore">
+          <text>更多</text>
+          <t-icon name="chevron-right" size="18rpx" />
+        </view>
+      </view>
+
+      <view class="feed-waterfall">
+        <view class="feed-column">
+          <view wx:for="{{campusFeedLeft}}" wx:key="id" class="feed-card" hover-class="tap-card" data-item="{{item}}" bindtap="goPost">
+            <view class="feed-card__author">
+              <view class="feed-avatar feed-avatar--{{item.tone}}">
+                <t-icon name="{{item.avatarIcon}}" size="26rpx" />
+              </view>
+              <view class="feed-card__name-wrap">
+                <view class="feed-card__name">{{item.name}}</view>
+                <view class="feed-card__time">{{item.time}}</view>
+              </view>
+              <view wx:if="{{item.badge}}" class="feed-badge feed-badge--{{item.badgeTone}}">{{item.badge}}</view>
+            </view>
+            <image wx:if="{{item.image}}" class="feed-card__image" src="{{item.image}}" mode="aspectFill" />
+            <view wx:elif="{{item.visual}}" class="feed-card__visual feed-card__visual--{{item.visual}}"></view>
+            <view class="feed-card__title">{{item.title}}</view>
+            <view class="feed-card__desc">{{item.desc}}</view>
+            <view class="feed-card__actions">
+              <view>
+                <t-icon name="heart" size="24rpx" />
+                <text>{{item.likes}}</text>
+              </view>
+              <view>
+                <t-icon name="chat" size="24rpx" />
+                <text>{{item.comments}}</text>
+              </view>
+              <t-icon name="share" size="24rpx" />
+            </view>
+          </view>
+        </view>
+
+        <view class="feed-column">
+          <view wx:for="{{campusFeedRight}}" wx:key="id" class="feed-card" hover-class="tap-card" data-item="{{item}}" bindtap="goPost">
+            <view class="feed-card__author">
+              <view class="feed-avatar feed-avatar--{{item.tone}}">
+                <t-icon name="{{item.avatarIcon}}" size="26rpx" />
+              </view>
+              <view class="feed-card__name-wrap">
+                <view class="feed-card__name">{{item.name}}</view>
+                <view class="feed-card__time">{{item.time}}</view>
+              </view>
+              <view wx:if="{{item.badge}}" class="feed-badge feed-badge--{{item.badgeTone}}">{{item.badge}}</view>
+            </view>
+            <image wx:if="{{item.image}}" class="feed-card__image" src="{{item.image}}" mode="aspectFill" />
+            <view wx:elif="{{item.visual}}" class="feed-card__visual feed-card__visual--{{item.visual}}"></view>
+            <view class="feed-card__title">{{item.title}}</view>
+            <view class="feed-card__desc">{{item.desc}}</view>
+            <view class="feed-card__actions">
+              <view>
+                <t-icon name="heart" size="24rpx" />
+                <text>{{item.likes}}</text>
+              </view>
+              <view>
+                <t-icon name="chat" size="24rpx" />
+                <text>{{item.comments}}</text>
+              </view>
+              <t-icon name="share" size="24rpx" />
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="load-more">
+        <view wx:if="{{isLoadingMore}}" class="load-more__loading">
+          <view class="load-more__spinner"></view>
+          <text>正在加载更多</text>
+        </view>
+        <view wx:elif="{{hasMore}}" class="load-more__text">继续上滑加载更多校园动态</view>
+        <view wx:else class="load-more__text load-more__text--done">已经到底啦</view>
+      </view>
+    </view>
+  </t-pull-down-refresh>
+</view>
+<t-message id="t-message" />

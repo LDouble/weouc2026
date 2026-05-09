@@ -1,0 +1,96 @@
+.common-filter-tabs {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.common-filter-tabs__track {
+  display: inline-flex;
+  align-items: center;
+  gap: 16rpx;
+  min-width: 100%;
+}
+
+.common-filter-tabs__track--center {
+  justify-content: center;
+}
+
+.common-filter-tabs__track--start {
+  justify-content: flex-start;
+}
+
+.common-filter-tabs__track--between {
+  justify-content: space-between;
+}
+
+.common-filter-tabs__item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  color: var(--common-filter-text, #52627a);
+  font-weight: 800;
+  transition: transform 180ms ease, opacity 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+
+.common-filter-tabs--pill .common-filter-tabs__item {
+  height: 56rpx;
+  padding: 0 28rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  background: var(--common-filter-bg, rgba(241, 245, 249, 0.96));
+}
+
+.common-filter-tabs--pill .common-filter-tabs__item--active {
+  color: var(--common-filter-active-text, #fff);
+  background: var(--common-filter-active-color, #615fff);
+}
+
+.common-filter-tabs--line .common-filter-tabs__track {
+  gap: 34rpx;
+  height: 58rpx;
+}
+
+.common-filter-tabs--line .common-filter-tabs__item {
+  align-items: flex-start;
+  height: 58rpx;
+  color: #90a1b9;
+  font-size: 28rpx;
+  font-weight: 900;
+}
+
+.common-filter-tabs--line .common-filter-tabs__item--active {
+  color: var(--common-filter-active-color, #615fff);
+}
+
+.common-filter-tabs__line {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 32rpx;
+  height: 8rpx;
+  border-radius: 999rpx 999rpx 0 0;
+  background: var(--common-filter-active-color, #615fff);
+  transform: translateX(-50%);
+}
+
+.common-filter-tabs--segment .common-filter-tabs__track {
+  display: flex;
+  gap: 8rpx;
+  padding: 8rpx;
+  border-radius: 999rpx;
+  background: var(--common-filter-bg, rgba(241, 245, 249, 0.96));
+}
+
+.common-filter-tabs--segment .common-filter-tabs__item {
+  flex: 1 1 0;
+  height: 58rpx;
+  border-radius: 999rpx;
+  font-size: 26rpx;
+}
+
+.common-filter-tabs--segment .common-filter-tabs__item--active {
+  color: var(--common-filter-active-text, #fff);
+  background: var(--common-filter-active-color, #615fff);
+}

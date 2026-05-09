@@ -1,0 +1,79 @@
+<view class="lf-page">
+  <view class="lf-bg"></view>
+
+  <common-page-header
+    title="失物招领"
+    background="rgba(255, 252, 245, 0.82)"
+    border-color="rgba(241, 245, 249, 0.9)"
+    button-background="#fef9ef"
+    bind:back="onBack"
+    bind:heightchange="onHeaderHeightChange"
+  >
+    <view slot="body" class="lf-header__body">
+      <common-search-bar
+        value="{{searchKeyword}}"
+        placeholder="搜索物品、地点或描述"
+        bind:input="onSearchInput"
+        bind:clear="onSearchClear"
+      />
+      <common-filter-tabs
+        custom-class="lf-tabs"
+        items="{{typeTabs}}"
+        active="{{activeType}}"
+        variant="line"
+        scrollable="{{false}}"
+        active-color="#f59e0b"
+        bind:change="onTypeChange"
+      />
+      <common-filter-tabs
+        custom-class="lf-categories"
+        items="{{categoryList}}"
+        active="{{activeCategory}}"
+        variant="pill"
+        active-color="#f59e0b"
+        bind:change="onCategoryChange"
+      />
+    </view>
+  </common-page-header>
+
+  <view class="lf-content" style="padding-top: {{headerHeight}}px;">
+    <view class="lf-hero">
+      <view class="lf-hero__tag">失物招领</view>
+      <view class="lf-hero__title">按地点、时间和物品特征快速匹配</view>
+      <view class="lf-hero__desc">覆盖丢失和拾到场景，快速找到失主或物品。</view>
+      <view class="lf-hero__meta">
+        <view class="lf-pill">共 {{visibleItems.length}} 条登记</view>
+        <view class="lf-pill lf-pill--soft">校园认证更安心</view>
+      </view>
+      <view class="lf-hero__action" hover-class="tap-button" bindtap="onCreateTap">发布登记</view>
+    </view>
+
+    <view wx:if="{{visibleItems.length}}" class="lf-list">
+      <lost-found-card
+        wx:for="{{visibleItems}}"
+        wx:key="id"
+        item="{{item}}"
+        bind:select="onItemSelect"
+        bind:contact="onCopyContact"
+      />
+    </view>
+
+    <common-empty-state
+      wx:else
+      icon="search"
+      title="{{searchKeyword ? '未找到相关物品' : '暂无登记信息'}}"
+      description="{{searchKeyword ? '尝试更换关键词或清空搜索' : '快来发布第一条吧'}}"
+      action-text="发布登记"
+      icon-color="#f59e0b"
+      icon-background="#fffbeb"
+      action-background="linear-gradient(135deg, #f59e0b, #d97706)"
+      bind:action="onCreateTap"
+    />
+  </view>
+
+  <common-fab
+    background="linear-gradient(135deg, #f59e0b, #d97706)"
+    shadow="0 16rpx 30rpx rgba(245, 158, 11, 0.32)"
+    bind:tap="onCreateTap"
+  />
+</view>

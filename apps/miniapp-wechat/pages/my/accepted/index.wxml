@@ -1,0 +1,54 @@
+<view class="acc-page">
+  <view class="acc-bg"></view>
+
+  <common-page-header
+    title="我的接单"
+    background="rgba(245, 243, 255, 0.88)"
+    border-color="rgba(238, 242, 255, 0.9)"
+    button-background="#eef2ff"
+    showBack="{{true}}"
+    bind:back="onBack"
+    bind:heightchange="onHeaderHeightChange"
+  />
+
+  <view class="acc-content" style="padding-top: {{headerHeight}}px;">
+    <view class="acc-filters">
+      <view
+        wx:for="{{categoryFilters}}"
+        wx:key="key"
+        class="acc-pill {{activeCategory === item.key ? 'acc-pill--active' : ''}}"
+        data-key="{{item.key}}"
+        hover-class="tap-button"
+        bindtap="onCategoryFilter"
+      >
+        {{item.label}}
+      </view>
+    </view>
+
+    <view wx:if="{{filteredRecords.length}}" class="acc-list">
+      <view
+        wx:for="{{filteredRecords}}"
+        wx:key="id"
+        class="acc-card"
+        data-id="{{item.id}}"
+        hover-class="tap-button"
+        bindtap="onRecordClick"
+      >
+        <view class="acc-card__header">
+          <view class="acc-card__type">{{item.type}}</view>
+          <view class="acc-card__reward">¥{{item.rewardText}}</view>
+        </view>
+        <view class="acc-card__title">{{item.title}}</view>
+        <view class="acc-card__footer">
+          <view class="acc-card__deadline">送达期限：{{item.deadline}}</view>
+          <t-icon name="chevron-right" size="28rpx" color="#c0c4cc" />
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{!filteredRecords.length}}" class="acc-empty">
+      <t-icon name="file-copy" size="80rpx" color="#d1d5db" />
+      <view class="acc-empty__text">暂无接单记录</view>
+    </view>
+  </view>
+</view>

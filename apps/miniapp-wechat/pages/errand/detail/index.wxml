@@ -1,0 +1,154 @@
+<view class="errand-detail" style="padding-top: {{navHeight}}px;">
+  <view class="errand-detail__bg"></view>
+
+  <view class="detail-nav">
+    <view
+      class="detail-nav__button"
+      style="top: {{menuTop}}px; width: {{menuButtonHeight}}px; height: {{menuButtonHeight}}px;"
+      hover-class="tap-button"
+      bindtap="onBack"
+    >
+      <t-icon name="arrow-left" size="32rpx" />
+    </view>
+    <view class="detail-nav__actions" style="top: {{menuTop}}px; right: {{menuSafeRight}}px; height: {{menuButtonHeight}}px;">
+      <button class="detail-nav__action detail-nav__action--button" open-type="share" hover-class="tap-button">
+        <t-icon name="share" size="28rpx" />
+      </button>
+      <view class="detail-nav__action" hover-class="tap-button">
+        <t-icon name="more" size="30rpx" />
+      </view>
+    </view>
+  </view>
+
+  <view class="reward-hero">
+    <view class="reward-hero__glow reward-hero__glow--right"></view>
+    <view class="reward-hero__glow reward-hero__glow--left"></view>
+    <view class="reward-hero__label">跑腿赏金</view>
+    <view class="reward-hero__price">
+      <text>¥</text>
+      <text>{{task.rewardText}}</text>
+    </view>
+    <view wx:if="{{task.urgent}}" class="reward-hero__urgent">
+      <t-icon name="thunder" size="20rpx" />
+      <text>超急单，加价求接</text>
+    </view>
+  </view>
+
+  <view class="detail-card detail-main">
+    <view class="detail-main__meta">
+      <view class="detail-main__tag"># {{task.type}}</view>
+      <view class="detail-main__views">
+        <t-icon name="browse" size="22rpx" />
+        <text>{{task.views}} 次浏览</text>
+      </view>
+    </view>
+
+    <view class="detail-main__title">{{task.title}}</view>
+    <view class="detail-main__content">{{task.detail}}</view>
+
+    <view wx:if="{{task.images.length}}" class="detail-images">
+      <image
+        wx:for="{{task.images}}"
+        wx:key="key"
+        class="detail-images__item"
+        src="{{item.url}}"
+        mode="aspectFill"
+        data-index="{{index}}"
+        bindtap="onPreviewImages"
+      />
+    </view>
+
+    <view class="detail-divider"></view>
+
+    <view class="deadline-row">
+      <view class="deadline-row__icon">
+        <t-icon name="time" size="28rpx" />
+      </view>
+      <view>
+        <view class="deadline-row__label">送达期限</view>
+        <view class="deadline-row__value">{{task.deadline}}</view>
+      </view>
+    </view>
+
+    <view class="route-card">
+      <view class="route-card__line"></view>
+      <view class="route-card__row">
+        <view class="route-card__dot route-card__dot--start"></view>
+        <view class="route-card__text">
+          <view>取货地 / 起点</view>
+          <text>{{task.routeStart}}</text>
+        </view>
+        <view class="route-card__action">
+          <t-icon name="map-navigation" size="26rpx" />
+        </view>
+      </view>
+      <view class="route-card__row">
+        <view class="route-card__dot route-card__dot--end"></view>
+        <view class="route-card__text">
+          <view>送达地 / 终点</view>
+          <text>{{task.routeEnd}}</text>
+        </view>
+        <view class="route-card__action">
+          <t-icon name="map-navigation" size="26rpx" />
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="detail-card publisher-card">
+    <view class="publisher-card__profile">
+      <view class="publisher-card__avatar publisher-card__avatar--{{task.avatarTone}}">{{task.publisherInitial}}</view>
+      <view class="publisher-card__info">
+        <view class="publisher-card__name-row">
+          <text>{{task.publisher}}</text>
+          <view class="publisher-card__credit">
+            <t-icon name="check-circle" size="16rpx" />
+            <text>{{task.creditShort}}</text>
+          </view>
+        </view>
+        <view class="publisher-card__meta">{{task.publisherMeta}}</view>
+      </view>
+    </view>
+    <view class="publisher-card__home" hover-class="tap-button" bindtap="onPublisherHome">主页</view>
+  </view>
+
+  <view class="detail-bottom">
+    <view class="detail-bottom__inner">
+      <view wx:if="{{!task.canViewContact}}" class="detail-contact" hover-class="tap-button" bindtap="onContact">
+        <t-icon name="lock-on" size="34rpx" />
+        <text>绑定后查看</text>
+      </view>
+      <view wx:else class="detail-contact" hover-class="tap-button" bindtap="onContact">
+        <t-icon name="chat" size="34rpx" />
+        <text>{{task.canCopyContact ? '复制联系' : '联系'}}</text>
+      </view>
+      <view
+        wx:if="{{task.canCancelPublish}}"
+        class="detail-cancel"
+        hover-class="tap-button"
+        bindtap="onCancelPublish"
+      >
+        <t-icon name="close-circle" size="32rpx" />
+        <text>取消发布</text>
+      </view>
+      <view
+        wx:elif="{{task.canCancelAccept}}"
+        class="detail-cancel"
+        hover-class="tap-button"
+        bindtap="onCancelAccept"
+      >
+        <t-icon name="close-circle" size="32rpx" />
+        <text>取消接单</text>
+      </view>
+      <view
+        wx:else
+        class="detail-accept {{accepted ? 'detail-accept--done' : ''}} {{!task.canAccept && !accepted ? 'detail-accept--disabled' : ''}}"
+        hover-class="tap-button"
+        bindtap="onAccept"
+      >
+        <t-icon name="{{accepted ? 'check' : 'thunder'}}" size="34rpx" />
+        <text>{{task.primaryActionText}}</text>
+      </view>
+    </view>
+  </view>
+</view>

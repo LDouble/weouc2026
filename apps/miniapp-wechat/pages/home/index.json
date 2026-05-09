@@ -1,0 +1,9 @@
+{
+  "navigationStyle": "custom",
+  "disableScroll": true,
+  "usingComponents": {
+    "t-pull-down-refresh": "tdesign-miniprogram/pull-down-refresh/pull-down-refresh",
+    "t-message": "tdesign-miniprogram/message/message",
+    "t-icon": "tdesign-miniprogram/icon/icon"
+  }
+}

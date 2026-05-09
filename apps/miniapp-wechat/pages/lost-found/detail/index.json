@@ -1,0 +1,8 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "common-empty-state": "/components/common/common-empty-state/index",
+    "common-page-header": "/components/common/common-page-header/index",
+    "t-icon": "tdesign-miniprogram/icon/icon"
+  }
+}

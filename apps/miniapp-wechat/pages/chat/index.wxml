@@ -1,0 +1,8 @@
+<t-navbar class="nav-bar" title="聊天" left-arrow />
+
+<view class="chat-empty">
+  <view class="chat-empty__icon">
+    <t-icon name="chat" size="96rpx" color="#dcdfe6" />
+  </view>
+  <view class="chat-empty__text">{{ emptyText }}</view>
+</view>

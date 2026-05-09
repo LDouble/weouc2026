@@ -1,0 +1,112 @@
+<view class="carpool-publish-page" style="padding-top: {{navHeight}}px;">
+  <view class="carpool-publish-bg"></view>
+
+  <view class="publish-nav">
+    <view
+      class="publish-nav__back"
+      style="top: {{menuTop}}px; width: {{menuButtonHeight}}px; height: {{menuButtonHeight}}px;"
+      hover-class="tap-button"
+      bindtap="onBack"
+    >
+      <t-icon name="arrow-left" size="32rpx" />
+    </view>
+    <view class="publish-nav__title" style="top: {{menuTop}}px; height: {{menuButtonHeight}}px; line-height: {{menuButtonHeight}}px;">
+      发布拼车
+    </view>
+  </view>
+
+  <view class="publish-content">
+    <view class="publish-hero">
+      <view class="publish-hero__tag">校园同行</view>
+      <view class="publish-hero__title">把你的路线公开给顺路同学</view>
+      <view class="publish-hero__desc">填写路线、出发时间和联系方式，发布后会直接回到拼车列表。</view>
+    </view>
+
+    <view class="publish-card">
+      <route-input
+        startValue="{{form.from}}"
+        endValue="{{form.to}}"
+        startPlaceholder="出发地，如：崂山校区东门"
+        endPlaceholder="目的地，如：青岛北站"
+        bind:startChange="onStartChange"
+        bind:endChange="onEndChange"
+      />
+    </view>
+
+    <view class="publish-card">
+      <view class="publish-card__title">出发安排</view>
+      <view class="picker-row">
+        <picker mode="date" value="{{form.date}}" start="{{dateRange.start}}" end="{{dateRange.end}}" bindchange="onDateChange">
+          <view class="picker-field {{form.date ? 'picker-field--filled' : ''}}">
+            <view class="picker-field__label">日期</view>
+            <view class="picker-field__value">{{form.date || '选择日期'}}</view>
+          </view>
+        </picker>
+        <picker mode="time" value="{{form.time}}" bindchange="onTimeChange">
+          <view class="picker-field {{form.time ? 'picker-field--filled' : ''}}">
+            <view class="picker-field__label">时间</view>
+            <view class="picker-field__value">{{form.time || '选择时间'}}</view>
+          </view>
+        </picker>
+      </view>
+      <view class="field-row">
+        <view class="field-row__label">人数 / 余座</view>
+        <input
+          class="field-row__input"
+          value="{{form.seats}}"
+          placeholder="如：余座 2 / 拼车 3/4"
+          placeholder-class="publish-placeholder"
+          data-field="seats"
+          bindinput="onFieldChange"
+        />
+      </view>
+      <view class="field-row">
+        <view class="field-row__label">费用说明</view>
+        <input
+          class="field-row__input"
+          value="{{form.price}}"
+          placeholder="如：人均 18 元 / 免费"
+          placeholder-class="publish-placeholder"
+          data-field="price"
+          bindinput="onFieldChange"
+        />
+      </view>
+    </view>
+
+    <view class="publish-card">
+      <view class="publish-card__title">联系与备注</view>
+      <view class="field-row">
+        <view class="field-row__label">联系方式</view>
+        <input
+          class="field-row__input"
+          value="{{form.contact}}"
+          placeholder="微信号、手机号或站内私信"
+          placeholder-class="publish-placeholder"
+          data-field="contact"
+          bindinput="onFieldChange"
+        />
+      </view>
+      <textarea
+        class="publish-note"
+        value="{{form.note}}"
+        placeholder="补充说明（选填），例如：可带行李、集合点、返程安排"
+        placeholder-class="publish-placeholder"
+        maxlength="120"
+        data-field="note"
+        bindinput="onFieldChange"
+      />
+    </view>
+  </view>
+
+  <view class="publish-bottom">
+    <view class="publish-bottom__tips">
+      <view>发布后会写入本地列表</view>
+      <view>返回即可查看新行程</view>
+    </view>
+    <view class="publish-submit {{canPublish ? 'publish-submit--ready' : ''}}" hover-class="tap-button" bindtap="release">
+      立即发布
+    </view>
+  </view>
+
+
+</view>

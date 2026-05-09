@@ -1,0 +1,12 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "common-empty-state": "/components/common/common-empty-state/index",
+    "common-fab": "/components/common/common-fab/index",
+    "common-filter-tabs": "/components/common/common-filter-tabs/index",
+    "common-page-header": "/components/common/common-page-header/index",
+    "common-search-bar": "/components/common/common-search-bar/index",
+    "t-icon": "tdesign-miniprogram/icon/icon",
+    "market-product-card": "/components/market-product-card/index"
+  }
+}

@@ -1,0 +1,9 @@
+<view
+  class="common-fab {{text ? 'common-fab--extended' : 'common-fab--circle'}} custom-class"
+  style="--common-fab-bg: {{background}}; --common-fab-shadow: {{shadow}}; right: {{right}}rpx; bottom: calc(env(safe-area-inset-bottom) + {{bottom}}rpx);"
+  hover-class="tap-button"
+  bindtap="onTap"
+>
+  <t-icon name="{{icon}}" size="{{iconSize}}" />
+  <text wx:if="{{text}}" class="common-fab__text">{{text}}</text>
+</view>

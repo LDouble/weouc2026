@@ -1,0 +1,232 @@
+@import '/variable.less';
+
+.market-product-card {
+  overflow: hidden;
+  border: 1rpx solid #f8fafc;
+  border-radius: 32rpx;
+  background: #fff;
+  box-shadow: 0 4rpx 24rpx rgba(15, 23, 42, 0.03);
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+
+.market-product-card__media {
+  position: relative;
+  overflow: hidden;
+  background: #f1f5f9;
+}
+
+.market-product-card__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.market-product-card__condition {
+  position: absolute;
+  top: 16rpx;
+  left: 16rpx;
+  display: inline-flex;
+  align-items: center;
+  gap: 4rpx;
+  height: 38rpx;
+  padding: 0 12rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.22);
+  border-radius: 8rpx;
+  box-sizing: border-box;
+  color: #fff;
+  font-size: 18rpx;
+  font-weight: 900;
+  background: rgba(0, 0, 0, 0.5);
+  box-shadow: 0 2rpx 6rpx rgba(0, 0, 0, 0.1);
+}
+
+.market-product-card__condition .t-icon {
+  color: #fde047;
+}
+
+.market-product-card__wanted {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 38rpx 40rpx;
+  box-sizing: border-box;
+  color: #fff;
+  background: linear-gradient(135deg, #615fff 0%, #9810fa 100%);
+}
+
+.market-product-card__wanted--rose {
+  background: linear-gradient(135deg, #ff637e 0%, #fb2c36 100%);
+}
+
+.market-product-card__wanted--orange {
+  background: linear-gradient(135deg, #ffb900 0%, #ff6900 100%);
+}
+
+.market-product-card__wanted--green {
+  background: linear-gradient(135deg, #00d5be 0%, #00bc7d 100%);
+}
+
+.market-product-card__wanted--blue {
+  background: linear-gradient(135deg, #51a2ff 0%, #00b8db 100%);
+}
+
+.market-product-card__wanted--dark {
+  background: linear-gradient(135deg, #314158 0%, #0f172b 100%);
+}
+
+.market-product-card__wanted-text {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  font-size: 28rpx;
+  font-weight: 900;
+  line-height: 1.62;
+  text-align: left;
+}
+
+.market-product-card__quote {
+  position: absolute;
+  color: rgba(255, 255, 255, 0.34);
+  font-size: 72rpx;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.market-product-card__quote--left {
+  top: 26rpx;
+  left: 28rpx;
+}
+
+.market-product-card__quote--right {
+  right: 28rpx;
+  bottom: 16rpx;
+}
+
+.market-product-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  padding: 20rpx;
+}
+
+.market-product-card__body--wanted {
+  gap: 14rpx;
+}
+
+.market-product-card__title {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #1d293d;
+  font-size: 24rpx;
+  font-weight: 900;
+  line-height: 1.38;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.market-product-card__price-row,
+.market-product-card__meta,
+.market-product-card__seller,
+.market-product-card__likes {
+  display: flex;
+  align-items: center;
+}
+
+.market-product-card__price-row {
+  gap: 14rpx;
+  min-height: 36rpx;
+}
+
+.market-product-card__price {
+  display: flex;
+  align-items: baseline;
+  color: #ff2056;
+  font-size: 34rpx;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.market-product-card__currency {
+  margin-right: 6rpx;
+  font-size: 20rpx;
+  font-weight: 900;
+}
+
+.market-product-card__original {
+  color: #90a1b9;
+  font-size: 20rpx;
+  font-weight: 800;
+  line-height: 1;
+  text-decoration: line-through;
+}
+
+.market-product-card__line {
+  height: 2rpx;
+  background: #f8fafc;
+}
+
+.market-product-card__meta {
+  justify-content: space-between;
+  min-height: 32rpx;
+}
+
+.market-product-card__seller {
+  gap: 10rpx;
+  min-width: 0;
+  color: #62748e;
+  font-size: 20rpx;
+  font-weight: 800;
+}
+
+.market-product-card__seller text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.market-product-card__avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 32rpx;
+  height: 32rpx;
+  border-radius: 999rpx;
+  font-size: 16rpx;
+  font-weight: 900;
+}
+
+.market-product-card__avatar--blue {
+  color: #155dfc;
+  background: #dbeafe;
+}
+
+.market-product-card__avatar--amber {
+  color: #e17100;
+  background: #fef3c6;
+}
+
+.market-product-card__avatar--green {
+  color: #009689;
+  background: #ccfbf1;
+}
+
+.market-product-card__avatar--rose {
+  color: #ec003f;
+  background: #ffe4e6;
+}
+
+.market-product-card__avatar--purple {
+  color: #9810fa;
+  background: #f3e8ff;
+}
+
+.market-product-card__likes {
+  gap: 4rpx;
+  flex: 0 0 auto;
+  color: #90a1b9;
+  font-size: 18rpx;
+  font-weight: 800;
+}

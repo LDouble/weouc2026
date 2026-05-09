@@ -1,0 +1,101 @@
+<view class="resource-publish-page" style="padding-top: {{navHeight}}px;">
+  <view class="resource-publish-bg"></view>
+
+  <view class="publish-nav">
+    <view
+      class="publish-nav__back"
+      style="top: {{menuTop}}px; width: {{menuButtonHeight}}px; height: {{menuButtonHeight}}px;"
+      hover-class="tap-button"
+      bindtap="onBack"
+    >
+      <t-icon name="arrow-left" size="32rpx" />
+    </view>
+    <view class="publish-nav__title" style="top: {{menuTop}}px; height: {{menuButtonHeight}}px; line-height: {{menuButtonHeight}}px;">
+      上传资料
+    </view>
+  </view>
+
+  <scroll-view class="publish-content" scroll-y enhanced="{{true}}" show-scrollbar="{{false}}">
+    <view class="publish-hero">
+      <view class="publish-hero__badge">知识共享</view>
+      <view class="publish-hero__title">上传你的学习资料</view>
+      <view class="publish-hero__desc">上传文件、填写资料名即可快速分享</view>
+    </view>
+
+    <view class="publish-card">
+      <view class="publish-card__title">上传文件</view>
+
+      <view class="upload-actions">
+        <view class="upload-action-btn" hover-class="tap-button" bindtap="chooseFromChat">
+          <t-icon name="chat" size="32rpx" />
+          <text>从聊天记录选择</text>
+        </view>
+      </view>
+
+      <view wx:if="{{fileList.length}}" class="file-list">
+        <view wx:for="{{fileList}}" wx:key="url" class="file-item">
+          <view wx:if="{{item.isImage}}" class="file-item__thumb" data-index="{{index}}" bindtap="previewImage">
+            <image src="{{item.url}}" mode="aspectFill" />
+          </view>
+          <view wx:else class="file-item__icon">
+            <t-icon name="file-pdf" size="36rpx" />
+          </view>
+          <view class="file-item__info">
+            <view class="file-item__name">{{item.name}}</view>
+            <view class="file-item__meta">{{item.fileType}} · {{item.size}}</view>
+          </view>
+          <view class="file-item__remove" catchtap="removeFile" data-index="{{index}}">
+            <t-icon name="close" size="24rpx" />
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{fileList.length >= 5}}" class="file-limit-hint">最多上传 5 个文件</view>
+    </view>
+
+    <view class="publish-card">
+      <view class="publish-card__title">资料信息</view>
+
+      <view class="field-row">
+        <view class="field-row__label">资料名</view>
+        <input
+          class="field-row__input"
+          value="{{form.title}}"
+          placeholder="输入资料名或使用文件名"
+          placeholder-class="publish-placeholder"
+          data-field="title"
+          bindinput="onFieldChange"
+        />
+      </view>
+
+      <view class="category-section">
+        <view class="category-section__label">资料类型</view>
+        <view class="category-grid">
+          <view
+            wx:for="{{categoryList}}"
+            wx:key="value"
+            class="category-item {{form.category === item.value ? 'category-item--active' : ''}}"
+            data-value="{{item.value}}"
+            hover-class="tap-button"
+            bindtap="onCategorySelect"
+          >
+            <t-icon name="{{item.icon}}" size="32rpx" />
+            <text>{{item.label}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view style="height: 200rpx;"></view>
+  </scroll-view>
+
+  <view class="publish-bottom">
+    <view class="publish-bottom__tips">
+      <view>发布后写入本地列表</view>
+      <view>返回即可查看新资料</view>
+    </view>
+    <view class="publish-submit {{canPublish ? 'publish-submit--ready' : ''}}" hover-class="tap-button" bindtap="release">
+      立即发布
+    </view>
+  </view>
+</view>

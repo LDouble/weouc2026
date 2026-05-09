@@ -1,0 +1,113 @@
+<view class="carpool-page">
+  <view class="carpool-bg"></view>
+
+  <common-page-header
+    title="校园拼车"
+    background="rgba(255, 255, 255, 0.82)"
+    border-color="rgba(241, 245, 249, 0.9)"
+    button-background="rgba(241, 245, 249, 0.96)"
+    bind:back="onBack"
+    bind:heightchange="onHeaderHeightChange"
+  >
+    <view slot="body" class="carpool-header__body">
+      <common-search-bar
+        value="{{searchKeyword}}"
+        placeholder="搜索出发地、目的地或发起人"
+        bind:input="onSearchInput"
+        bind:confirm="onSearchConfirm"
+        bind:clear="onSearchClear"
+      />
+      <common-filter-tabs
+        custom-class="carpool-time-filters"
+        items="{{timeFilters}}"
+        active="{{activeTimeFilter}}"
+        variant="pill"
+        scrollable="{{false}}"
+        active-color="#615fff"
+        bind:change="onTimeFilterChange"
+      />
+    </view>
+  </common-page-header>
+
+  <view class="carpool-content" style="padding-top: {{headerHeight}}px;">
+    <view class="carpool-hero">
+      <view class="carpool-hero__tag">同校出发</view>
+      <view class="carpool-hero__title">把顺路时间拼在一起</view>
+      <view class="carpool-hero__desc">覆盖返校、出校和长期通勤场景，快速找到顺路搭子。</view>
+      <view class="carpool-hero__meta">
+        <view class="carpool-pill">共 {{visibleTrips.length}} 条行程</view>
+        <view class="carpool-pill carpool-pill--soft">校园认证更安心</view>
+      </view>
+      <view class="carpool-hero__action" hover-class="tap-button" bindtap="onCreateTap">发布拼车</view>
+    </view>
+
+    <view wx:if="{{visibleTrips.length}}" class="carpool-list">
+      <view
+        wx:for="{{visibleTrips}}"
+        wx:key="id"
+        class="carpool-card"
+      >
+        <view class="carpool-card__top">
+          <view class="carpool-card__author">
+            <view class="carpool-card__avatar">{{item.sponsorInitial}}</view>
+            <view class="carpool-card__author-meta">
+              <view class="carpool-card__name">{{item.sponsor}}</view>
+              <view class="carpool-card__role">{{item.sponsorTag}}</view>
+            </view>
+          </view>
+          <view class="carpool-status carpool-status--{{item.statusTone}}">{{item.status}}</view>
+        </view>
+
+        <view class="carpool-route">
+          <view class="carpool-route__point">
+            <view class="carpool-route__dot carpool-route__dot--start"></view>
+            <view class="carpool-route__text">{{item.from}}</view>
+          </view>
+          <view class="carpool-route__line"></view>
+          <view class="carpool-route__point">
+            <view class="carpool-route__dot carpool-route__dot--end"></view>
+            <view class="carpool-route__text">{{item.to}}</view>
+          </view>
+        </view>
+
+        <view class="carpool-card__meta">
+          <view wx:if="{{item.time}}" class="carpool-meta">{{item.time}}</view>
+          <view wx:if="{{item.type}}" class="carpool-meta">{{item.type}}</view>
+          <view wx:if="{{item.seatsText}}" class="carpool-meta">{{item.seatsText}}</view>
+        </view>
+
+        <view class="carpool-card__bottom">
+          <view wx:if="{{item.price}}" class="carpool-card__price">{{item.price}}</view>
+          <view wx:if="{{item.note}}" class="carpool-card__note">{{item.note}}</view>
+        </view>
+
+        <view class="carpool-card__footer">
+          <view class="carpool-tags">
+            <view wx:for="{{item.tags}}" wx:key="*this" class="carpool-tag">{{item}}</view>
+          </view>
+          <view class="carpool-card__actions">
+            <view class="carpool-card__action" data-contact="{{item.contact}}" catchtap="onCopyContact">获取联系方式</view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <common-empty-state
+      wx:else
+      icon="search"
+      title="{{searchKeyword ? '未找到相关行程' : '暂无行程'}}"
+      description="{{searchKeyword ? '尝试更换关键词或清空搜索' : '还没有人发布拼车信息，快来发布第一条吧'}}"
+      action-text="发布我的行程"
+      icon-color="#615fff"
+      icon-background="#eef2ff"
+      action-background="linear-gradient(135deg, #615fff, #4f46e5)"
+      bind:action="onCreateTap"
+    />
+  </view>
+
+  <common-fab
+    background="linear-gradient(135deg, #615fff, #4f46e5)"
+    shadow="0 16rpx 30rpx rgba(97, 95, 255, 0.32)"
+    bind:tap="onCreateTap"
+  />
+</view>

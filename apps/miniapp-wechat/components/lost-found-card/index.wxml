@@ -1,0 +1,36 @@
+<view class="lf-card" hover-class="tap-card" bindtap="onSelect">
+  <view class="lf-card__header">
+    <view class="lf-card__author">
+      <view class="lf-avatar lf-avatar--{{item.avatarColor}}">
+        <text class="lf-avatar__text">{{item.sponsorInitial || item.initial}}</text>
+      </view>
+      <view class="lf-card__author-meta">
+        <view class="lf-card__name-row">
+          <text class="lf-card__sponsor">{{item.sponsor}}</text>
+          <view class="lf-card__tag-label">{{item.sponsorTag}}</view>
+        </view>
+        <view class="lf-card__time">{{item.time}}</view>
+      </view>
+    </view>
+    <view class="lf-status lf-status--{{item.type}}">
+      {{item.type === 'lost' ? '寻找中' : '待认领'}}
+    </view>
+  </view>
+
+  <view class="lf-card__title">{{item.title}}</view>
+  <view class="lf-card__desc">{{item.desc}}</view>
+
+  <view class="lf-card__meta">
+    <view class="lf-meta">{{item.categoryLabel}}</view>
+    <view class="lf-meta">{{item.location}}</view>
+  </view>
+
+  <view class="lf-card__footer">
+    <view class="lf-tags">
+      <view wx:for="{{item.tags}}" wx:key="*this" wx:if="{{index < 3}}" class="lf-tag">{{item}}</view>
+    </view>
+    <view class="lf-card__actions">
+      <view class="lf-card__action" catchtap="onContact">获取联系方式</view>
+    </view>
+  </view>
+</view>

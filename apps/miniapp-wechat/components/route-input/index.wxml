@@ -1,0 +1,80 @@
+<view class="route-input-component">
+  <view class="publish-card__header">
+    <view class="publish-card__title">路线信息</view>
+    <view class="manage-link" bindtap="onManageFavorite">管理常用地址</view>
+  </view>
+
+  <view class="route-group">
+    <view class="route-input route-input--start">
+      <view class="route-input__dot route-input__dot--start"></view>
+      <input
+        class="route-input__control"
+        value="{{startValue}}"
+        placeholder="{{startPlaceholder}}"
+        placeholder-class="route-placeholder"
+        data-field="start"
+        bindinput="onStartInput"
+        bindfocus="onInputFocus"
+        bindblur="onInputBlur"
+      />
+    </view>
+    <view class="route-input route-input--end">
+      <view class="route-input__line"></view>
+      <view class="route-input__dot route-input__dot--end"></view>
+      <input
+        class="route-input__control"
+        value="{{endValue}}"
+        placeholder="{{endPlaceholder}}"
+        placeholder-class="route-placeholder"
+        data-field="end"
+        bindinput="onEndInput"
+        bindfocus="onInputFocus"
+        bindblur="onInputBlur"
+      />
+    </view>
+  </view>
+
+  <view class="address-tags" wx:if="{{activeField === 'start' || activeField === 'end'}}">
+    <view
+      class="address-tag address-tag--favorite"
+      wx:for="{{favoriteAddresses}}"
+      wx:key="*this"
+      data-address="{{item}}"
+      bindtap="onAddressTap"
+    >{{item}}</view>
+    <view
+      class="address-tag address-tag--history"
+      wx:for="{{historyAddresses}}"
+      wx:key="*this"
+      data-address="{{item}}"
+      bindtap="onAddressTap"
+    >{{item}}</view>
+  </view>
+
+  <view class="address-manager" wx:if="{{showAddressManager}}">
+    <view class="address-manager__mask" bindtap="onCloseManager"></view>
+    <view class="address-manager__card">
+      <view class="address-manager__header">
+        <view class="address-manager__title">常用地址</view>
+        <view class="address-manager__close" bindtap="onCloseManager">✕</view>
+      </view>
+      <view class="address-manager__list" wx:if="{{favoriteAddresses.length}}">
+        <view class="address-manager__item" wx:for="{{favoriteAddresses}}" wx:key="*this">
+          <view class="address-manager__text">{{item}}</view>
+          <view class="address-manager__remove" data-address="{{item}}" bindtap="onRemoveFavorite">删除</view>
+        </view>
+      </view>
+      <view class="address-manager__empty" wx:else>暂无常用地址</view>
+      <view class="address-manager__footer">
+        <input
+          class="address-manager__input"
+          value="{{newFavoriteAddress}}"
+          placeholder="输入新地址"
+          placeholder-class="route-placeholder"
+          bindinput="onNewFavoriteInput"
+        />
+        <view class="address-manager__add" bindtap="onAddFavorite">添加</view>
+      </view>
+    </view>
+  </view>
+</view>

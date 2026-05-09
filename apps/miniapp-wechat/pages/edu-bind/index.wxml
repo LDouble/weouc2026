@@ -1,0 +1,115 @@
+<view class="edu-bind-page">
+  <view class="edu-bind-bg"></view>
+
+  <common-page-header
+    title="教务绑定"
+    background="rgba(245, 243, 255, 0.88)"
+    border-color="rgba(238, 242, 255, 0.9)"
+    button-background="#eef2ff"
+    showBack="{{true}}"
+    bind:back="onBack"
+    bind:heightchange="onHeaderHeightChange"
+  />
+
+  <view class="edu-bind-content" style="padding-top: {{headerHeight}}px;">
+
+    <view wx:if="{{!isBound}}" class="edu-bind-unbound">
+      <view class="edu-bind-hero">
+        <view class="edu-bind-hero__icon">
+          <t-icon name="education" size="56rpx" color="#fff" />
+        </view>
+        <view class="edu-bind-hero__title">教务绑定</view>
+        <view class="edu-bind-hero__desc">绑定教务系统账号，获取课表、成绩等信息</view>
+      </view>
+
+      <view class="edu-bind-form">
+        <view class="edu-bind-form__item">
+          <view class="edu-bind-form__label">学号</view>
+          <t-input
+            placeholder="请输入学号"
+            type="number"
+            borderless
+            value="{{sid}}"
+            bind:change="onSidChange"
+          />
+        </view>
+        <view class="edu-bind-form__item">
+          <view class="edu-bind-form__label">教务密码</view>
+          <t-input
+            placeholder="请输入教务系统密码"
+            type="password"
+            borderless
+            value="{{password}}"
+            bind:change="onPasswordChange"
+          />
+        </view>
+        <view class="edu-bind-form__item">
+          <view class="edu-bind-form__label">验证码</view>
+          <view class="edu-bind-captcha">
+            <t-input
+              class="edu-bind-captcha__input"
+              placeholder="请输入验证码"
+              borderless
+              value="{{captcha}}"
+              bind:change="onCaptchaChange"
+            />
+            <view
+              class="edu-bind-captcha__btn {{countdown > 0 ? 'edu-bind-captcha__btn--disabled' : ''}}"
+              hover-class="{{countdown > 0 ? '' : 'tap-button'}}"
+              bindtap="onSendCaptcha"
+            >
+              {{countdown > 0 ? countdown + 's' : '获取验证码'}}
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="edu-bind-submit">
+        <view
+          class="edu-bind-submit__btn {{isSubmitDisabled ? 'edu-bind-submit__btn--disabled' : ''}}"
+          hover-class="{{isSubmitDisabled ? '' : 'tap-button'}}"
+          bindtap="onBind"
+        >
+          绑定
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{isBound}}" class="edu-bind-bound">
+      <view class="edu-bind-status">
+        <view class="edu-bind-status__icon">
+          <t-icon name="check-circle-filled" size="64rpx" color="#22c55e" />
+        </view>
+        <view class="edu-bind-status__badge">已绑定</view>
+        <view class="edu-bind-status__info">
+          <view class="edu-bind-status__name">{{bindInfo.name}}</view>
+          <view class="edu-bind-status__sid">学号：{{bindInfo.sid}}</view>
+          <view class="edu-bind-status__time">绑定时间：{{bindInfo.bindTime}}</view>
+        </view>
+      </view>
+
+      <view class="edu-bind-unbind">
+        <view
+          class="edu-bind-unbind__btn"
+          hover-class="tap-button"
+          bindtap="onUnbind"
+        >
+          解绑
+        </view>
+      </view>
+    </view>
+
+  </view>
+</view>
+
+<t-toast id="t-toast" />
+
+<t-dialog
+  visible="{{unbindDialogVisible}}"
+  title="确认解绑"
+  content="解绑后将无法获取课表、成绩等教务信息，确定要解绑吗？"
+  confirm-btn="确认解绑"
+  cancel-btn="再想想"
+  bind:confirm="onUnbindConfirm"
+  bind:cancel="onUnbindCancel"
+/>

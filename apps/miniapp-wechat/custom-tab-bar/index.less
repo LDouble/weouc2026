@@ -1,0 +1,88 @@
+@import '/variable.less';
+
+.custom-tab-bar {
+  position: fixed;
+  left: 40rpx;
+  right: 40rpx;
+  bottom: calc(env(safe-area-inset-bottom) + 18rpx);
+  z-index: 1000;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  height: 118rpx;
+  padding: 12rpx;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1rpx solid rgba(255, 255, 255, 0.58);
+  border-radius: @campus-radius;
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: 0 16rpx 48rpx rgba(99, 102, 241, 0.12);
+  backdrop-filter: blur(28rpx);
+  -webkit-backdrop-filter: blur(28rpx);
+}
+
+.custom-tab-bar__shine {
+  position: absolute;
+  top: -28rpx;
+  right: -120rpx;
+  width: 340rpx;
+  height: 170rpx;
+  background: linear-gradient(78deg, transparent, rgba(255, 255, 255, 0.48), transparent);
+  transform: rotate(12deg);
+  animation: glass-shine 4s infinite;
+  pointer-events: none;
+}
+
+.tab-item {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 94rpx;
+  border-radius: 24rpx;
+  color: #99a1af;
+  transition: transform 180ms ease, opacity 180ms ease, background-color 180ms ease;
+
+  &--active {
+    color: #4f39f6;
+    background: rgba(238, 242, 255, 0.92);
+  }
+
+  &__icon-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40rpx;
+    height: 40rpx;
+  }
+
+  &__label {
+    margin-top: 4rpx;
+    font-size: 18rpx;
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: 0;
+  }
+
+  &__badge {
+    position: absolute;
+    top: -10rpx;
+    right: -18rpx;
+    min-width: 26rpx;
+    height: 26rpx;
+    padding: 0 6rpx;
+    border: 2rpx solid #fff;
+    border-radius: 999rpx;
+    box-sizing: border-box;
+    color: #fff;
+    font-size: 18rpx;
+    font-weight: 900;
+    line-height: 22rpx;
+    text-align: center;
+    background: #fb2c36;
+  }
+}
