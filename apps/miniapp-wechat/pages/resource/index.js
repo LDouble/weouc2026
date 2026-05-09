@@ -1,85 +1,9 @@
 import { RESOURCE_CATEGORIES } from './data';
-import { fetchResourceDetail, fetchResourceList, favoriteResource } from '../../api/modules/resource';
-
-const CATEGORY_MAP = {};
-RESOURCE_CATEGORIES.forEach((c) => {
-  CATEGORY_MAP[c.value] = c.label;
-});
-
-const AVATAR_COLORS = ['blue', 'green', 'orange', 'purple', 'teal', 'rose'];
-
-function stableIndex(value, modulo) {
-  const text = `${value || ''}`;
-  let total = 0;
-  for (let i = 0; i < text.length; i += 1) total += text.charCodeAt(i);
-  return total % modulo;
-}
-
-function getFileIcon(fileType) {
-  const iconMap = {
-    PDF: 'file-pdf',
-    Word: 'file-word',
-    Excel: 'file-excel',
-    PPT: 'file-ppt',
-    图片: 'image',
-  };
-  return iconMap[fileType] || 'file';
-}
-
-function getFileDisplayType(file = {}) {
-  const rawType = file.file_type || '';
-  const name = file.name || '';
-  const ext = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
-  if (rawType.includes('pdf') || ext === 'pdf') return 'PDF';
-  if (rawType.includes('word') || ['doc', 'docx'].includes(ext)) return 'Word';
-  if (rawType.includes('excel') || rawType.includes('spreadsheet') || ['xls', 'xlsx'].includes(ext)) return 'Excel';
-  if (rawType.includes('presentation') || ['ppt', 'pptx'].includes(ext)) return 'PPT';
-  if (rawType.includes('image') || ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].includes(ext)) return '图片';
-  return rawType || (ext ? ext.toUpperCase() : '文件');
-}
-
-function mapResourceItem(item) {
-  const extra = item.extra || {};
-  const files = extra.files || [];
-  const firstFile = files[0] || {};
-  const category = extra.category || '';
-  const fileType = getFileDisplayType(firstFile.file_type ? firstFile : { file_type: extra.file_type });
-  return {
-    id: item.id,
-    title: item.title || '',
-    desc: item.desc || '',
-    category,
-    categoryLabel: CATEGORY_MAP[category] || category || '其他',
-    fileType,
-    fileSize: firstFile.file_size || extra.file_size || '',
-    files,
-    downloadUrl: firstFile.url || extra.download_url || '',
-    updatedAt: item.created_at || '',
-    sponsor: item.publisher || '',
-    avatarColor: AVATAR_COLORS[stableIndex(item.id, AVATAR_COLORS.length)],
-    sponsorTag: extra.course_name || item.created_at || '',
-    sponsorInitial: item.publisher_initial || (item.publisher ? item.publisher.charAt(0) : ''),
-    views: extra.views || 0,
-    likes: extra.likes || 0,
-    fileIcon: getFileIcon(fileType),
-  };
-}
-
-function moveItemToTop(items, id) {
-  if (!id) return items;
-  const target = items.find((item) => item.id === id);
-  if (!target) return items;
-  return [target].concat(items.filter((item) => item.id !== id));
-}
-
-function dedupeById(items) {
-  const seen = {};
-  return items.filter((item) => {
-    if (!item.id || seen[item.id]) return false;
-    seen[item.id] = true;
-    return true;
-  });
-}
+import {
+  ensureResourcePinned,
+  loadResourceList,
+  mergeResourceItems,
+} from '../../services/resourceService';
 
 Page({
   data: {
@@ -108,18 +32,7 @@ Page({
 
   async forceInsertResource(items) {
     const { insertId } = this.data;
-    if (!insertId) return items;
-
-    const moved = moveItemToTop(items, insertId);
-    if (moved[0] && moved[0].id === insertId) return moved;
-
-    try {
-      const res = await fetchResourceDetail(insertId);
-      const detail = mapResourceItem(res.data || res);
-      return [detail].concat(items.filter((item) => item.id !== insertId));
-    } catch (e) {
-      return items;
-    }
+    return ensureResourcePinned(items, insertId);
   },
 
   async refreshResources() {
@@ -130,14 +43,12 @@ Page({
     if (searchKeyword && searchKeyword.trim()) params.keyword = searchKeyword.trim();
 
     try {
-      const res = await fetchResourceList(params);
-      const list = (res.data && res.data.list) || [];
-      const total = (res.data && res.data.total) || 0;
-      const mapped = await this.forceInsertResource(list.map(mapResourceItem));
+      const result = await loadResourceList(params);
+      const mapped = await this.forceInsertResource(result.items);
       this.setData({
         resourceList: mapped,
         visibleResources: mapped,
-        total: Math.max(total, mapped.length),
+        total: Math.max(result.total, mapped.length),
         page: 1,
         loading: false,
       });
@@ -159,9 +70,7 @@ Page({
   },
 
   onSearchInput(e) {
-    this.setData({ searchKeyword: e.detail.value }, () => {
-      this.filterResources();
-    });
+    this.setData({ searchKeyword: e.detail.value || '' });
   },
 
   onSearchConfirm() {
@@ -200,12 +109,10 @@ Page({
     if (searchKeyword && searchKeyword.trim()) params.keyword = searchKeyword.trim();
 
     try {
-      const res = await fetchResourceList(params);
-      const list = (res.data && res.data.list) || [];
-      const mapped = list.map(mapResourceItem);
-      const newVisible = dedupeById(this.data.visibleResources.concat(mapped));
+      const result = await loadResourceList(params);
+      const newVisible = mergeResourceItems(this.data.visibleResources, result.items);
       this.setData({
-        resourceList: dedupeById(this.data.resourceList.concat(mapped)),
+        resourceList: mergeResourceItems(this.data.resourceList, result.items),
         visibleResources: newVisible,
         page: nextPage,
         loading: false,
@@ -230,7 +137,9 @@ Page({
     }
 
     if (resource.fileType === '图片') {
-      const imageUrls = files.filter((file) => getFileDisplayType(file) === '图片').map((file) => file.url);
+      const imageUrls = files
+        .filter((file) => (file.file_type || '').includes('image'))
+        .map((file) => file.url);
       wx.previewImage({
         current: url,
         urls: imageUrls.length ? imageUrls : [url],

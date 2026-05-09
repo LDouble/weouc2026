@@ -1,40 +1,5 @@
 import { LOST_FOUND_CATEGORIES } from './data';
-import { fetchLostFoundList } from '../../api/modules/lostFound';
-
-const CATEGORY_LABEL_MAP = LOST_FOUND_CATEGORIES.reduce((map, item) => {
-  if (item.value && item.value !== 'all') {
-    map[item.value] = item.label;
-  }
-  return map;
-}, {});
-
-function mapLostFoundItem(raw) {
-  const extra = raw.extra || {};
-  const type = extra.type || raw.feed_type || 'lost';
-  const isLost = type === 'lost';
-  const category = extra.category || '';
-  const categoryLabel = CATEGORY_LABEL_MAP[category] || category || '其他';
-  return {
-    id: raw.id,
-    type,
-    title: raw.title || '',
-    desc: raw.desc || '',
-    category,
-    categoryLabel,
-    location: extra.location || '',
-    time: extra.event_time || '',
-    contact: extra.contact || '',
-    status: isLost ? '寻找中' : '待认领',
-    statusTone: isLost ? 'amber' : 'green',
-    sponsor: raw.publisher || '',
-    sponsorInitial: raw.publisher_initial || (raw.publisher || '').charAt(0),
-    sponsorTag: '',
-    avatarColor: ['amber', 'rose', 'blue', 'purple', 'green'][Math.abs(raw.id || 0) % 5],
-    note: extra.item_feature || '',
-    tags: [categoryLabel, isLost ? '急寻' : '可认领'].filter(Boolean),
-    initial: raw.publisher_initial || (raw.publisher || '').charAt(0),
-  };
-}
+import { loadLostFoundList } from '../../services/lostFoundService';
 
 Page({
   data: {
@@ -70,14 +35,12 @@ Page({
       const params = { type: activeType, page: 1, pageSize };
       if (activeCategory !== 'all') params.category = activeCategory;
       if (searchKeyword) params.keyword = searchKeyword;
-      const res = await fetchLostFoundList(params);
-      const list = (res.data && res.data.list) || [];
-      const allItems = list.map(mapLostFoundItem);
+      const result = await loadLostFoundList(params);
       this.setData({
-        allItems,
-        visibleItems: allItems,
+        allItems: result.items,
+        visibleItems: result.items,
         page: 1,
-        total: (res.data && res.data.total) || 0,
+        total: result.total,
         loading: false,
       });
     } catch (error) {
@@ -95,15 +58,13 @@ Page({
       const params = { type: activeType, page: nextPage, pageSize };
       if (activeCategory !== 'all') params.category = activeCategory;
       if (searchKeyword) params.keyword = searchKeyword;
-      const res = await fetchLostFoundList(params);
-      const list = (res.data && res.data.list) || [];
-      const moreItems = list.map(mapLostFoundItem);
-      const merged = allItems.concat(moreItems);
+      const result = await loadLostFoundList(params);
+      const merged = allItems.concat(result.items);
       this.setData({
         allItems: merged,
         visibleItems: merged,
         page: nextPage,
-        total: (res.data && res.data.total) || 0,
+        total: result.total,
         loading: false,
       });
     } catch (error) {
@@ -111,27 +72,16 @@ Page({
     }
   },
 
-  filterItems() {
-    const { allItems, searchKeyword } = this.data;
-    let filtered = allItems;
-    if (searchKeyword) {
-      const kw = searchKeyword.toLowerCase();
-      filtered = filtered.filter(
-        (item) =>
-          (item.title || '').toLowerCase().includes(kw) ||
-          (item.desc || '').toLowerCase().includes(kw) ||
-          (item.location || '').toLowerCase().includes(kw),
-      );
-    }
-    this.setData({ visibleItems: filtered });
-  },
-
   onSearchInput(e) {
-    this.setData({ searchKeyword: e.detail.value || '' }, () => this.loadItems());
+    this.setData({ searchKeyword: e.detail.value || '' });
   },
 
   onSearchClear() {
     this.setData({ searchKeyword: '' }, () => this.loadItems());
+  },
+
+  onSearchConfirm() {
+    this.loadItems();
   },
 
   onTypeChange(e) {

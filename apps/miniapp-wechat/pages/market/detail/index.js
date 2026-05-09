@@ -1,6 +1,6 @@
 import { getMenuButtonSafeArea } from '../../../utils/navigation';
 import { fetchMarketDetail } from '../../../api/modules/market';
-import { getMarketCategories } from '../../../store/config';
+import { getMarketCategories } from '../../../stores/config';
 
 function buildCategoryLabelMap() {
   const categories = getMarketCategories();

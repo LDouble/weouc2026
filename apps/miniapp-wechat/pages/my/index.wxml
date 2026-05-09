@@ -25,8 +25,9 @@
         <view class="my-profile__body">
           <view class="my-profile__name">{{personalInfo.name}}</view>
           <view class="my-profile__tags">
-            <view class="my-pill my-pill--primary">{{personalInfo.major || '计算机科学'}}</view>
-            <view class="my-pill my-pill--muted">{{personalInfo.sid || '2021008129'}}</view>
+            <view class="my-pill my-pill--primary">{{personalInfo.identityLabel}}</view>
+            <view class="my-pill my-pill--muted">{{personalInfo.secondaryLabel}}</view>
+            <view wx:if="{{personalInfo.sid}}" class="my-pill my-pill--muted">{{personalInfo.sid}}</view>
           </view>
         </view>
         <view class="my-profile__edit" hover-class="tap-button" bindtap="onNavigateTo">

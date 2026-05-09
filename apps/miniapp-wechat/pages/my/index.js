@@ -1,34 +1,71 @@
 import useToastBehavior from '~/behaviors/useToast';
-import { getStudentProfile } from '~/api/modules/student';
-import { fetchFeedList } from '~/api/modules/feed';
-import { fetchErrandList } from '~/api/modules/errand';
+import { loadMyPageModel } from '~/services/profileService';
+import { getSessionState, subscribeSession } from '~/stores/session';
+
+function createStats(values = {}) {
+  return [
+    { key: 'published', icon: 'chart-bar', value: values.published || 0, label: '发布', bg: 'indigo' },
+    { key: 'accepted', icon: 'check-circle', value: values.accepted || 0, label: '接单', bg: 'purple' },
+    { key: 'fav', icon: 'star', value: values.favorite || 0, label: '收藏', bg: 'amber' },
+  ];
+}
+
+function createSettingList(isBound = false) {
+  return [
+    { name: isBound ? '教务已绑定' : '教务绑定', icon: 'education', type: 'eduBind', url: '/pages/edu-bind/index' },
+    { name: '消息中心', icon: 'notification', type: 'message', url: '', badge: 2 },
+    { name: '联系客服', icon: 'service', type: 'service', url: '' },
+    { name: '设置', icon: 'setting', type: 'setting', url: '/pages/setting/index' },
+  ];
+}
+
+function buildSessionFallbackInfo(sessionState) {
+  const viewer = sessionState.viewer || {};
+
+  return {
+    name: viewer.nickname || '微信用户',
+    image: viewer.avatarUrl || '',
+    major: '',
+    sid: '',
+    college: '',
+    grade: '',
+    isBound: false,
+    identityLabel: '未绑定教务',
+    secondaryLabel: '微信登录用户',
+  };
+}
 
 Page({
   behaviors: [useToastBehavior],
 
   data: {
+    hasSession: false,
     isLoad: false,
     headerHeight: 0,
     personalInfo: {},
-    stats: [
-      { key: 'published', icon: 'chart-bar', value: 0, label: '发布', bg: 'indigo' },
-      { key: 'accepted', icon: 'check-circle', value: 0, label: '接单', bg: 'purple' },
-      { key: 'fav', icon: 'star', value: 0, label: '收藏', bg: 'amber' },
-    ],
+    stats: createStats(),
     serviceList: [
       { name: '我的发布', icon: 'root-list', type: 'publish', url: '/pages/my/publish/index' },
       { name: '我的接单', icon: 'check-circle', type: 'accepted', url: '/pages/my/accepted/index' },
       { name: '星标收藏', icon: 'star', type: 'fav', url: '' },
     ],
-    settingList: [
-      { name: '教务绑定', icon: 'education', type: 'eduBind', url: '/pages/edu-bind/index' },
-      { name: '消息中心', icon: 'notification', type: 'message', url: '', badge: 2 },
-      { name: '联系客服', icon: 'service', type: 'service', url: '' },
-      { name: '设置', icon: 'setting', type: 'setting', url: '/pages/setting/index' },
-    ],
+    settingList: createSettingList(false),
   },
 
-  onLoad() {},
+  onLoad() {
+    this.unsubscribeSession = subscribeSession((state) => {
+      if (!state.authenticated) {
+        this.applyGuestState();
+      }
+    });
+  },
+
+  onUnload() {
+    if (this.unsubscribeSession) {
+      this.unsubscribeSession();
+      this.unsubscribeSession = null;
+    }
+  },
 
   onBack() {
     wx.navigateBack();
@@ -40,59 +77,51 @@ Page({
     });
   },
 
+  applyGuestState() {
+    this.setData({
+      hasSession: false,
+      isLoad: false,
+      personalInfo: {},
+      stats: createStats(),
+      settingList: createSettingList(false),
+    });
+  },
+
+  applyAuthenticatedState(model) {
+    this.setData({
+      hasSession: true,
+      isLoad: true,
+      personalInfo: model.personalInfo,
+      stats: createStats(model.stats),
+      settingList: createSettingList(Boolean(model.personalInfo.isBound)),
+    });
+  },
+
   async onShow() {
-    const Token = wx.getStorageSync('access_token');
-    if (!Token) {
-      this.setData({
-        isLoad: false,
-        personalInfo: {},
-        stats: this.data.stats.map((item) => ({ ...item, value: 0 })),
-      });
+    const sessionState = getSessionState();
+    if (!sessionState.authenticated) {
+      this.applyGuestState();
       return;
     }
 
+    this.applyAuthenticatedState({
+      personalInfo: buildSessionFallbackInfo(sessionState),
+      stats: {
+        published: 0,
+        accepted: 0,
+        favorite: 0,
+      },
+    });
+
     try {
-      const res = await getStudentProfile();
-      const profile = res.data || res;
-      const personalInfo = {
-        name: profile.name || '',
-        image: profile.avatar_url || '',
-        major: profile.major || '',
-        sid: profile.student_id || '',
-        college: profile.college || '',
-        grade: profile.grade || '',
-        isBound: profile.is_bound || false,
-      };
-
-      this.setData({
-        isLoad: true,
-        personalInfo,
-      });
-
-      this.loadStats();
+      const pageModel = await loadMyPageModel();
+      this.applyAuthenticatedState(pageModel);
     } catch (e) {
-      console.error(e);
+      this.onShowToast('#t-toast', '个人页加载失败');
     }
   },
 
-  async loadStats() {
-    try {
-      const [feedRes, errandRes] = await Promise.all([
-        fetchFeedList({ page: 1, pageSize: 1, user_role: 'publisher' }),
-        fetchErrandList({ page: 1, pageSize: 1, user_role: 'acceptor' }),
-      ]);
-      const feedData = feedRes.data || feedRes;
-      const errandData = errandRes.data || errandRes;
-      this.setData({
-        'stats[0].value': feedData.total || 0,
-        'stats[1].value': errandData.total || 0,
-      });
-    } catch (e) {
-      console.error(e);
-    }
-  },
-
-  onLogin(e) {
+  onLogin() {
     wx.navigateTo({
       url: '/pages/login/login',
     });

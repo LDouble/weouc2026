@@ -1,7 +1,7 @@
 import { getMenuButtonSafeArea } from '../../utils/navigation';
 import { publishMarket } from '../../api/modules/market';
 import { getUploadResultUrl, uploadFile } from '../../api/modules/upload';
-import { getMarketCategoryValueMap, getPaletteOptions, getReleaseScene } from '../../store/config';
+import { getMarketCategoryValueMap, getPaletteOptions, getReleaseScene } from '../../stores/config';
 
 Page({
   data: {

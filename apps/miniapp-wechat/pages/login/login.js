@@ -1,17 +1,23 @@
-import { wxLogin, isLoggedIn } from '~/api/auth';
+import { loginWithWechat } from '~/services/sessionService';
 
 Page({
   data: {
     isLoading: false,
     isCheck: false,
-    canLogin: false,
   },
 
-  onCheckChange(e) {
-    const { value } = e.detail;
+  onBack() {
+    if (getCurrentPages().length > 1) {
+      wx.navigateBack({ delta: 1 });
+      return;
+    }
+
+    wx.switchTab({ url: '/pages/home/index' });
+  },
+
+  onCheckChange() {
     this.setData({
-      isCheck: value === 'agree',
-      canLogin: value === 'agree',
+      isCheck: !this.data.isCheck,
     });
   },
 
@@ -25,8 +31,8 @@ Page({
     this.setData({ isLoading: true });
 
     try {
-      const result = await wxLogin();
-      if (result && result.token) {
+      const result = await loginWithWechat();
+      if (result && result.session && result.session.token) {
         wx.switchTab({ url: '/pages/home/index' });
       }
     } catch (err) {

@@ -1,5 +1,5 @@
 import config from '~/config';
-import request from './request';
+import { post } from './request';
 
 const TOKEN_KEY = 'access_token';
 const OPENID_KEY = 'openid';
@@ -39,7 +39,7 @@ export function wxLogin() {
           reject(new Error('wx.login failed'));
           return;
         }
-        request('/auth/wechat/login', 'POST', {
+        post('/auth/wechat/login', {
           code: loginRes.code,
           app_id: config.appId,
         }, { skipAuth: true })

@@ -14,6 +14,7 @@
         value="{{searchKeyword}}"
         placeholder="搜索物品、地点或描述"
         bind:input="onSearchInput"
+        bind:confirm="onSearchConfirm"
         bind:clear="onSearchClear"
       />
       <common-filter-tabs

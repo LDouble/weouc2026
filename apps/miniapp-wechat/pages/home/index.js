@@ -1,67 +1,6 @@
 import Message from 'tdesign-miniprogram/message/index';
+import { loadHomeFeeds } from '../../services/homeService';
 import { getMenuButtonSafeArea } from '../../utils/navigation';
-import { fetchFeedList } from '../../api/modules/feed';
-
-function formatRelativeTime(dateStr) {
-  if (!dateStr) return '';
-  const now = Date.now();
-  const time = new Date(dateStr).getTime();
-  const diff = now - time;
-  if (diff < 60000) return '刚刚';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分钟前`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)} 小时前`;
-  if (diff < 604800000) return `${Math.floor(diff / 86400000)} 天前`;
-  return dateStr.slice(0, 10);
-}
-
-function getFeedTargetUrl(feedType, id) {
-  if (!id) return '';
-  const detailRoutes = {
-    market: '/pages/market/detail/index',
-    errand: '/pages/errand/detail/index',
-    lostFound: '/pages/lost-found/detail/index',
-  };
-  if (detailRoutes[feedType]) return `${detailRoutes[feedType]}?id=${id}`;
-
-  const listRoutes = {
-    resource: '/pages/resource/index',
-    carpool: '/pages/carpool/index',
-  };
-  if (listRoutes[feedType]) return `${listRoutes[feedType]}?insertId=${id}`;
-
-  return '';
-}
-
-function mapFeedItem(item) {
-  const extra = item.extra || {};
-  const image = item.image || (extra.images && extra.images[0]) || '';
-  return {
-    id: item.id || '',
-    feedType: item.feed_type || '',
-    name: item.publisher || '',
-    time: formatRelativeTime(item.created_at),
-    badge: item.feed_type_label || '',
-    badgeTone: 'hot',
-    tone: 'indigo',
-    avatarIcon: 'user',
-    title: item.title || '',
-    desc: item.desc || '',
-    image,
-    targetUrl: getFeedTargetUrl(item.feed_type, item.id),
-    likes: 0,
-    comments: 0,
-  };
-}
-
-function distributeToColumns(items) {
-  const left = [];
-  const right = [];
-  items.forEach((item, index) => {
-    if (index % 2 === 0) left.push(item);
-    else right.push(item);
-  });
-  return { left, right };
-}
 
 Page({
   data: {
@@ -126,17 +65,14 @@ Page({
 
   loadFeed() {
     this.setData({ loadingFeed: true });
-    fetchFeedList({ page: 1, pageSize: this.data.feedPageSize })
-      .then((res) => {
-        const data = res.data || res;
-        const list = (data.list || []).map(mapFeedItem);
-        const columns = distributeToColumns(list);
+    loadHomeFeeds({ page: 1, pageSize: this.data.feedPageSize })
+      .then((result) => {
         this.setData({
-          campusFeedLeft: columns.left,
-          campusFeedRight: columns.right,
+          campusFeedLeft: result.columns.left,
+          campusFeedRight: result.columns.right,
           feedPage: 1,
-          feedTotal: data.total || 0,
-          hasMore: (data.total || 0) > this.data.feedPageSize,
+          feedTotal: result.total,
+          hasMore: result.total > this.data.feedPageSize,
           loadingFeed: false,
         });
       })
@@ -147,18 +83,15 @@ Page({
 
   onRefresh() {
     this.setData({ enable: true });
-    fetchFeedList({ page: 1, pageSize: this.data.feedPageSize })
-      .then((res) => {
-        const data = res.data || res;
-        const list = (data.list || []).map(mapFeedItem);
-        const columns = distributeToColumns(list);
+    loadHomeFeeds({ page: 1, pageSize: this.data.feedPageSize })
+      .then((result) => {
         this.setData({
           enable: false,
-          campusFeedLeft: columns.left,
-          campusFeedRight: columns.right,
+          campusFeedLeft: result.columns.left,
+          campusFeedRight: result.columns.right,
           feedPage: 1,
-          feedTotal: data.total || 0,
-          hasMore: (data.total || 0) > this.data.feedPageSize,
+          feedTotal: result.total,
+          hasMore: result.total > this.data.feedPageSize,
           isLoadingMore: false,
         });
       })
@@ -172,18 +105,15 @@ Page({
     const nextPage = this.data.feedPage + 1;
     this.setData({ isLoadingMore: true });
 
-    fetchFeedList({ page: nextPage, pageSize: this.data.feedPageSize })
-      .then((res) => {
-        const data = res.data || res;
-        const list = (data.list || []).map(mapFeedItem);
-        const columns = distributeToColumns(list);
+    loadHomeFeeds({ page: nextPage, pageSize: this.data.feedPageSize })
+      .then((result) => {
         this.setData({
           isLoadingMore: false,
           feedPage: nextPage,
-          feedTotal: data.total || 0,
-          hasMore: nextPage * this.data.feedPageSize < (data.total || 0),
-          campusFeedLeft: this.data.campusFeedLeft.concat(columns.left),
-          campusFeedRight: this.data.campusFeedRight.concat(columns.right),
+          feedTotal: result.total,
+          hasMore: nextPage * this.data.feedPageSize < result.total,
+          campusFeedLeft: this.data.campusFeedLeft.concat(result.columns.left),
+          campusFeedRight: this.data.campusFeedRight.concat(result.columns.right),
         });
       })
       .catch(() => {

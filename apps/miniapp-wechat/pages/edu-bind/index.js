@@ -1,6 +1,10 @@
 import useToastBehavior from '~/behaviors/useToast';
-import { getStudentProfile, createStudentProfile, updateStudentProfile } from '~/api/modules/student';
-import { post } from '~/api/request';
+import {
+  bindAcademicAccount,
+  loadAcademicBindingModel,
+  sendAcademicCaptcha,
+  unbindAcademicAccount,
+} from '~/services/profileService';
 
 Page({
   behaviors: [useToastBehavior],
@@ -22,7 +26,15 @@ Page({
   },
 
   onLoad() {
-    this.getBindStatus();
+    this.loadBindingState();
+  },
+
+  onShow() {
+    this.loadBindingState();
+  },
+
+  onUnload() {
+    this.clearCountdownTimer();
   },
 
   onBack() {
@@ -35,51 +47,47 @@ Page({
     });
   },
 
-  async getBindStatus() {
+  async loadBindingState() {
     try {
-      const res = await getStudentProfile();
-      const profile = res.data || res;
-      if (profile.is_bound) {
-        this.setData({
-          isBound: true,
-          bindInfo: {
-            sid: profile.student_id || '',
-            name: profile.name || '',
-            bindTime: profile.updated_at || '',
-          },
-        });
-      }
+      const model = await loadAcademicBindingModel();
+      this.setData({
+        isBound: model.isBound,
+        bindInfo: model.bindInfo,
+      });
     } catch (e) {
-      console.error(e);
+      this.onShowToast('#t-toast', '教务状态加载失败');
     }
   },
 
   updateSubmitState() {
     const { sid, password, captcha } = this.data;
     this.setData({
-      isSubmitDisabled: !sid || !password || !captcha,
+      isSubmitDisabled: !sid.trim() || !password.trim() || !captcha.trim(),
     });
   },
 
   onSidChange(e) {
-    this.setData({ sid: e.detail.value }, () => this.updateSubmitState());
+    this.setData({ sid: e.detail.value || '' });
+    this.updateSubmitState();
   },
 
   onPasswordChange(e) {
-    this.setData({ password: e.detail.value }, () => this.updateSubmitState());
+    this.setData({ password: e.detail.value || '' });
+    this.updateSubmitState();
   },
 
   onCaptchaChange(e) {
-    this.setData({ captcha: e.detail.value }, () => this.updateSubmitState());
+    this.setData({ captcha: e.detail.value || '' });
+    this.updateSubmitState();
   },
 
   onSendCaptcha() {
     if (this.data.countdown > 0) return;
-    if (!this.data.sid) {
+    if (!this.data.sid.trim()) {
       this.onShowToast('#t-toast', '请先输入学号');
       return;
     }
-    post('/edu/send-captcha', { sid: this.data.sid })
+    sendAcademicCaptcha(this.data.sid.trim())
       .then(() => {
         this.onShowToast('#t-toast', '验证码已发送');
         this.startCountdown();
@@ -90,10 +98,11 @@ Page({
   },
 
   startCountdown() {
+    this.clearCountdownTimer();
     this.setData({ countdown: 60 });
     this._timer = setInterval(() => {
       if (this.data.countdown <= 1) {
-        clearInterval(this._timer);
+        this.clearCountdownTimer();
         this.setData({ countdown: 0 });
       } else {
         this.setData({ countdown: this.data.countdown - 1 });
@@ -101,22 +110,35 @@ Page({
     }, 1000);
   },
 
+  clearCountdownTimer() {
+    if (this._timer) {
+      clearInterval(this._timer);
+      this._timer = null;
+    }
+  },
+
   async onBind() {
     const { sid, password, captcha, isSubmitDisabled } = this.data;
     if (isSubmitDisabled) return;
 
     try {
-      const data = { student_id: sid, password, captcha };
-      const res = await createStudentProfile(data);
-      const profile = res.data || res;
+      const profile = await bindAcademicAccount({
+        studentId: sid.trim(),
+        password: password.trim(),
+        captcha: captcha.trim(),
+      });
       this.setData({
         isBound: true,
         bindInfo: {
-          sid: profile.student_id || sid,
+          sid: profile.studentId || sid.trim(),
           name: profile.name || '',
-          bindTime: profile.updated_at || '',
+          bindTime: profile.bindingUpdatedLabel || '',
         },
+        password: '',
+        captcha: '',
+        isSubmitDisabled: true,
       });
+      this.clearCountdownTimer();
       this.onShowToast('#t-toast', '绑定成功');
     } catch (e) {
       this.onShowToast('#t-toast', '绑定失败，请检查信息');
@@ -131,7 +153,7 @@ Page({
 
   async onUnbindConfirm() {
     try {
-      await updateStudentProfile({ is_bound: false });
+      await unbindAcademicAccount();
       this.setData({
         isBound: false,
         sid: '',
@@ -141,6 +163,7 @@ Page({
         unbindDialogVisible: false,
         isSubmitDisabled: true,
       });
+      this.clearCountdownTimer();
       this.onShowToast('#t-toast', '已解绑');
     } catch (e) {
       this.onShowToast('#t-toast', '解绑失败');

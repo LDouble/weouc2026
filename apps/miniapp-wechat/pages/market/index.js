@@ -1,56 +1,15 @@
-import { fetchMarketList, favoriteMarket } from '../../api/modules/market';
-import { getMarketCategories } from '../../store/config';
-
-function buildCategoryLabelMap() {
-  const categories = getMarketCategories();
-  return categories.reduce((map, item) => {
-    if (item.value && item.value !== 'all') {
-      map[item.value] = item.label;
-    }
-    return map;
-  }, {});
-}
-
-function mapMarketItem(item, categoryLabelMap) {
-  const extra = item.extra || {};
-  const isWanted = extra.category === 'wanted';
-  const imageUrls = extra.images && extra.images.length ? extra.images : [];
-  if (!imageUrls.length && item.image) imageUrls.push(item.image);
-  const images = imageUrls.map((url, index) => ({
-    key: `img-${item.id}-${index}`,
-    url,
-    variant: 'center',
-  }));
-
-  return {
-    id: item.id,
-    category: extra.category || 'life',
-    categoryName: categoryLabelMap[extra.category] || extra.category || '',
-    mode: isWanted ? 'wanted' : '',
-    title: item.title || '',
-    price: extra.price || '0',
-    originalPrice: extra.original_price || '',
-    condition: extra.condition || '',
-    seller: item.publisher || '',
-    sellerInitial: item.publisher_initial || '',
-    avatarTone: 'green',
-    likes: extra.likes || item.likes || 0,
-    liked: extra.is_favorited || item.liked || false,
-    image: item.image || (images[0] ? images[0].url : ''),
-    images,
-    imageHeight: images.length ? 342 : 354,
-    cardBg: 'blue',
-    detail: item.desc || '',
-    contact: extra.contact || '',
-  };
-}
+import {
+  getMarketPageConfig,
+  loadMarketList,
+  toggleMarketFavorite,
+} from '../../services/marketService';
 
 Page({
   data: {
     activeCategory: 'all',
     searchKeyword: '',
     productList: [],
-    categoryList: getMarketCategories(),
+    categoryList: getMarketPageConfig().categoryList,
     productColumns: {
       left: [],
       right: [],
@@ -68,7 +27,7 @@ Page({
   },
 
   refreshMarketConfig() {
-    const categoryList = getMarketCategories();
+    const categoryList = getMarketPageConfig().categoryList;
     const hasActiveCategory = categoryList.some((item) => item.value === this.data.activeCategory);
     const defaultCategory = categoryList[0] ? categoryList[0].value : 'all';
 
@@ -86,14 +45,11 @@ Page({
     this.setData({ loading: true, page: 1 });
 
     try {
-      const res = await fetchMarketList({ category, keyword, page: 1, pageSize });
-      const categoryLabelMap = buildCategoryLabelMap();
-      const list = (res.data && res.data.list) || [];
-      const productList = list.map((item) => mapMarketItem(item, categoryLabelMap));
+      const result = await loadMarketList({ category, keyword, page: 1, pageSize });
       this.setData(
         {
-          productList,
-          total: (res.data && res.data.total) || 0,
+          productList: result.items,
+          total: result.total,
           loading: false,
         },
         () => {
@@ -118,15 +74,12 @@ Page({
     this.setData({ loading: true });
 
     try {
-      const res = await fetchMarketList({ category, keyword, page: nextPage, pageSize });
-      const categoryLabelMap = buildCategoryLabelMap();
-      const list = (res.data && res.data.list) || [];
-      const newProducts = list.map((item) => mapMarketItem(item, categoryLabelMap));
+      const result = await loadMarketList({ category, keyword, page: nextPage, pageSize });
       this.setData(
         {
-          productList: productList.concat(newProducts),
+          productList: productList.concat(result.items),
           page: nextPage,
-          total: (res.data && res.data.total) || 0,
+          total: result.total,
           loading: false,
         },
         () => {
@@ -176,16 +129,16 @@ Page({
   },
 
   filterProducts() {
-    const { productList } = this.data;
-    const productColumns = productList.reduce(
-      (columns, item, index) => {
-        const target = item.column || (index % 2 === 0 ? 'left' : 'right');
-        columns[target].push(item);
-        return columns;
-      },
-      { left: [], right: [] },
-    );
-    this.setData({ productColumns });
+    const left = [];
+    const right = [];
+    this.data.productList.forEach((item, index) => {
+      if (index % 2 === 0) {
+        left.push(item);
+      } else {
+        right.push(item);
+      }
+    });
+    this.setData({ productColumns: { left, right } });
   },
 
   onProductSelect(e) {
@@ -195,20 +148,14 @@ Page({
 
   async onFavorite(e) {
     const { product } = e.detail;
-    const action = product.liked ? 'remove' : 'add';
 
     try {
-      await favoriteMarket(product.id, action);
       const productList = this.data.productList.map((item) => {
         if (item.id !== product.id) return item;
-        const liked = !item.liked;
-        return {
-          ...item,
-          liked,
-          likes: item.likes + (liked ? 1 : -1),
-        };
+        return toggleMarketFavorite(item);
       });
-      this.setData({ productList }, () => {
+      const resolvedList = await Promise.all(productList);
+      this.setData({ productList: resolvedList }, () => {
         this.filterProducts();
       });
     } catch (error) {

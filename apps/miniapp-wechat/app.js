@@ -1,11 +1,11 @@
-import { initAppConfigStore } from './store/config';
+import { bootstrapSession } from './services/sessionService';
+import { initAppConfigStore } from './stores/config';
 import createBus from './utils/eventBus';
-import { silentLogin } from './api/auth';
 
 App({
   onLaunch() {
     initAppConfigStore();
-    silentLogin();
+    bootstrapSession();
 
     const updateManager = wx.getUpdateManager();
 
