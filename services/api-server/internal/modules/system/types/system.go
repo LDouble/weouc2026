@@ -22,6 +22,10 @@ type ReadinessStatus struct {
 	Timestamp    time.Time          `json:"timestamp"`
 }
 
+func (r ReadinessStatus) IsReady() bool {
+	return r.Status == "ready"
+}
+
 type Profile struct {
 	Service ProfileService `json:"service"`
 	Auth    ProfileAuth    `json:"auth"`

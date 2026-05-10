@@ -22,7 +22,13 @@ func (h *Handler) Healthz(c *gin.Context) {
 }
 
 func (h *Handler) Readyz(c *gin.Context) {
-	httpx.JSON(c, http.StatusOK, h.service.Ready(c.Request.Context()))
+	status := h.service.Ready(c.Request.Context())
+	statusCode := http.StatusOK
+	if !status.IsReady() {
+		statusCode = http.StatusServiceUnavailable
+	}
+
+	httpx.JSON(c, statusCode, status)
 }
 
 func (h *Handler) Profile(c *gin.Context) {

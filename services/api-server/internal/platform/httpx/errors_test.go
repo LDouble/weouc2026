@@ -7,6 +7,7 @@ func TestErrorFactoriesUseStableCodes(t *testing.T) {
 		BadRequest("参数错误", nil),
 		Unauthorized("未登录"),
 		Forbidden("无权限", map[string]any{"permission": "portal:publish"}),
+		NotFound("不存在", nil),
 		Internal("内部错误", nil),
 	}
 

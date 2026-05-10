@@ -9,6 +9,7 @@ const (
 	CodeBadRequest   = "COMMON_BAD_REQUEST"
 	CodeUnauthorized = "AUTH_UNAUTHORIZED"
 	CodeForbidden    = "AUTH_FORBIDDEN"
+	CodeNotFound     = "COMMON_NOT_FOUND"
 	CodeInternal     = "COMMON_INTERNAL_ERROR"
 )
 
@@ -65,6 +66,19 @@ func Forbidden(message string, details map[string]any) *AppError {
 	return &AppError{
 		HTTPStatus: http.StatusForbidden,
 		Code:       CodeForbidden,
+		Message:    message,
+		Details:    details,
+	}
+}
+
+func NotFound(message string, details map[string]any) *AppError {
+	if message == "" {
+		message = "请求的资源不存在"
+	}
+
+	return &AppError{
+		HTTPStatus: http.StatusNotFound,
+		Code:       CodeNotFound,
 		Message:    message,
 		Details:    details,
 	}

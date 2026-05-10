@@ -1,7 +1,9 @@
 package auth
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -9,6 +11,19 @@ import (
 	"github.com/gin-gonic/gin"
 	appconfig "github.com/liangluo/weouc2026/services/api-server/internal/platform/config"
 )
+
+type mockResolver struct {
+	principal Principal
+	err       error
+}
+
+func (m mockResolver) ResolveToken(context.Context, string) (Principal, error) {
+	if m.err != nil {
+		return Principal{}, m.err
+	}
+
+	return m.principal, nil
+}
 
 func TestContextMiddlewareParsesHeaders(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -23,7 +38,7 @@ func TestContextMiddlewareParsesHeaders(t *testing.T) {
 	}
 
 	router := gin.New()
-	router.Use(ContextMiddleware(cfg))
+	router.Use(ContextMiddleware(cfg, nil))
 	router.GET("/principal", func(c *gin.Context) {
 		c.JSON(http.StatusOK, PrincipalFromContext(c))
 	})
@@ -67,7 +82,7 @@ func TestRequirePermissionRejectsMissingPermission(t *testing.T) {
 	}
 
 	router := gin.New()
-	router.Use(ContextMiddleware(cfg))
+	router.Use(ContextMiddleware(cfg, nil))
 	router.GET("/secure", RequirePermission("portal:publish"), func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})
@@ -81,5 +96,81 @@ func TestRequirePermissionRejectsMissingPermission(t *testing.T) {
 
 	if recorder.Code != http.StatusForbidden {
 		t.Fatalf("expected status 403, got %d", recorder.Code)
+	}
+}
+
+func TestContextMiddlewareResolvesBearerToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	cfg := appconfig.AppConfig{
+		Auth: appconfig.AuthConfig{
+			UserIDHeader:        "X-User-ID",
+			RolesHeader:         "X-User-Roles",
+			PermissionsHeader:   "X-User-Permissions",
+			AcademicBoundHeader: "X-Academic-Bound",
+		},
+	}
+
+	router := gin.New()
+	router.Use(ContextMiddleware(cfg, mockResolver{
+		principal: Principal{
+			Authenticated: true,
+			UserID:        "u-2002",
+			DisplayName:   "海大同学",
+			Roles:         []string{"student"},
+			Permissions:   []string{"contact:view"},
+			AcademicBound: true,
+		},
+	}))
+	router.GET("/principal", func(c *gin.Context) {
+		c.JSON(http.StatusOK, PrincipalFromContext(c))
+	})
+
+	request := httptest.NewRequest(http.MethodGet, "/principal", nil)
+	request.Header.Set("Authorization", "Bearer token-001")
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", recorder.Code)
+	}
+
+	var principal Principal
+	if err := json.Unmarshal(recorder.Body.Bytes(), &principal); err != nil {
+		t.Fatalf("unmarshal principal failed: %v", err)
+	}
+
+	if principal.UserID != "u-2002" || !principal.AcademicBound || principal.DisplayName != "海大同学" {
+		t.Fatalf("unexpected principal: %+v", principal)
+	}
+}
+
+func TestContextMiddlewareRejectsInvalidBearerToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	cfg := appconfig.AppConfig{
+		Auth: appconfig.AuthConfig{
+			UserIDHeader:        "X-User-ID",
+			RolesHeader:         "X-User-Roles",
+			PermissionsHeader:   "X-User-Permissions",
+			AcademicBoundHeader: "X-Academic-Bound",
+		},
+	}
+
+	router := gin.New()
+	router.Use(ContextMiddleware(cfg, mockResolver{err: errors.New("expired")}))
+	router.GET("/principal", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	request := httptest.NewRequest(http.MethodGet, "/principal", nil)
+	request.Header.Set("Authorization", "Bearer expired-token")
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf("expected status 401, got %d", recorder.Code)
 	}
 }

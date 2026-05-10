@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"strconv"
 	"strings"
 
@@ -14,13 +15,30 @@ const principalContextKey = "auth_principal"
 type Principal struct {
 	Authenticated bool     `json:"authenticated"`
 	UserID        string   `json:"user_id,omitempty"`
+	DisplayName   string   `json:"display_name,omitempty"`
 	Roles         []string `json:"roles,omitempty"`
 	Permissions   []string `json:"permissions,omitempty"`
 	AcademicBound bool     `json:"academic_bound"`
 }
 
-func ContextMiddleware(cfg appconfig.AppConfig) gin.HandlerFunc {
+type TokenResolver interface {
+	ResolveToken(ctx context.Context, token string) (Principal, error)
+}
+
+func ContextMiddleware(cfg appconfig.AppConfig, resolver TokenResolver) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if token := bearerTokenFromHeader(c.GetHeader("Authorization")); token != "" && resolver != nil {
+			principal, err := resolver.ResolveToken(c.Request.Context(), token)
+			if err != nil || !principal.Authenticated {
+				httpx.AbortWithError(c, httpx.Unauthorized("登录状态已失效，请重新登录"))
+				return
+			}
+
+			c.Set(principalContextKey, principal)
+			c.Next()
+			return
+		}
+
 		principal := Principal{
 			UserID:        strings.TrimSpace(c.GetHeader(cfg.Auth.UserIDHeader)),
 			Roles:         splitHeaderValues(c.GetHeader(cfg.Auth.RolesHeader)),
@@ -111,4 +129,17 @@ func splitHeaderValues(raw string) []string {
 func parseBoolHeader(raw string) bool {
 	value, err := strconv.ParseBool(strings.TrimSpace(raw))
 	return err == nil && value
+}
+
+func bearerTokenFromHeader(header string) string {
+	if header == "" {
+		return ""
+	}
+
+	const prefix = "Bearer "
+	if !strings.HasPrefix(header, prefix) {
+		return ""
+	}
+
+	return strings.TrimSpace(strings.TrimPrefix(header, prefix))
 }

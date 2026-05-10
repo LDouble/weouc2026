@@ -7,7 +7,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestCanonicalOpenAPIContainsSystemRoutes(t *testing.T) {
+func TestCanonicalOpenAPIContainsCoreRoutes(t *testing.T) {
 	content, err := os.ReadFile("openapi.yaml")
 	if err != nil {
 		t.Fatalf("read openapi.yaml failed: %v", err)
@@ -25,7 +25,19 @@ func TestCanonicalOpenAPIContainsSystemRoutes(t *testing.T) {
 		t.Fatalf("expected openapi version 3.1.0, got %q", document.OpenAPI)
 	}
 
-	expectedPaths := []string{"/healthz", "/readyz", "/api/v1/system/profile"}
+	expectedPaths := []string{
+		"/healthz",
+		"/readyz",
+		"/api/v1/system/profile",
+		"/api/auth/wechat/login",
+		"/api/student",
+		"/api/edu/send-captcha",
+		"/api/feed/list",
+		"/api/market/detail/{id}",
+		"/api/errand/accept",
+		"/api/resource/list",
+		"/api/lostFound/detail/{id}",
+	}
 	for _, path := range expectedPaths {
 		if _, exists := document.Paths[path]; !exists {
 			t.Fatalf("expected path %s in openapi document", path)

@@ -1,19 +1,22 @@
 openapi: 3.1.0
 info:
   title: WEOUC API Server Baseline
-  version: 0.1.0
-  description: 校园综合应用后端基础工程的最小契约基线。
+  version: 0.2.1
+  description: 校园综合应用后端当前可联调接口契约，覆盖系统接口与微信小程序主链路基础能力。
 servers:
   - url: http://localhost:8080
     description: Local development
 tags:
   - name: System
     description: 系统级健康检查、就绪检查与会话画像接口
+  - name: IAM
+    description: 登录、会话、资料与教务绑定接口
+  - name: CampusLife
+    description: 首页动态、二手、跑腿、资料、失物招领接口
 paths:
   /healthz:
     get:
-      tags:
-        - System
+      tags: [System]
       summary: 存活检查
       operationId: getHealthz
       responses:
@@ -25,8 +28,7 @@ paths:
                 $ref: '#/components/schemas/HealthResponseEnvelope'
   /readyz:
     get:
-      tags:
-        - System
+      tags: [System]
       summary: 就绪检查
       operationId: getReadyz
       responses:
@@ -36,10 +38,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ReadinessResponseEnvelope'
+        '503':
+          description: 依赖未就绪
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadinessResponseEnvelope'
   /api/v1/system/profile:
     get:
-      tags:
-        - System
+      tags: [System]
       summary: 获取当前会话画像
       operationId: getSystemProfile
       parameters:
@@ -55,12 +62,472 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProfileResponseEnvelope'
         '401':
-          description: 未登录
+          $ref: '#/components/responses/UnauthorizedResponse'
+  /api/auth/wechat/login:
+    post:
+      tags: [IAM]
+      summary: 微信小程序登录
+      operationId: postWechatLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WeChatLoginRequest'
+      responses:
+        '200':
+          description: 登录成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponseEnvelope'
+                $ref: '#/components/schemas/WeChatLoginResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+  /api/student:
+    get:
+      tags: [IAM]
+      summary: 获取当前用户资料
+      operationId: getCurrentStudent
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 用户资料
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentProfileResponseEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+    post:
+      tags: [IAM]
+      summary: 提交教务绑定
+      operationId: bindStudent
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BindStudentRequest'
+      responses:
+        '200':
+          description: 绑定成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentProfileResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+    put:
+      tags: [IAM]
+      summary: 解绑教务
+      operationId: unbindStudent
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStudentRequest'
+      responses:
+        '200':
+          description: 解绑成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+  /api/edu/send-captcha:
+    post:
+      tags: [IAM]
+      summary: 发送教务验证码
+      operationId: sendEduCaptcha
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendCaptchaRequest'
+      responses:
+        '200':
+          description: 发送成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+  /api/feed/list:
+    get:
+      tags: [CampusLife]
+      summary: 获取首页动态流
+      operationId: listFeeds
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Keyword'
+        - $ref: '#/components/parameters/UserRole'
+      responses:
+        '200':
+          description: 动态流分页结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponseEnvelope'
+  /api/market/list:
+    get:
+      tags: [CampusLife]
+      summary: 获取二手列表
+      operationId: listMarkets
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Keyword'
+        - $ref: '#/components/parameters/Category'
+      responses:
+        '200':
+          description: 二手分页结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponseEnvelope'
+  /api/market/detail/{id}:
+    get:
+      tags: [CampusLife]
+      summary: 获取二手详情
+      operationId: getMarketDetail
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: 二手详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+  /api/market/publish:
+    post:
+      tags: [CampusLife]
+      summary: 发布二手信息
+      operationId: publishMarket
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarketPublishRequest'
+      responses:
+        '200':
+          description: 发布成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IDResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+  /api/market/favorite:
+    post:
+      tags: [CampusLife]
+      summary: 收藏或取消收藏二手
+      operationId: favoriteMarket
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FavoriteMarketRequest'
+      responses:
+        '200':
+          description: 收藏动作成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+  /api/errand/list:
+    get:
+      tags: [CampusLife]
+      summary: 获取跑腿列表
+      operationId: listErrands
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Keyword'
+        - $ref: '#/components/parameters/Category'
+        - $ref: '#/components/parameters/UserRole'
+      responses:
+        '200':
+          description: 跑腿分页结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponseEnvelope'
+  /api/errand/detail/{id}:
+    get:
+      tags: [CampusLife]
+      summary: 获取跑腿详情
+      operationId: getErrandDetail
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: 跑腿详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+  /api/errand/publish:
+    post:
+      tags: [CampusLife]
+      summary: 发布跑腿信息
+      operationId: publishErrand
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrandPublishRequest'
+      responses:
+        '200':
+          description: 发布成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IDResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+  /api/errand/accept:
+    post:
+      tags: [CampusLife]
+      summary: 接单跑腿
+      operationId: acceptErrand
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrandActionRequest'
+      responses:
+        '200':
+          description: 接单成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+  /api/errand/cancel-publish:
+    post:
+      tags: [CampusLife]
+      summary: 取消发布跑腿
+      operationId: cancelErrandPublish
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrandActionRequest'
+      responses:
+        '200':
+          description: 取消成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+  /api/errand/cancel-accept:
+    post:
+      tags: [CampusLife]
+      summary: 取消接单
+      operationId: cancelErrandAccept
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrandActionRequest'
+      responses:
+        '200':
+          description: 取消成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+  /api/resource/list:
+    get:
+      tags: [CampusLife]
+      summary: 获取资料列表
+      operationId: listResources
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Keyword'
+        - $ref: '#/components/parameters/Category'
+      responses:
+        '200':
+          description: 资料分页结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponseEnvelope'
+  /api/resource/detail/{id}:
+    get:
+      tags: [CampusLife]
+      summary: 获取资料详情
+      operationId: getResourceDetail
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: 资料详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+  /api/resource/publish:
+    post:
+      tags: [CampusLife]
+      summary: 发布资料
+      operationId: publishResource
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResourcePublishRequest'
+      responses:
+        '200':
+          description: 发布成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IDResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+  /api/lostFound/list:
+    get:
+      tags: [CampusLife]
+      summary: 获取失物招领列表
+      operationId: listLostFound
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Keyword'
+        - $ref: '#/components/parameters/Category'
+        - $ref: '#/components/parameters/LostFoundType'
+      responses:
+        '200':
+          description: 失物招领分页结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponseEnvelope'
+  /api/lostFound/detail/{id}:
+    get:
+      tags: [CampusLife]
+      summary: 获取失物招领详情
+      operationId: getLostFoundDetail
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: 失物招领详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+  /api/lostFound/publish:
+    post:
+      tags: [CampusLife]
+      summary: 发布失物招领
+      operationId: publishLostFound
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LostFoundPublishRequest'
+      responses:
+        '200':
+          description: 发布成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IDResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque-token
   parameters:
     XUserId:
       name: X-User-ID
@@ -76,7 +543,6 @@ components:
       schema:
         type: string
       description: 逗号分隔的角色列表
-      example: student,editor
     XUserPermissions:
       name: X-User-Permissions
       in: header
@@ -84,7 +550,6 @@ components:
       schema:
         type: string
       description: 逗号分隔的权限码列表
-      example: portal:publish,contact:view
     XAcademicBound:
       name: X-Academic-Bound
       in: header
@@ -92,60 +557,177 @@ components:
       schema:
         type: boolean
       description: 当前账号是否已完成教务绑定
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      schema:
+        type: integer
+        default: 20
+    Keyword:
+      name: keyword
+      in: query
+      schema:
+        type: string
+    UserRole:
+      name: user_role
+      in: query
+      schema:
+        type: string
+        enum: [publisher, acceptor, viewer]
+    Category:
+      name: category
+      in: query
+      schema:
+        type: string
+    LostFoundType:
+      name: type
+      in: query
+      schema:
+        type: string
+        enum: [lost, found]
+    ID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    BadRequestResponse:
+      description: 参数错误
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponseEnvelope'
+    UnauthorizedResponse:
+      description: 未登录或登录状态无效
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponseEnvelope'
+    ForbiddenResponse:
+      description: 无权执行当前操作
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponseEnvelope'
+    NotFoundResponse:
+      description: 资源不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponseEnvelope'
   schemas:
     RequestEnvelope:
       type: object
-      required:
-        - request_id
+      required: [request_id]
       properties:
         request_id:
           type: string
+    GenericData:
+      type: object
+      additionalProperties: true
+    ErrorDetail:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+    ErrorResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required: [error]
+          properties:
+            error:
+              $ref: '#/components/schemas/ErrorDetail'
+    GenericObjectResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/GenericData'
+    IDPayload:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+    IDResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/IDPayload'
+    ListPayload:
+      type: object
+      required: [list, total, page, pageSize]
+      properties:
+        list:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        total:
+          type: integer
+        page:
+          type: integer
+        pageSize:
+          type: integer
+    ListResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/ListPayload'
     HealthStatus:
       type: object
-      required:
-        - status
-        - service
-        - version
-        - timestamp
+      required: [status, service, version, timestamp]
       properties:
         status:
           type: string
           example: ok
         service:
           type: string
-          example: api-server
         version:
           type: string
-          example: dev
         timestamp:
           type: string
           format: date-time
     DependencyStatus:
       type: object
-      required:
-        - name
-        - status
-        - required
+      required: [name, status, required]
       properties:
         name:
           type: string
         status:
           type: string
-          example: skipped
         required:
           type: boolean
         detail:
           type: string
     ReadinessStatus:
       type: object
-      required:
-        - status
-        - dependencies
-        - timestamp
+      required: [status, dependencies, timestamp]
       properties:
         status:
           type: string
-          example: ready
         dependencies:
           type: array
           items:
@@ -155,10 +737,7 @@ components:
           format: date-time
     ProfileService:
       type: object
-      required:
-        - name
-        - environment
-        - version
+      required: [name, environment, version]
       properties:
         name:
           type: string
@@ -168,13 +747,13 @@ components:
           type: string
     ProfileAuth:
       type: object
-      required:
-        - authenticated
-        - academic_bound
+      required: [authenticated, academic_bound]
       properties:
         authenticated:
           type: boolean
         user_id:
+          type: string
+        display_name:
           type: string
         roles:
           type: array
@@ -188,33 +767,17 @@ components:
           type: boolean
     Profile:
       type: object
-      required:
-        - service
-        - auth
+      required: [service, auth]
       properties:
         service:
           $ref: '#/components/schemas/ProfileService'
         auth:
           $ref: '#/components/schemas/ProfileAuth'
-    ErrorDetail:
-      type: object
-      required:
-        - code
-        - message
-      properties:
-        code:
-          type: string
-        message:
-          type: string
-        details:
-          type: object
-          additionalProperties: true
     HealthResponseEnvelope:
       allOf:
         - $ref: '#/components/schemas/RequestEnvelope'
         - type: object
-          required:
-            - data
+          required: [data]
           properties:
             data:
               $ref: '#/components/schemas/HealthStatus'
@@ -222,8 +785,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/RequestEnvelope'
         - type: object
-          required:
-            - data
+          required: [data]
           properties:
             data:
               $ref: '#/components/schemas/ReadinessStatus'
@@ -231,17 +793,201 @@ components:
       allOf:
         - $ref: '#/components/schemas/RequestEnvelope'
         - type: object
-          required:
-            - data
+          required: [data]
           properties:
             data:
               $ref: '#/components/schemas/Profile'
-    ErrorResponseEnvelope:
+    WeChatLoginRequest:
+      type: object
+      required: [code, app_id]
+      properties:
+        code:
+          type: string
+        app_id:
+          type: string
+    WeChatUserInfo:
+      type: object
+      required: [userId, nickname, avatarUrl]
+      properties:
+        userId:
+          type: string
+        nickname:
+          type: string
+        avatarUrl:
+          type: string
+    WeChatLoginResponse:
+      type: object
+      required: [token, openid, userInfo]
+      properties:
+        token:
+          type: string
+        openid:
+          type: string
+        userInfo:
+          $ref: '#/components/schemas/WeChatUserInfo'
+    WeChatLoginResponseEnvelope:
       allOf:
         - $ref: '#/components/schemas/RequestEnvelope'
         - type: object
-          required:
-            - error
+          required: [data]
           properties:
-            error:
-              $ref: '#/components/schemas/ErrorDetail'
+            data:
+              $ref: '#/components/schemas/WeChatLoginResponse'
+    StudentProfile:
+      type: object
+      required: [name, avatar_url, student_id, major, college, grade, is_bound, updated_at]
+      properties:
+        name:
+          type: string
+        avatar_url:
+          type: string
+        student_id:
+          type: string
+        major:
+          type: string
+        college:
+          type: string
+        grade:
+          type: string
+        is_bound:
+          type: boolean
+        updated_at:
+          type: string
+          format: date-time
+    StudentProfileResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/StudentProfile'
+    SendCaptchaRequest:
+      type: object
+      required: [sid]
+      properties:
+        sid:
+          type: string
+    BindStudentRequest:
+      type: object
+      required: [student_id, password, captcha]
+      properties:
+        student_id:
+          type: string
+        password:
+          type: string
+        captcha:
+          type: string
+    UpdateStudentRequest:
+      type: object
+      properties:
+        is_bound:
+          type: boolean
+          enum: [false]
+    MarketPublishRequest:
+      type: object
+      required: [title, desc]
+      properties:
+        title:
+          type: string
+        desc:
+          type: string
+        price:
+          type: string
+        original_price:
+          type: string
+        category:
+          type: string
+        condition:
+          type: string
+        trade_mode:
+          type: string
+        contact:
+          type: string
+        images:
+          type: array
+          items:
+            type: string
+    FavoriteMarketRequest:
+      type: object
+      required: [product_id, action]
+      properties:
+        product_id:
+          type: string
+        action:
+          type: string
+          enum: [add, remove]
+    ErrandPublishRequest:
+      type: object
+      required: [title, contact, deadline]
+      properties:
+        title:
+          type: string
+        desc:
+          type: string
+        category:
+          type: string
+        route_start:
+          type: string
+        route_end:
+          type: string
+        deadline:
+          type: string
+          format: date-time
+        reward:
+          type: string
+        contact:
+          type: string
+        urgent:
+          type: boolean
+        images:
+          type: array
+          items:
+            type: string
+    ErrandActionRequest:
+      type: object
+      required: [task_id]
+      properties:
+        task_id:
+          type: string
+    ResourcePublishRequest:
+      type: object
+      required: [title, file_paths]
+      properties:
+        title:
+          type: string
+        desc:
+          type: string
+        category:
+          type: string
+        course_name:
+          type: string
+        contact:
+          type: string
+        file_paths:
+          type: array
+          items:
+            type: string
+    LostFoundPublishRequest:
+      type: object
+      required: [title, contact]
+      properties:
+        type:
+          type: string
+          enum: [lost, found]
+        category:
+          type: string
+        title:
+          type: string
+        desc:
+          type: string
+        location:
+          type: string
+        event_time:
+          type: string
+        item_feature:
+          type: string
+        contact:
+          type: string
+        reward:
+          type: string

@@ -11,6 +11,7 @@ func TestLoadUsesDefaults(t *testing.T) {
 	t.Setenv("API_SERVER_VERSION", "")
 	t.Setenv("API_SERVER_HOST", "")
 	t.Setenv("API_SERVER_PORT", "")
+	t.Setenv("API_SERVER_AUTH_ACCESS_TOKEN_TTL", "")
 
 	cfg, err := Load()
 	if err != nil {
@@ -26,6 +27,15 @@ func TestLoadUsesDefaults(t *testing.T) {
 	if cfg.Server.ReadTimeout != 5*time.Second {
 		t.Fatalf("expected default read timeout, got %s", cfg.Server.ReadTimeout)
 	}
+	if cfg.Auth.AccessTokenTTL != 24*time.Hour {
+		t.Fatalf("expected default auth ttl, got %s", cfg.Auth.AccessTokenTTL)
+	}
+	if cfg.Dependencies.Postgres.Enabled {
+		t.Fatal("expected postgres health probe to be disabled by default")
+	}
+	if cfg.Dependencies.Redis.Enabled {
+		t.Fatal("expected redis health probe to be disabled by default")
+	}
 }
 
 func TestLoadUsesEnvOverrides(t *testing.T) {
@@ -38,6 +48,13 @@ func TestLoadUsesEnvOverrides(t *testing.T) {
 	t.Setenv("API_SERVER_WRITE_TIMEOUT", "12s")
 	t.Setenv("API_SERVER_SHUTDOWN_TIMEOUT", "15s")
 	t.Setenv("API_SERVER_AUTH_USER_ID_HEADER", "X-Test-User")
+	t.Setenv("API_SERVER_AUTH_ACCESS_TOKEN_TTL", "48h")
+	t.Setenv("API_SERVER_POSTGRES_ENABLED", "true")
+	t.Setenv("API_SERVER_POSTGRES_HOST", "postgres")
+	t.Setenv("API_SERVER_POSTGRES_DATABASE", "weouc_dev")
+	t.Setenv("API_SERVER_REDIS_ENABLED", "true")
+	t.Setenv("API_SERVER_REDIS_HOST", "redis")
+	t.Setenv("API_SERVER_REDIS_DB", "2")
 
 	cfg, err := Load()
 	if err != nil {
@@ -56,6 +73,15 @@ func TestLoadUsesEnvOverrides(t *testing.T) {
 	if cfg.Auth.UserIDHeader != "X-Test-User" {
 		t.Fatalf("expected overridden auth header, got %q", cfg.Auth.UserIDHeader)
 	}
+	if cfg.Auth.AccessTokenTTL != 48*time.Hour {
+		t.Fatalf("expected overridden auth ttl, got %s", cfg.Auth.AccessTokenTTL)
+	}
+	if !cfg.Dependencies.Postgres.Enabled || cfg.Dependencies.Postgres.Database != "weouc_dev" {
+		t.Fatalf("expected overridden postgres config, got %+v", cfg.Dependencies.Postgres)
+	}
+	if !cfg.Dependencies.Redis.Enabled || cfg.Dependencies.Redis.Address() != "redis:6379" || cfg.Dependencies.Redis.Database != 2 {
+		t.Fatalf("expected overridden redis config, got %+v", cfg.Dependencies.Redis)
+	}
 }
 
 func TestValidateRejectsInvalidPort(t *testing.T) {
@@ -73,10 +99,46 @@ func TestValidateRejectsInvalidPort(t *testing.T) {
 			RolesHeader:         "X-User-Roles",
 			PermissionsHeader:   "X-User-Permissions",
 			AcademicBoundHeader: "X-Academic-Bound",
+			AccessTokenTTL:      time.Hour,
 		},
 	}
 
 	if err := cfg.Validate(); err == nil {
 		t.Fatal("expected Validate() to reject invalid port")
+	}
+}
+
+func TestValidateRejectsEnabledDependencyWithInvalidConfig(t *testing.T) {
+	cfg := AppConfig{
+		Service: ServiceConfig{Name: "api-server"},
+		Server: ServerConfig{
+			Host:            "127.0.0.1",
+			Port:            8080,
+			ReadTimeout:     time.Second,
+			WriteTimeout:    time.Second,
+			ShutdownTimeout: time.Second,
+		},
+		Auth: AuthConfig{
+			UserIDHeader:        "X-User-ID",
+			RolesHeader:         "X-User-Roles",
+			PermissionsHeader:   "X-User-Permissions",
+			AcademicBoundHeader: "X-Academic-Bound",
+			AccessTokenTTL:      time.Hour,
+		},
+		Dependencies: DependenciesConfig{
+			Postgres: PostgresConfig{
+				Enabled:            true,
+				Host:               "",
+				Port:               5432,
+				Database:           "weouc",
+				User:               "weouc",
+				SSLMode:            "disable",
+				HealthCheckTimeout: time.Second,
+			},
+		},
+	}
+
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected Validate() to reject invalid enabled dependency config")
 	}
 }

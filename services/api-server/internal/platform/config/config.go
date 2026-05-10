@@ -3,15 +3,17 @@ package config
 import (
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"time"
 )
 
 type AppConfig struct {
-	Service ServiceConfig
-	Server  ServerConfig
-	Auth    AuthConfig
+	Service      ServiceConfig
+	Server       ServerConfig
+	Auth         AuthConfig
+	Dependencies DependenciesConfig
 }
 
 type ServiceConfig struct {
@@ -33,6 +35,33 @@ type AuthConfig struct {
 	RolesHeader         string
 	PermissionsHeader   string
 	AcademicBoundHeader string
+	AccessTokenTTL      time.Duration
+}
+
+type DependenciesConfig struct {
+	Postgres PostgresConfig
+	Redis    RedisConfig
+}
+
+type PostgresConfig struct {
+	Enabled            bool
+	Host               string
+	Port               int
+	Database           string
+	User               string
+	Password           string
+	SSLMode            string
+	HealthCheckTimeout time.Duration
+}
+
+type RedisConfig struct {
+	Enabled            bool
+	Host               string
+	Port               int
+	Username           string
+	Password           string
+	Database           int
+	HealthCheckTimeout time.Duration
 }
 
 func Load() (AppConfig, error) {
@@ -54,6 +83,28 @@ func Load() (AppConfig, error) {
 			RolesHeader:         getenv("API_SERVER_AUTH_ROLES_HEADER", "X-User-Roles"),
 			PermissionsHeader:   getenv("API_SERVER_AUTH_PERMISSIONS_HEADER", "X-User-Permissions"),
 			AcademicBoundHeader: getenv("API_SERVER_AUTH_ACADEMIC_BOUND_HEADER", "X-Academic-Bound"),
+			AccessTokenTTL:      getenvDuration("API_SERVER_AUTH_ACCESS_TOKEN_TTL", 24*time.Hour),
+		},
+		Dependencies: DependenciesConfig{
+			Postgres: PostgresConfig{
+				Enabled:            getenvBool("API_SERVER_POSTGRES_ENABLED", false),
+				Host:               getenv("API_SERVER_POSTGRES_HOST", "127.0.0.1"),
+				Port:               getenvInt("API_SERVER_POSTGRES_PORT", 5432),
+				Database:           getenv("API_SERVER_POSTGRES_DATABASE", "weouc"),
+				User:               getenv("API_SERVER_POSTGRES_USER", "weouc"),
+				Password:           getenv("API_SERVER_POSTGRES_PASSWORD", "weouc"),
+				SSLMode:            getenv("API_SERVER_POSTGRES_SSL_MODE", "disable"),
+				HealthCheckTimeout: getenvDuration("API_SERVER_POSTGRES_HEALTHCHECK_TIMEOUT", 2*time.Second),
+			},
+			Redis: RedisConfig{
+				Enabled:            getenvBool("API_SERVER_REDIS_ENABLED", false),
+				Host:               getenv("API_SERVER_REDIS_HOST", "127.0.0.1"),
+				Port:               getenvInt("API_SERVER_REDIS_PORT", 6379),
+				Username:           getenv("API_SERVER_REDIS_USERNAME", ""),
+				Password:           getenv("API_SERVER_REDIS_PASSWORD", ""),
+				Database:           getenvInt("API_SERVER_REDIS_DB", 0),
+				HealthCheckTimeout: getenvDuration("API_SERVER_REDIS_HEALTHCHECK_TIMEOUT", 2*time.Second),
+			},
 		},
 	}
 
@@ -76,12 +127,93 @@ func (c AppConfig) Validate() error {
 	if c.Auth.UserIDHeader == "" || c.Auth.RolesHeader == "" || c.Auth.PermissionsHeader == "" || c.Auth.AcademicBoundHeader == "" {
 		return errors.New("auth headers must not be empty")
 	}
+	if c.Auth.AccessTokenTTL <= 0 {
+		return errors.New("access token ttl must be positive")
+	}
+	if err := c.Dependencies.Postgres.Validate(); err != nil {
+		return err
+	}
+	if err := c.Dependencies.Redis.Validate(); err != nil {
+		return err
+	}
 
 	return nil
 }
 
 func (c ServerConfig) Address() string {
 	return fmt.Sprintf("%s:%d", c.Host, c.Port)
+}
+
+func (c PostgresConfig) Address() string {
+	return fmt.Sprintf("%s:%d", c.Host, c.Port)
+}
+
+func (c PostgresConfig) DSN() string {
+	timeoutSeconds := int(math.Ceil(c.HealthCheckTimeout.Seconds()))
+	if timeoutSeconds <= 0 {
+		timeoutSeconds = 1
+	}
+
+	return fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s connect_timeout=%d",
+		c.Host,
+		c.Port,
+		c.User,
+		c.Password,
+		c.Database,
+		c.SSLMode,
+		timeoutSeconds,
+	)
+}
+
+func (c PostgresConfig) Validate() error {
+	if !c.Enabled {
+		return nil
+	}
+	if c.Host == "" {
+		return errors.New("postgres host is required when enabled")
+	}
+	if c.Port <= 0 || c.Port > 65535 {
+		return fmt.Errorf("postgres port %d is invalid", c.Port)
+	}
+	if c.Database == "" {
+		return errors.New("postgres database is required when enabled")
+	}
+	if c.User == "" {
+		return errors.New("postgres user is required when enabled")
+	}
+	if c.SSLMode == "" {
+		return errors.New("postgres ssl mode is required when enabled")
+	}
+	if c.HealthCheckTimeout <= 0 {
+		return errors.New("postgres health check timeout must be positive")
+	}
+
+	return nil
+}
+
+func (c RedisConfig) Address() string {
+	return fmt.Sprintf("%s:%d", c.Host, c.Port)
+}
+
+func (c RedisConfig) Validate() error {
+	if !c.Enabled {
+		return nil
+	}
+	if c.Host == "" {
+		return errors.New("redis host is required when enabled")
+	}
+	if c.Port <= 0 || c.Port > 65535 {
+		return fmt.Errorf("redis port %d is invalid", c.Port)
+	}
+	if c.Database < 0 {
+		return fmt.Errorf("redis db %d is invalid", c.Database)
+	}
+	if c.HealthCheckTimeout <= 0 {
+		return errors.New("redis health check timeout must be positive")
+	}
+
+	return nil
 }
 
 func getenv(key, defaultValue string) string {
@@ -106,6 +238,17 @@ func getenvInt(key string, defaultValue int) int {
 func getenvDuration(key string, defaultValue time.Duration) time.Duration {
 	if value := os.Getenv(key); value != "" {
 		parsed, err := time.ParseDuration(value)
+		if err == nil {
+			return parsed
+		}
+	}
+
+	return defaultValue
+}
+
+func getenvBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		parsed, err := strconv.ParseBool(value)
 		if err == nil {
 			return parsed
 		}

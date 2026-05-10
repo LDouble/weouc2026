@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -46,6 +47,20 @@ func TestSystemRoutes(t *testing.T) {
 		}
 	})
 
+	t.Run("readyz stays ready when probes are disabled", func(t *testing.T) {
+		recorder := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+
+		router.ServeHTTP(recorder, request)
+
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected 200, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+		if !strings.Contains(recorder.Body.String(), "\"status\":\"ready\"") {
+			t.Fatalf("expected readiness response to be ready, got %s", recorder.Body.String())
+		}
+	})
+
 	t.Run("profile requires auth", func(t *testing.T) {
 		recorder := httptest.NewRecorder()
 		request := httptest.NewRequest(http.MethodGet, "/api/v1/system/profile", nil)
@@ -84,6 +99,27 @@ func TestSystemRoutes(t *testing.T) {
 		}
 		if payload.Data.Auth.UserID != "student-001" || !payload.Data.Auth.AcademicBound {
 			t.Fatalf("unexpected payload: %s", recorder.Body.String())
+		}
+	})
+
+	t.Run("readyz returns 503 when required dependency is unavailable", func(t *testing.T) {
+		unavailableCfg := cfg
+		unavailableCfg.Dependencies.Redis.Enabled = true
+		unavailableCfg.Dependencies.Redis.Host = "127.0.0.1"
+		unavailableCfg.Dependencies.Redis.Port = 1
+		unavailableCfg.Dependencies.Redis.HealthCheckTimeout = 100 * time.Millisecond
+
+		unavailableRouter := NewRouter(unavailableCfg, applogger.New(unavailableCfg))
+		recorder := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+
+		unavailableRouter.ServeHTTP(recorder, request)
+
+		if recorder.Code != http.StatusServiceUnavailable {
+			t.Fatalf("expected 503, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+		if !strings.Contains(recorder.Body.String(), "\"status\":\"not_ready\"") {
+			t.Fatalf("expected readiness response to be not_ready, got %s", recorder.Body.String())
 		}
 	})
 }

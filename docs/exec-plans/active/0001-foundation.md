@@ -40,6 +40,9 @@
 - 已初始化 `services/api-server`，建立 `Go + Gin` 模块化单体基础骨架。
 - 已落地配置、结构化日志、请求 ID、统一错误响应、鉴权上下文中间件。
 - 已提供 `/healthz`、`/readyz`、`/api/v1/system/profile` 基础接口，并补齐最小 OpenAPI 契约基线。
+- 已落地小程序主链路核心接口：微信登录、教务绑定、当前资料、首页动态，以及二手/跑腿/资料/失物招领基础读取和关键交互接口。
+- 已接入 `wechat_provider`、`academic_provider` 的 mock 实现，便于无外部依赖条件下联调。
+- 当前上传与真实对象存储直传仍未接入，涉及真实文件直传的发布链路暂未完全闭环。
 
 ### 工作流 E：Flutter App 外壳
 
@@ -53,6 +56,12 @@
 - 建立 CI
 - 接入 lint / test / format
 - 预埋日志、指标、追踪、审计规范
+
+当前进展（`2026-05-10`）：
+
+- 已为 `services/api-server` 增加 Docker 镜像构建入口与 `docker compose` 本地编排。
+- 已将 `/readyz` 从静态占位改为真实依赖探测，当前覆盖 `postgres`、`redis`，并对未接入对象存储维持显式占位说明。
+- 已补充 `ops/docker/api-server` 联调文档与环境变量模板，便于团队统一启动后端依赖。
 
 ## 里程碑
 
