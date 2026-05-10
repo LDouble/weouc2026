@@ -54,6 +54,7 @@ Page({
       });
     } catch (e) {
       this.setData({ loading: false });
+      wx.showToast({ title: e.message || '加载失败，请重试', icon: 'none' });
     }
   },
 
@@ -119,6 +120,7 @@ Page({
       });
     } catch (e) {
       this.setData({ loading: false });
+      wx.showToast({ title: e.message || '加载失败，请重试', icon: 'none' });
     }
   },
 

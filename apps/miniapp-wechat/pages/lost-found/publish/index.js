@@ -175,7 +175,7 @@ Page({
     }
 
     try {
-      await publishLostFound({
+      const res = await publishLostFound({
         type: form.type,
         category: form.category,
         title: form.title.trim(),
@@ -186,17 +186,19 @@ Page({
         contact: form.contact.trim(),
         reward: '',
       });
+      const data = res.data || res || {};
+      const detailId = data.id || '';
       saveHistoryAddress(form.location.trim());
       wx.showToast({ title: '发布成功', icon: 'success' });
       setTimeout(() => {
-        if (getCurrentPages().length > 1) {
-          wx.navigateBack({ delta: 1 });
+        if (detailId) {
+          wx.redirectTo({ url: `/pages/lost-found/detail/index?id=${detailId}` });
           return;
         }
         wx.redirectTo({ url: '/pages/lost-found/index' });
       }, 360);
     } catch (error) {
-      wx.showToast({ title: '发布失败，请重试', icon: 'none' });
+      wx.showToast({ title: error.message || '发布失败，请重试', icon: 'none' });
     }
   },
 });

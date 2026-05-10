@@ -93,7 +93,7 @@
     <view class="lf-detail-bottom__inner">
       <view class="lf-detail-bottom__button" hover-class="tap-button" bindtap="onCopyContact">
         <t-icon name="chat" size="30rpx" />
-        <text>获取联系方式</text>
+        <text>{{detail.canViewContact === false ? '绑定后查看' : (detail.contact ? '复制联系方式' : '暂无可复制联系方式')}}</text>
       </view>
     </view>
   </view>

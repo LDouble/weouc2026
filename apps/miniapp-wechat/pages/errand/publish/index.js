@@ -31,6 +31,19 @@ function normalizeText(value) {
   return String(value).trim();
 }
 
+function confirmWithoutImages() {
+  return new Promise((resolve) => {
+    wx.showModal({
+      title: '图片上传暂不可用',
+      content: '当前服务端还未开放图片上传接口，可先继续发布无图任务。',
+      confirmText: '继续发布',
+      cancelText: '返回修改',
+      success: (res) => resolve(Boolean(res.confirm)),
+      fail: () => resolve(false),
+    });
+  });
+}
+
 Page({
   data: {
     categoryList: PUBLISH_CATEGORIES,
@@ -191,8 +204,6 @@ Page({
     const routeEnd = normalizeText(form.endPlace);
     const contact = normalizeText(form.contact);
 
-    let imageUrls = [];
-
     const payload = {
       title,
       desc: title,
@@ -208,13 +219,19 @@ Page({
     this.setData({ submitting: true });
     try {
       if (imageFiles.length) {
-        const uploadResults = await Promise.all(imageFiles.map((file) => uploadFile(file.url)));
-        imageUrls = uploadResults.map(getUploadResultUrl).filter(Boolean);
+        try {
+          const uploadResults = await Promise.all(imageFiles.map((file) => uploadFile(file.url)));
+          payload.images = uploadResults.map(getUploadResultUrl).filter(Boolean);
+        } catch (error) {
+          const confirmed = await confirmWithoutImages();
+          if (!confirmed) return;
+          payload.images = [];
+        }
       }
-      payload.images = imageUrls.filter(Boolean);
 
       const res = await publishErrand(payload);
-      const id = (res.data && res.data.id) || '';
+      const data = res.data || res || {};
+      const id = data.id || '';
       saveHistoryAddress(routeStart);
       saveHistoryAddress(routeEnd);
       wx.showToast({ title: '发布成功', icon: 'success' });
@@ -222,7 +239,7 @@ Page({
         wx.redirectTo({ url: `/pages/errand/detail/index?id=${id}` });
       }, 1500);
     } catch (err) {
-      wx.showToast({ title: '发布失败，请重试', icon: 'none' });
+      wx.showToast({ title: err.message || '发布失败，请重试', icon: 'none' });
     } finally {
       this.setData({ submitting: false });
     }

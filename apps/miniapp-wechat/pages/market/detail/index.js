@@ -1,5 +1,6 @@
 import { getMenuButtonSafeArea } from '../../../utils/navigation';
 import { fetchMarketDetail } from '../../../api/modules/market';
+import { toggleMarketFavorite } from '../../../services/marketService';
 import { getMarketCategories } from '../../../stores/config';
 
 function buildCategoryLabelMap() {
@@ -104,7 +105,7 @@ Page({
       });
     } catch (error) {
       this.setData({ loading: false });
-      wx.showToast({ title: '加载失败', icon: 'none' });
+      wx.showToast({ title: error.message || '加载失败，请重试', icon: 'none' });
     }
   },
 
@@ -116,15 +117,16 @@ Page({
     wx.navigateTo({ url: '/pages/market/index' });
   },
 
-  onToggleWanted() {
-    const wanted = !this.data.wanted;
-    this.setData({
-      wanted,
-      product: {
-        ...this.data.product,
-        likes: this.data.product.likes + (wanted ? 1 : -1),
-      },
-    });
+  async onToggleWanted() {
+    try {
+      const product = await toggleMarketFavorite(this.data.product);
+      this.setData({
+        wanted: product.liked,
+        product,
+      });
+    } catch (error) {
+      wx.showToast({ title: error.message || '操作失败，请重试', icon: 'none' });
+    }
   },
 
   onImageChange(e) {

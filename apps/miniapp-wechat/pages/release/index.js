@@ -3,6 +3,19 @@ import { publishMarket } from '../../api/modules/market';
 import { getUploadResultUrl, uploadFile } from '../../api/modules/upload';
 import { getMarketCategoryValueMap, getPaletteOptions, getReleaseScene } from '../../stores/config';
 
+const PUBLISH_REDIRECTS = {
+  errand: '/pages/errand/publish/index',
+  lostFound: '/pages/lost-found/publish/index',
+  resource: '/pages/resource/publish/index',
+};
+
+const PUBLISH_SCENE_OPTIONS = [
+  { label: '发布闲置', value: 'market' },
+  { label: '发布跑腿', value: 'errand' },
+  { label: '发布登记', value: 'lostFound' },
+  { label: '上传资料', value: 'resource' },
+];
+
 Page({
   data: {
     activeType: 'market',
@@ -35,7 +48,7 @@ Page({
 
   onLoad(options = {}) {
     this.applyNavigationSafeArea();
-    this.setActiveType(options.type || 'market');
+    this.bootstrapScene(options.type || '');
   },
 
   applyNavigationSafeArea() {
@@ -63,6 +76,38 @@ Page({
         this.updatePublishState();
       },
     );
+  },
+
+  bootstrapScene(type) {
+    if (type && PUBLISH_REDIRECTS[type]) {
+      wx.redirectTo({ url: PUBLISH_REDIRECTS[type] });
+      return;
+    }
+
+    if (!type) {
+      this.openPublishSelector();
+      return;
+    }
+
+    this.setActiveType('market');
+  },
+
+  openPublishSelector() {
+    wx.showActionSheet({
+      itemList: PUBLISH_SCENE_OPTIONS.map((item) => item.label),
+      success: (res) => {
+        const selected = PUBLISH_SCENE_OPTIONS[res.tapIndex] || PUBLISH_SCENE_OPTIONS[0];
+        if (!selected) return;
+        if (selected.value === 'market') {
+          this.setActiveType('market');
+          return;
+        }
+        wx.redirectTo({ url: PUBLISH_REDIRECTS[selected.value] });
+      },
+      fail: () => {
+        this.setActiveType('market');
+      },
+    });
   },
 
   onBack() {
@@ -158,6 +203,32 @@ Page({
     });
   },
 
+  confirmPublishWithoutImages() {
+    return new Promise((resolve) => {
+      wx.showModal({
+        title: '图片上传暂不可用',
+        content: '当前服务端还未开放图片上传接口，可先继续发布无图版本。',
+        confirmText: '继续发布',
+        cancelText: '返回修改',
+        success: (res) => resolve(Boolean(res.confirm)),
+        fail: () => resolve(false),
+      });
+    });
+  },
+
+  async uploadMarketImages(imageFiles) {
+    if (!imageFiles.length) return [];
+
+    try {
+      const uploadResults = await Promise.all(imageFiles.map((file) => uploadFile(file.url)));
+      return uploadResults.map(getUploadResultUrl).filter(Boolean);
+    } catch (error) {
+      const confirmed = await this.confirmPublishWithoutImages();
+      if (!confirmed) return null;
+      return [];
+    }
+  },
+
   async release() {
     const { form, currentScene, activeType, imageFiles, canPublish } = this.data;
 
@@ -174,14 +245,8 @@ Page({
     if (activeType === 'market') {
       try {
         wx.showLoading({ title: '发布中' });
-
-        let imageUrls = [];
-        if (imageFiles.length) {
-          const uploadResults = await Promise.all(
-            imageFiles.map((file) => uploadFile(file.url)),
-          );
-          imageUrls = uploadResults.map(getUploadResultUrl).filter(Boolean);
-        }
+        const imageUrls = await this.uploadMarketImages(imageFiles);
+        if (imageUrls === null) return;
 
         const marketCategoryValueMap = getMarketCategoryValueMap();
         const res = await publishMarket({
@@ -196,14 +261,15 @@ Page({
           images: imageUrls,
         });
 
-        wx.hideLoading();
-        const productId = (res.data && res.data.id) || '';
+        const data = res.data || res || {};
+        const productId = data.id || '';
         wx.redirectTo({
           url: `/pages/market/detail/index?id=${productId}`,
         });
       } catch (error) {
+        wx.showToast({ title: error.message || '发布失败，请重试', icon: 'none' });
+      } finally {
         wx.hideLoading();
-        wx.showToast({ title: '发布失败', icon: 'none' });
       }
       return;
     }

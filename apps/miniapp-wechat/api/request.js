@@ -9,11 +9,34 @@ function createRequestError(message, options = {}) {
   const error = new Error(message || '请求失败');
   error.statusCode = options.statusCode || 0;
   error.code = options.code || '';
+  error.details = options.details || null;
   error.response = options.response;
   return error;
 }
 
+function extractErrorInfo(body, fallbackMessage) {
+  const errorObject = body && typeof body === 'object' ? body.error : null;
+  const message = (errorObject && errorObject.message)
+    || (body && body.message)
+    || (typeof errorObject === 'string' ? errorObject : '')
+    || fallbackMessage
+    || '请求失败';
+  const code = (errorObject && errorObject.code)
+    || (body && body.code)
+    || '';
+
+  return {
+    message,
+    code,
+    details: errorObject && typeof errorObject === 'object' ? errorObject.details || null : null,
+  };
+}
+
 function isBusinessSuccess(body) {
+  if (body && typeof body === 'object' && body.error) {
+    return false;
+  }
+
   if (!body || typeof body !== 'object' || !Object.prototype.hasOwnProperty.call(body, 'code')) {
     return true;
   }
@@ -85,20 +108,24 @@ function request(url, method = 'GET', data = {}, options = {}) {
               return;
             }
 
+            const errorInfo = extractErrorInfo(body, `请求失败(${res.statusCode})`);
             reject(
-              createRequestError(body.message || body.error || `请求失败(${res.statusCode})`, {
+              createRequestError(errorInfo.message, {
                 statusCode: res.statusCode,
-                code: body.code,
+                code: errorInfo.code,
+                details: errorInfo.details,
                 response: res,
               }),
             );
             return;
           } else {
             const body = res.data || {};
+            const errorInfo = extractErrorInfo(body, `请求失败(${res.statusCode})`);
             reject(
-              createRequestError(body.message || body.error || `请求失败(${res.statusCode})`, {
+              createRequestError(errorInfo.message, {
                 statusCode: res.statusCode,
-                code: body.code,
+                code: errorInfo.code,
+                details: errorInfo.details,
                 response: res,
               }),
             );

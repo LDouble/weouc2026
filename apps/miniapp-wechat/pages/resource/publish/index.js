@@ -189,9 +189,18 @@ Page({
       throw new Error('文件路径无效，请重新选择文件');
     }
 
-    const results = await Promise.all(
-      fileList.map((file) => uploadFile(file.url, { name: file.name })),
-    );
+    let results = [];
+    try {
+      results = await Promise.all(
+        fileList.map((file) => uploadFile(file.url, { name: file.name })),
+      );
+    } catch (error) {
+      if (error && error.statusCode === 404) {
+        throw new Error('当前服务端未部署文件上传接口，暂时无法发布资料');
+      }
+      throw new Error(error.message || '文件上传失败，请稍后重试');
+    }
+
     const filePaths = results.map(getUploadResultPath).filter(Boolean);
 
     if (filePaths.length !== fileList.length) {
@@ -222,7 +231,7 @@ Page({
       wx.showLoading({ title: '上传中' });
       const filePaths = await this.uploadFiles();
 
-      await publishResource({
+      const res = await publishResource({
         title: form.title.trim(),
         desc: form.title.trim(),
         category: form.category,
@@ -230,6 +239,8 @@ Page({
         contact: '',
         file_paths: filePaths,
       });
+      const data = res.data || res || {};
+      const insertId = data.id || '';
 
       wx.hideLoading();
       wx.showToast({ title: '发布成功', icon: 'success' });
@@ -239,11 +250,11 @@ Page({
           wx.navigateBack({ delta: 1 });
           return;
         }
-        wx.redirectTo({ url: '/pages/resource/index' });
+        wx.redirectTo({ url: `/pages/resource/index${insertId ? `?insertId=${insertId}` : ''}` });
       }, 360);
     } catch (e) {
       wx.hideLoading();
-      const message = (e && e.data && e.data.message) || (e && e.message) || '发布失败，请重试';
+      const message = e.message || '发布失败，请重试';
       wx.showToast({ title: message, icon: 'none' });
     } finally {
       this.setData({ publishing: false });

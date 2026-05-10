@@ -91,8 +91,8 @@
 
   <view class="publish-bottom">
     <view class="publish-bottom__tips">
-      <view>发布后写入本地列表</view>
-      <view>返回即可查看新资料</view>
+      <view>发布后写入服务端</view>
+      <view>文件上传依赖后端对象存储接口</view>
     </view>
     <view class="publish-submit {{canPublish ? 'publish-submit--ready' : ''}}" hover-class="tap-button" bindtap="release">
       立即发布

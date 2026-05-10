@@ -1,15 +1,7 @@
-import config from '~/config';
-import { clearToken, ensureLogin } from '~/api/auth';
+import { get, post } from '~/api/request';
 
 const COS = require('cos-wx-sdk-v5');
 const { md5 } = require('js-md5');
-
-let _loginPromise = null;
-
-function getAuthHeader() {
-  const token = wx.getStorageSync('access_token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
 
 function pickExt(name, filePath) {
   const n = name || (filePath && filePath.split('/').pop()) || '';
@@ -27,60 +19,12 @@ function readFileArrayBuffer(filePath) {
   });
 }
 
-function jsonRequest(method, path, data, isRetry) {
-  return new Promise((resolve, reject) => {
-    wx.request({
-      url: `${config.baseUrl}${path}`,
-      method,
-      data: method === 'GET' ? undefined : data,
-      header: {
-        'Content-Type': 'application/json',
-        ...getAuthHeader(),
-      },
-      success(res) {
-        if (res.statusCode === 401 && !isRetry) {
-          if (!_loginPromise) {
-            _loginPromise = ensureLogin(true)
-              .then((result) => {
-                _loginPromise = null;
-                return result;
-              })
-              .catch((error) => {
-                _loginPromise = null;
-                clearToken();
-                wx.redirectTo({ url: '/pages/login/login' });
-                throw error;
-              });
-          }
-          _loginPromise
-            .then(() => {
-              jsonRequest(method, path, data, true).then(resolve).catch(reject);
-            })
-            .catch(reject);
-          return;
-        }
-
-        const body = res.data || {};
-        if (res.statusCode >= 200 && res.statusCode < 300 && body.code === 200) {
-          resolve(body);
-          return;
-        }
-        const msg = (body && body.message) || `请求失败(${res.statusCode})`;
-        const err = new Error(msg);
-        err.response = res;
-        reject(err);
-      },
-      fail: reject,
-    });
-  });
-}
-
 function fetchCOSSTS() {
-  return jsonRequest('GET', '/upload/cos-sts', null, false).then((body) => body.data);
+  return get('/upload/cos-sts').then(getUploadResultData);
 }
 
 function fetchPresignedGET(objectKey) {
-  return jsonRequest('POST', '/upload/presigned-get', { path: objectKey }, false).then((body) => body.data);
+  return post('/upload/presigned-get', { path: objectKey }).then(getUploadResultData);
 }
 
 export function getUploadResultData(uploadResponse) {
@@ -171,7 +115,11 @@ export function uploadFile(filePath, options = {}) {
 
     run().catch((e) => {
       const msg = (e && e.message) || String(e);
-      reject(new Error(msg));
+      const error = new Error(msg);
+      error.statusCode = (e && e.statusCode) || 0;
+      error.code = (e && e.code) || '';
+      error.response = e && e.response;
+      reject(error);
     });
   });
 }

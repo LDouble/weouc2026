@@ -19,7 +19,7 @@
     <view class="publish-hero">
       <view class="publish-hero__tag">失物招领</view>
       <view class="publish-hero__title">发布登记</view>
-      <view class="publish-hero__desc">填写物品信息和联系方式，发布后会直接回到失物招领列表。</view>
+      <view class="publish-hero__desc">填写物品信息和联系方式，发布成功后会直接打开登记详情。</view>
     </view>
 
     <view class="publish-card type-card">
@@ -134,8 +134,8 @@
 
   <view class="publish-bottom">
     <view class="publish-bottom__tips">
-      <view>发布后会写入本地列表</view>
-      <view>返回即可查看新登记</view>
+      <view>发布后会写入服务端</view>
+      <view>成功后可直接核对登记详情</view>
     </view>
     <view class="publish-submit {{canPublish ? 'publish-submit--ready' : ''}}" hover-class="tap-button" bindtap="release">
       发布登记

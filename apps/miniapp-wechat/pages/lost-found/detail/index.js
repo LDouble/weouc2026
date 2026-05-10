@@ -10,6 +10,17 @@ const CATEGORY_LABEL_MAP = LOST_FOUND_CATEGORIES.reduce((map, item) => {
 
 const AVATAR_COLORS = ['amber', 'rose', 'blue', 'purple', 'green'];
 
+function stableIndex(value, modulo) {
+  const text = `${value || ''}`;
+  let total = 0;
+
+  for (let index = 0; index < text.length; index += 1) {
+    total += text.charCodeAt(index);
+  }
+
+  return total % modulo;
+}
+
 function formatRelativeTime(dateStr) {
   if (!dateStr) return '';
   const date = new Date(dateStr);
@@ -34,6 +45,7 @@ function mapLostFoundDetail(raw = {}) {
   const type = extra.type || raw.feed_type || 'lost';
   const category = extra.category || '';
   const categoryLabel = CATEGORY_LABEL_MAP[category] || category || '其他';
+  const canViewContact = typeof raw.can_view_contact === 'boolean' ? raw.can_view_contact : null;
 
   return {
     id: raw.id || '',
@@ -47,11 +59,12 @@ function mapLostFoundDetail(raw = {}) {
     location: extra.location || '',
     eventTime: extra.event_time || '',
     contact: extra.contact || '',
+    canViewContact,
     note: extra.item_feature || '',
     publisher: raw.publisher || '匿名同学',
     publisherInitial: raw.publisher_initial || (raw.publisher || '匿').charAt(0),
     publisherMeta: formatRelativeTime(raw.created_at),
-    avatarColor: AVATAR_COLORS[Math.abs(raw.id || 0) % AVATAR_COLORS.length],
+    avatarColor: AVATAR_COLORS[stableIndex(raw.id, AVATAR_COLORS.length)],
   };
 }
 
@@ -79,7 +92,7 @@ Page({
       this.setData({ detail, loading: false });
     } catch (error) {
       this.setData({ loading: false });
-      wx.showToast({ title: '加载失败，请重试', icon: 'none' });
+      wx.showToast({ title: error.message || '加载失败，请重试', icon: 'none' });
     }
   },
 
@@ -97,9 +110,23 @@ Page({
   },
 
   onCopyContact() {
-    const { contact } = this.data.detail;
-    if (!contact || contact === '站内私信') {
-      wx.showToast({ title: '可通过站内私信联系', icon: 'none' });
+    const { contact, canViewContact } = this.data.detail;
+    if (canViewContact === false) {
+      wx.showModal({
+        title: '无法查看联系方式',
+        content: '绑定教务后即可查看联系方式，是否前往绑定？',
+        confirmText: '前往绑定',
+        cancelText: '暂不需要',
+        success: (res) => {
+          if (res.confirm) {
+            wx.navigateTo({ url: '/pages/edu-bind/index' });
+          }
+        },
+      });
+      return;
+    }
+    if (!contact) {
+      wx.showToast({ title: '登记人未公开联系方式', icon: 'none' });
       return;
     }
 

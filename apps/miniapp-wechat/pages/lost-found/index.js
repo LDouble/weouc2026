@@ -45,6 +45,7 @@ Page({
       });
     } catch (error) {
       this.setData({ loading: false });
+      wx.showToast({ title: error.message || '加载失败，请重试', icon: 'none' });
     }
   },
 
@@ -69,6 +70,7 @@ Page({
       });
     } catch (error) {
       this.setData({ loading: false });
+      wx.showToast({ title: error.message || '加载失败，请重试', icon: 'none' });
     }
   },
 
@@ -109,8 +111,8 @@ Page({
   onCopyContact(e) {
     const { item } = e.detail;
     const { contact } = item;
-    if (!contact || contact === '站内私信') {
-      wx.showToast({ title: '可通过站内私信联系', icon: 'none' });
+    if (!contact) {
+      wx.showToast({ title: '登记人未公开联系方式', icon: 'none' });
       return;
     }
     wx.setClipboardData({
