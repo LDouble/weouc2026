@@ -47,8 +47,9 @@ type DependenciesConfig struct {
 }
 
 type PersistenceConfig struct {
-	IAMBackend  string
-	AutoMigrate bool
+	IAMBackend        string
+	CampusLifeBackend string
+	AutoMigrate       bool
 }
 
 type PostgresConfig struct {
@@ -138,8 +139,9 @@ func Load() (AppConfig, error) {
 			},
 		},
 		Persistence: PersistenceConfig{
-			IAMBackend:  getenv("API_SERVER_IAM_BACKEND", "memory"),
-			AutoMigrate: getenvBool("API_SERVER_AUTO_MIGRATE", false),
+			IAMBackend:        getenv("API_SERVER_IAM_BACKEND", "memory"),
+			CampusLifeBackend: getenv("API_SERVER_CAMPUS_LIFE_BACKEND", "memory"),
+			AutoMigrate:       getenvBool("API_SERVER_AUTO_MIGRATE", false),
 		},
 	}
 
@@ -316,10 +318,17 @@ func (c PersistenceConfig) IAMBackendOrDefault() string {
 	return c.IAMBackend
 }
 
+func (c PersistenceConfig) CampusLifeBackendOrDefault() string {
+	if c.CampusLifeBackend == "" {
+		return "memory"
+	}
+
+	return c.CampusLifeBackend
+}
+
 func (c PersistenceConfig) Validate(dependencies DependenciesConfig) error {
 	switch c.IAMBackendOrDefault() {
 	case "memory":
-		return nil
 	case "postgres_redis":
 		if !dependencies.Postgres.Enabled {
 			return errors.New("postgres must be enabled when iam backend is postgres_redis")
@@ -327,10 +336,21 @@ func (c PersistenceConfig) Validate(dependencies DependenciesConfig) error {
 		if !dependencies.Redis.Enabled {
 			return errors.New("redis must be enabled when iam backend is postgres_redis")
 		}
-		return nil
 	default:
 		return fmt.Errorf("iam backend %q is invalid", c.IAMBackend)
 	}
+
+	switch c.CampusLifeBackendOrDefault() {
+	case "memory":
+	case "postgres":
+		if !dependencies.Postgres.Enabled {
+			return errors.New("postgres must be enabled when campus_life backend is postgres")
+		}
+	default:
+		return fmt.Errorf("campus_life backend %q is invalid", c.CampusLifeBackend)
+	}
+
+	return nil
 }
 
 func getenv(key, defaultValue string) string {

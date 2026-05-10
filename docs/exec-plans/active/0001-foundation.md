@@ -42,7 +42,7 @@
 - 已提供 `/healthz`、`/readyz`、`/api/v1/system/profile` 基础接口，并补齐最小 OpenAPI 契约基线。
 - 已落地小程序主链路核心接口：微信登录、教务绑定、当前资料、首页动态，以及二手/跑腿/资料/失物招领基础读取和关键交互接口。
 - 已接入 `wechat_provider`、`academic_provider` 的 mock 实现，便于无外部依赖条件下联调。
-- 当前上传与真实对象存储直传仍未接入，涉及真实文件直传的发布链路暂未完全闭环。
+- 已接入腾讯 COS 文件管理，上传链路改为“只存对象路径、读取时签 URL”。
 
 ### 工作流 E：Flutter App 外壳
 
@@ -60,7 +60,7 @@
 当前进展（`2026-05-10`）：
 
 - 已为 `services/api-server` 增加 Docker 镜像构建入口与 `docker compose` 本地编排。
-- 已将 `/readyz` 从静态占位改为真实依赖探测，当前覆盖 `postgres`、`redis`，并对未接入对象存储维持显式占位说明。
+- 已将 `/readyz` 从静态占位改为真实依赖探测，当前覆盖 `postgres`、`redis`、`object_storage`。
 - 已补充 `ops/docker/api-server` 联调文档与环境变量模板，便于团队统一启动后端依赖。
 
 当前进展（`2026-05-10`）：
@@ -68,7 +68,7 @@
 - 已把 `IAM` 模块切换为可配置的 `memory / postgres_redis` 双后端模式。
 - 已落地最小迁移执行器和 IAM 用户表迁移，支持服务启动自动建表。
 - 已将用户资料与教务绑定状态落到 `PostgreSQL`，登录会话和验证码落到 `Redis`。
-- `campus_life` 当前仍保持内存仓储，后续若进入试运行需要继续推进业务数据持久化。
+- 已将 `campus_life` 切换为可配置的 `memory / postgres` 双后端，现有二手、跑腿、资料、失物招领读写可持久化到 `PostgreSQL`。
 
 ## 里程碑
 

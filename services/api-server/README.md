@@ -60,10 +60,11 @@ types -> config -> repo -> service -> runtime -> transport
 
 说明：
 
-- 当前阶段 `IAM` 已支持持久化仓储；`campus_life` 仍使用内存种子数据
+- 当前阶段 `IAM` 已支持 `PostgreSQL + Redis` 持久化；`campus_life` 已支持 `memory / postgres` 双后端
 - 微信登录、教务绑定通过 mock provider 模拟，不依赖真实外部系统
 - `/readyz` 已接入 `postgres`、`redis`、`object_storage` 健康探测；依赖未就绪时会返回 `503`
 - 当 `API_SERVER_IAM_BACKEND=postgres_redis` 时，登录会话与教务绑定资料会分别落到 `Redis` 和 `PostgreSQL`
+- 当 `API_SERVER_CAMPUS_LIFE_BACKEND=postgres` 时，二手、跑腿、资料、失物招领会持久化到 `PostgreSQL`
 - 已支持腾讯 COS 直传；业务层只存对象路径，读取时由后端签发可访问 URL
 
 ## 本地运行
@@ -95,6 +96,7 @@ docker compose -f ops/docker/api-server/compose.yaml up --build
 - `API_SERVER_AUTH_ACADEMIC_BOUND_HEADER`
 - `API_SERVER_AUTH_ACCESS_TOKEN_TTL`
 - `API_SERVER_IAM_BACKEND`
+- `API_SERVER_CAMPUS_LIFE_BACKEND`
 - `API_SERVER_AUTO_MIGRATE`
 - `API_SERVER_POSTGRES_ENABLED`
 - `API_SERVER_POSTGRES_HOST`
@@ -128,7 +130,7 @@ cd services/api-server
 go test ./...
 ```
 
-如需本地使用持久化 IAM 仓储，可配合 Docker 中间件启动：
+如需本地使用持久化 IAM 和 `campus_life` 仓储，可配合 Docker 中间件启动：
 
 ```bash
 cd /Users/liangluo/code/weouc2026
@@ -136,6 +138,7 @@ docker compose -f ops/docker/api-server/compose.yaml up -d postgres redis
 
 cd /Users/liangluo/code/weouc2026/services/api-server
 API_SERVER_IAM_BACKEND=postgres_redis \
+API_SERVER_CAMPUS_LIFE_BACKEND=postgres \
 API_SERVER_AUTO_MIGRATE=true \
 API_SERVER_POSTGRES_ENABLED=true \
 API_SERVER_POSTGRES_HOST=127.0.0.1 \
@@ -171,6 +174,11 @@ curl -X POST http://localhost:8080/api/auth/wechat/login \
 ```
 
 拿到 `token` 后，可继续验证：
+
+说明：
+
+- 若使用 `memory` 后端，可直接访问内置示例详情如 `market-101`
+- 若使用 `postgres` 后端，首次启动默认无演示数据，需先发布后再访问详情
 
 ```bash
 curl http://localhost:8080/api/market/list

@@ -137,4 +137,13 @@ func TestSystemRoutes(t *testing.T) {
 			t.Fatal("expected NewRouter to fail when persistent iam backend has no runtime dependencies")
 		}
 	})
+
+	t.Run("persistent campus_life backend fails fast without postgres", func(t *testing.T) {
+		persistentCfg := cfg
+		persistentCfg.Persistence.CampusLifeBackend = "postgres"
+
+		if _, err := NewRouter(persistentCfg, applogger.New(persistentCfg)); err == nil {
+			t.Fatal("expected NewRouter to fail when postgres campus_life backend has no runtime dependencies")
+		}
+	})
 }

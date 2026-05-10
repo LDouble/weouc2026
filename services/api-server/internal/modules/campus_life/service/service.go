@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"path"
 	"slices"
 	"sort"
@@ -28,7 +29,7 @@ func New(repository clrepo.Repository, storageProvider storage_provider.Provider
 	}
 }
 
-func (s *Service) ListFeed(ctx context.Context, principal auth.Principal, query cltypes.FeedQuery) map[string]any {
+func (s *Service) ListFeed(ctx context.Context, principal auth.Principal, query cltypes.FeedQuery) (map[string]any, error) {
 	type row struct {
 		id        string
 		feedType  string
@@ -37,7 +38,11 @@ func (s *Service) ListFeed(ctx context.Context, principal auth.Principal, query 
 	}
 
 	rows := make([]row, 0)
-	for _, item := range s.repository.ListMarkets(ctx) {
+	markets, err := s.repository.ListMarkets(ctx)
+	if err != nil {
+		return nil, httpx.Internal("读取二手动态失败", err)
+	}
+	for _, item := range markets {
 		if !matchUserRole(item.PublisherUserID, "", principal, query.UserRole) {
 			continue
 		}
@@ -70,7 +75,11 @@ func (s *Service) ListFeed(ctx context.Context, principal auth.Principal, query 
 			},
 		})
 	}
-	for _, item := range s.repository.ListErrands(ctx) {
+	errands, err := s.repository.ListErrands(ctx)
+	if err != nil {
+		return nil, httpx.Internal("读取跑腿动态失败", err)
+	}
+	for _, item := range errands {
 		role := errandUserRole(item, principal)
 		if !matchUserRole(item.PublisherUserID, item.AcceptorUserID, principal, query.UserRole) {
 			continue
@@ -98,7 +107,11 @@ func (s *Service) ListFeed(ctx context.Context, principal auth.Principal, query 
 			},
 		})
 	}
-	for _, item := range s.repository.ListResources(ctx) {
+	resources, err := s.repository.ListResources(ctx)
+	if err != nil {
+		return nil, httpx.Internal("读取资料动态失败", err)
+	}
+	for _, item := range resources {
 		if !matchUserRole(item.PublisherUserID, "", principal, query.UserRole) {
 			continue
 		}
@@ -120,7 +133,11 @@ func (s *Service) ListFeed(ctx context.Context, principal auth.Principal, query 
 			},
 		})
 	}
-	for _, item := range s.repository.ListLostFound(ctx) {
+	lostFounds, err := s.repository.ListLostFound(ctx)
+	if err != nil {
+		return nil, httpx.Internal("读取失物招领动态失败", err)
+	}
+	for _, item := range lostFounds {
 		if !matchUserRole(item.PublisherUserID, "", principal, query.UserRole) {
 			continue
 		}
@@ -153,11 +170,14 @@ func (s *Service) ListFeed(ctx context.Context, principal auth.Principal, query 
 		list = append(list, item.payload)
 	}
 
-	return listEnvelope(list, len(rows), query.Pagination)
+	return listEnvelope(list, len(rows), query.Pagination), nil
 }
 
-func (s *Service) ListMarket(ctx context.Context, principal auth.Principal, query cltypes.MarketQuery) map[string]any {
-	items := s.repository.ListMarkets(ctx)
+func (s *Service) ListMarket(ctx context.Context, principal auth.Principal, query cltypes.MarketQuery) (map[string]any, error) {
+	items, err := s.repository.ListMarkets(ctx)
+	if err != nil {
+		return nil, httpx.Internal("读取二手列表失败", err)
+	}
 	sort.Slice(items, func(i, j int) bool {
 		return items[i].CreatedAt.After(items[j].CreatedAt)
 	})
@@ -200,13 +220,16 @@ func (s *Service) ListMarket(ctx context.Context, principal auth.Principal, quer
 		})
 	}
 
-	return listEnvelope(paginateMaps(filtered, query.Pagination), len(filtered), query.Pagination)
+	return listEnvelope(paginateMaps(filtered, query.Pagination), len(filtered), query.Pagination), nil
 }
 
 func (s *Service) GetMarketDetail(ctx context.Context, principal auth.Principal, id string) (map[string]any, error) {
-	item, exists := s.repository.GetMarket(ctx, id)
-	if !exists {
+	item, err := s.repository.GetMarket(ctx, id)
+	if errors.Is(err, clrepo.ErrNotFound) {
 		return nil, httpx.NotFound("二手商品不存在", nil)
+	}
+	if err != nil {
+		return nil, httpx.Internal("读取二手详情失败", err)
 	}
 
 	canView := canViewContact(principal, item.PublisherUserID)
@@ -244,8 +267,12 @@ func (s *Service) PublishMarket(ctx context.Context, principal auth.Principal, r
 	if strings.TrimSpace(request.Title) == "" || strings.TrimSpace(request.Desc) == "" {
 		return nil, httpx.BadRequest("标题和描述不能为空", nil)
 	}
+	id, err := s.repository.NextID(ctx, "market")
+	if err != nil {
+		return nil, httpx.Internal("生成二手信息 ID 失败", err)
+	}
 	item := cltypes.MarketItem{
-		ID:               s.repository.NextID("market"),
+		ID:               id,
 		Title:            strings.TrimSpace(request.Title),
 		Desc:             strings.TrimSpace(request.Desc),
 		PublisherUserID:  principal.UserID,
@@ -264,7 +291,10 @@ func (s *Service) PublishMarket(ctx context.Context, principal auth.Principal, r
 			Images:        append([]string(nil), request.Images...),
 		},
 	}
-	item = s.repository.SaveMarket(ctx, item)
+	item, err = s.repository.SaveMarket(ctx, item)
+	if err != nil {
+		return nil, httpx.Internal("保存二手信息失败", err)
+	}
 
 	return map[string]any{"id": item.ID}, nil
 }
@@ -300,14 +330,20 @@ func (s *Service) FavoriteMarket(ctx context.Context, principal auth.Principal, 
 		if err == clrepo.ErrNotFound {
 			return httpx.NotFound("二手商品不存在", nil)
 		}
-		return err
+		if isAppError(err) {
+			return err
+		}
+		return httpx.Internal("更新二手收藏状态失败", err)
 	}
 
 	return nil
 }
 
-func (s *Service) ListErrands(ctx context.Context, principal auth.Principal, query cltypes.ErrandQuery) map[string]any {
-	items := s.repository.ListErrands(ctx)
+func (s *Service) ListErrands(ctx context.Context, principal auth.Principal, query cltypes.ErrandQuery) (map[string]any, error) {
+	items, err := s.repository.ListErrands(ctx)
+	if err != nil {
+		return nil, httpx.Internal("读取跑腿列表失败", err)
+	}
 	sort.Slice(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
 	filtered := make([]map[string]any, 0)
 	for _, item := range items {
@@ -341,13 +377,16 @@ func (s *Service) ListErrands(ctx context.Context, principal auth.Principal, que
 		})
 	}
 
-	return listEnvelope(paginateMaps(filtered, query.Pagination), len(filtered), query.Pagination)
+	return listEnvelope(paginateMaps(filtered, query.Pagination), len(filtered), query.Pagination), nil
 }
 
 func (s *Service) GetErrandDetail(ctx context.Context, principal auth.Principal, id string) (map[string]any, error) {
-	item, exists := s.repository.GetErrand(ctx, id)
-	if !exists {
+	item, err := s.repository.GetErrand(ctx, id)
+	if errors.Is(err, clrepo.ErrNotFound) {
 		return nil, httpx.NotFound("跑腿任务不存在", nil)
+	}
+	if err != nil {
+		return nil, httpx.Internal("读取跑腿详情失败", err)
 	}
 	role := errandUserRole(item, principal)
 	canView := canViewContact(principal, item.PublisherUserID)
@@ -394,8 +433,12 @@ func (s *Service) PublishErrand(ctx context.Context, principal auth.Principal, r
 	if err != nil {
 		return nil, httpx.BadRequest("deadline 必须为 RFC3339 时间", nil)
 	}
+	id, err := s.repository.NextID(ctx, "errand")
+	if err != nil {
+		return nil, httpx.Internal("生成跑腿任务 ID 失败", err)
+	}
 	item := cltypes.ErrandItem{
-		ID:               s.repository.NextID("errand"),
+		ID:               id,
 		Title:            strings.TrimSpace(request.Title),
 		Desc:             strings.TrimSpace(request.Desc),
 		Category:         strings.TrimSpace(request.Category),
@@ -412,7 +455,10 @@ func (s *Service) PublishErrand(ctx context.Context, principal auth.Principal, r
 		PublisherInitial: initialOf(displayName(principal)),
 		CreatedAt:        time.Now().UTC(),
 	}
-	item = s.repository.SaveErrand(ctx, item)
+	item, err = s.repository.SaveErrand(ctx, item)
+	if err != nil {
+		return nil, httpx.Internal("保存跑腿任务失败", err)
+	}
 	return map[string]any{"id": item.ID}, nil
 }
 
@@ -435,7 +481,10 @@ func (s *Service) AcceptErrand(ctx context.Context, principal auth.Principal, ta
 		if err == clrepo.ErrNotFound {
 			return httpx.NotFound("跑腿任务不存在", nil)
 		}
-		return err
+		if isAppError(err) {
+			return err
+		}
+		return httpx.Internal("更新跑腿接单状态失败", err)
 	}
 
 	return nil
@@ -453,7 +502,10 @@ func (s *Service) CancelErrandPublish(ctx context.Context, principal auth.Princi
 		if err == clrepo.ErrNotFound {
 			return httpx.NotFound("跑腿任务不存在", nil)
 		}
-		return err
+		if isAppError(err) {
+			return err
+		}
+		return httpx.Internal("取消跑腿发布失败", err)
 	}
 
 	return nil
@@ -472,14 +524,20 @@ func (s *Service) CancelErrandAccept(ctx context.Context, principal auth.Princip
 		if err == clrepo.ErrNotFound {
 			return httpx.NotFound("跑腿任务不存在", nil)
 		}
-		return err
+		if isAppError(err) {
+			return err
+		}
+		return httpx.Internal("取消跑腿接单失败", err)
 	}
 
 	return nil
 }
 
-func (s *Service) ListResources(ctx context.Context, query cltypes.ResourceQuery) map[string]any {
-	items := s.repository.ListResources(ctx)
+func (s *Service) ListResources(ctx context.Context, query cltypes.ResourceQuery) (map[string]any, error) {
+	items, err := s.repository.ListResources(ctx)
+	if err != nil {
+		return nil, httpx.Internal("读取资料列表失败", err)
+	}
 	sort.Slice(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
 	filtered := make([]map[string]any, 0)
 	for _, item := range items {
@@ -510,13 +568,16 @@ func (s *Service) ListResources(ctx context.Context, query cltypes.ResourceQuery
 			},
 		})
 	}
-	return listEnvelope(paginateMaps(filtered, query.Pagination), len(filtered), query.Pagination)
+	return listEnvelope(paginateMaps(filtered, query.Pagination), len(filtered), query.Pagination), nil
 }
 
 func (s *Service) GetResourceDetail(ctx context.Context, id string) (map[string]any, error) {
-	item, exists := s.repository.GetResource(ctx, id)
-	if !exists {
+	item, err := s.repository.GetResource(ctx, id)
+	if errors.Is(err, clrepo.ErrNotFound) {
 		return nil, httpx.NotFound("资料不存在", nil)
+	}
+	if err != nil {
+		return nil, httpx.Internal("读取资料详情失败", err)
 	}
 	resolvedFiles := resolveResourceFiles(ctx, s.storageProvider, item.Extra.Files)
 	return map[string]any{
@@ -557,8 +618,12 @@ func (s *Service) PublishResource(ctx context.Context, principal auth.Principal,
 			FileSize: "1.0MB",
 		})
 	}
+	id, err := s.repository.NextID(ctx, "resource")
+	if err != nil {
+		return nil, httpx.Internal("生成资料 ID 失败", err)
+	}
 	item := cltypes.ResourceItem{
-		ID:               s.repository.NextID("resource"),
+		ID:               id,
 		Title:            strings.TrimSpace(request.Title),
 		Desc:             firstNonEmpty(strings.TrimSpace(request.Desc), strings.TrimSpace(request.Title)),
 		PublisherUserID:  principal.UserID,
@@ -576,12 +641,18 @@ func (s *Service) PublishResource(ctx context.Context, principal auth.Principal,
 			Likes:      0,
 		},
 	}
-	item = s.repository.SaveResource(ctx, item)
+	item, err = s.repository.SaveResource(ctx, item)
+	if err != nil {
+		return nil, httpx.Internal("保存资料失败", err)
+	}
 	return map[string]any{"id": item.ID}, nil
 }
 
-func (s *Service) ListLostFound(ctx context.Context, principal auth.Principal, query cltypes.LostFoundQuery) map[string]any {
-	items := s.repository.ListLostFound(ctx)
+func (s *Service) ListLostFound(ctx context.Context, principal auth.Principal, query cltypes.LostFoundQuery) (map[string]any, error) {
+	items, err := s.repository.ListLostFound(ctx)
+	if err != nil {
+		return nil, httpx.Internal("读取失物招领列表失败", err)
+	}
 	sort.Slice(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
 	filtered := make([]map[string]any, 0)
 	for _, item := range items {
@@ -612,13 +683,16 @@ func (s *Service) ListLostFound(ctx context.Context, principal auth.Principal, q
 			},
 		})
 	}
-	return listEnvelope(paginateMaps(filtered, query.Pagination), len(filtered), query.Pagination)
+	return listEnvelope(paginateMaps(filtered, query.Pagination), len(filtered), query.Pagination), nil
 }
 
 func (s *Service) GetLostFoundDetail(ctx context.Context, principal auth.Principal, id string) (map[string]any, error) {
-	item, exists := s.repository.GetLostFound(ctx, id)
-	if !exists {
+	item, err := s.repository.GetLostFound(ctx, id)
+	if errors.Is(err, clrepo.ErrNotFound) {
 		return nil, httpx.NotFound("失物招领不存在", nil)
+	}
+	if err != nil {
+		return nil, httpx.Internal("读取失物招领详情失败", err)
 	}
 	canView := canViewContact(principal, item.PublisherUserID)
 	return map[string]any{
@@ -643,8 +717,12 @@ func (s *Service) PublishLostFound(ctx context.Context, principal auth.Principal
 	if strings.TrimSpace(request.Title) == "" || strings.TrimSpace(request.Contact) == "" {
 		return nil, httpx.BadRequest("标题和联系方式不能为空", nil)
 	}
+	id, err := s.repository.NextID(ctx, "lostfound")
+	if err != nil {
+		return nil, httpx.Internal("生成失物招领 ID 失败", err)
+	}
 	item := cltypes.LostFoundItem{
-		ID:               s.repository.NextID("lostfound"),
+		ID:               id,
 		Title:            strings.TrimSpace(request.Title),
 		Desc:             strings.TrimSpace(request.Desc),
 		PublisherUserID:  principal.UserID,
@@ -660,7 +738,10 @@ func (s *Service) PublishLostFound(ctx context.Context, principal auth.Principal
 			Contact:     strings.TrimSpace(request.Contact),
 		},
 	}
-	item = s.repository.SaveLostFound(ctx, item)
+	item, err = s.repository.SaveLostFound(ctx, item)
+	if err != nil {
+		return nil, httpx.Internal("保存失物招领失败", err)
+	}
 	return map[string]any{"id": item.ID}, nil
 }
 
@@ -837,4 +918,9 @@ func parsePage(value string, defaultValue int) int {
 		return defaultValue
 	}
 	return parsed
+}
+
+func isAppError(err error) bool {
+	var appErr *httpx.AppError
+	return errors.As(err, &appErr)
 }

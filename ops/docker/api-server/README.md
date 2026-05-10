@@ -36,8 +36,9 @@ docker compose --env-file ops/docker/api-server/.env -f ops/docker/api-server/co
 ## 当前默认行为
 
 - compose 默认把 `API_SERVER_IAM_BACKEND` 设为 `postgres_redis`
+- compose 默认把 `API_SERVER_CAMPUS_LIFE_BACKEND` 设为 `postgres`
 - compose 默认开启 `API_SERVER_AUTO_MIGRATE=true`，服务启动时会自动执行内置 IAM 迁移
-- 当前只有 IAM 状态会持久化到 `PostgreSQL + Redis`；`campus_life` 业务数据仍为内存种子数据
+- `campus_life` 当前会持久化到 `PostgreSQL`；首次启动后列表默认为空，发布后数据会保留
 - COS 默认为关闭；只有补齐 `API_SERVER_COS_*` 环境变量后，文件上传链路才会启用
 
 ## COS 配置
@@ -59,5 +60,5 @@ docker compose --env-file ops/docker/api-server/.env -f ops/docker/api-server/co
 
 ## 当前限制
 
-- 只有 IAM 状态具备持久化能力，重启 `api-server` 后 `campus_life` 运行期发布数据仍会丢失
+- `meetup/carpool`、`portal`、`notification`、`analytics` 等后续业务域还未在后端落地
 - 当前未落文件元数据独立表，文件管理仍以“业务记录引用 COS 对象路径”为主

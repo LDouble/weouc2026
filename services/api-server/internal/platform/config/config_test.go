@@ -42,6 +42,9 @@ func TestLoadUsesDefaults(t *testing.T) {
 	if cfg.Persistence.IAMBackendOrDefault() != "memory" {
 		t.Fatalf("expected default iam backend memory, got %q", cfg.Persistence.IAMBackendOrDefault())
 	}
+	if cfg.Persistence.CampusLifeBackendOrDefault() != "memory" {
+		t.Fatalf("expected default campus_life backend memory, got %q", cfg.Persistence.CampusLifeBackendOrDefault())
+	}
 	if cfg.Persistence.AutoMigrate {
 		t.Fatal("expected auto migrate to be disabled by default")
 	}
@@ -73,6 +76,7 @@ func TestLoadUsesEnvOverrides(t *testing.T) {
 	t.Setenv("API_SERVER_COS_STS_DURATION", "45m")
 	t.Setenv("API_SERVER_COS_PRESIGNED_GET_TTL", "8h")
 	t.Setenv("API_SERVER_IAM_BACKEND", "postgres_redis")
+	t.Setenv("API_SERVER_CAMPUS_LIFE_BACKEND", "postgres")
 	t.Setenv("API_SERVER_AUTO_MIGRATE", "true")
 
 	cfg, err := Load()
@@ -104,7 +108,9 @@ func TestLoadUsesEnvOverrides(t *testing.T) {
 	if !cfg.Dependencies.COS.Enabled || cfg.Dependencies.COS.BucketAppID() != "1250000000" || cfg.Dependencies.COS.STSDuration != 45*time.Minute {
 		t.Fatalf("expected overridden cos config, got %+v", cfg.Dependencies.COS)
 	}
-	if cfg.Persistence.IAMBackendOrDefault() != "postgres_redis" || !cfg.Persistence.AutoMigrate {
+	if cfg.Persistence.IAMBackendOrDefault() != "postgres_redis" ||
+		cfg.Persistence.CampusLifeBackendOrDefault() != "postgres" ||
+		!cfg.Persistence.AutoMigrate {
 		t.Fatalf("expected overridden persistence config, got %+v", cfg.Persistence)
 	}
 }
@@ -195,6 +201,33 @@ func TestValidateRejectsInvalidIAMBackend(t *testing.T) {
 	}
 }
 
+func TestValidateRejectsInvalidCampusLifeBackend(t *testing.T) {
+	cfg := AppConfig{
+		Service: ServiceConfig{Name: "api-server"},
+		Server: ServerConfig{
+			Host:            "127.0.0.1",
+			Port:            8080,
+			ReadTimeout:     time.Second,
+			WriteTimeout:    time.Second,
+			ShutdownTimeout: time.Second,
+		},
+		Auth: AuthConfig{
+			UserIDHeader:        "X-User-ID",
+			RolesHeader:         "X-User-Roles",
+			PermissionsHeader:   "X-User-Permissions",
+			AcademicBoundHeader: "X-Academic-Bound",
+			AccessTokenTTL:      time.Hour,
+		},
+		Persistence: PersistenceConfig{
+			CampusLifeBackend: "unknown",
+		},
+	}
+
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected Validate() to reject invalid campus_life backend")
+	}
+}
+
 func TestValidateRejectsEnabledCOSWithoutBucketAppID(t *testing.T) {
 	cfg := AppConfig{
 		Service: ServiceConfig{Name: "api-server"},
@@ -255,5 +288,32 @@ func TestValidateRejectsPersistentIAMWithoutDependencies(t *testing.T) {
 
 	if err := cfg.Validate(); err == nil {
 		t.Fatal("expected Validate() to reject postgres_redis backend without dependencies")
+	}
+}
+
+func TestValidateRejectsPostgresCampusLifeWithoutDependencies(t *testing.T) {
+	cfg := AppConfig{
+		Service: ServiceConfig{Name: "api-server"},
+		Server: ServerConfig{
+			Host:            "127.0.0.1",
+			Port:            8080,
+			ReadTimeout:     time.Second,
+			WriteTimeout:    time.Second,
+			ShutdownTimeout: time.Second,
+		},
+		Auth: AuthConfig{
+			UserIDHeader:        "X-User-ID",
+			RolesHeader:         "X-User-Roles",
+			PermissionsHeader:   "X-User-Permissions",
+			AcademicBoundHeader: "X-Academic-Bound",
+			AccessTokenTTL:      time.Hour,
+		},
+		Persistence: PersistenceConfig{
+			CampusLifeBackend: "postgres",
+		},
+	}
+
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected Validate() to reject postgres campus_life backend without postgres dependency")
 	}
 }

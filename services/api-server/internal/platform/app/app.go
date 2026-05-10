@@ -61,9 +61,9 @@ func buildRouter(cfg appconfig.AppConfig, logger *slog.Logger) (*gin.Engine, []i
 	}
 	closers := clients.Closers()
 
-	if err := clients.EnsureIAMBackendReady(context.Background(), cfg); err != nil {
+	if err := clients.EnsureRuntimeBackendsReady(context.Background(), cfg); err != nil {
 		closeClosers(closers)
-		return nil, nil, fmt.Errorf("ensure iam backend ready failed: %w", err)
+		return nil, nil, fmt.Errorf("ensure runtime backends ready failed: %w", err)
 	}
 	if cfg.Persistence.AutoMigrate {
 		if clients.Postgres == nil {
@@ -89,7 +89,11 @@ func buildRouter(cfg appconfig.AppConfig, logger *slog.Logger) (*gin.Engine, []i
 		closeClosers(closers)
 		return nil, nil, err
 	}
-	campusLifeRepository := clrepo.NewInMemoryRepository()
+	campusLifeRepository, err := newCampusLifeRepository(cfg, clients)
+	if err != nil {
+		closeClosers(closers)
+		return nil, nil, err
+	}
 
 	iamModule := iam.NewModule(cfg, iam.Dependencies{
 		UserRepository:    userRepository,
@@ -179,6 +183,20 @@ func newIAMRepositories(
 		return iamrepo.NewPostgresUserRepository(clients.Postgres), iamrepo.NewRedisSessionRepository(clients.Redis), iamrepo.NewRedisCaptchaRepository(clients.Redis), nil
 	default:
 		return nil, nil, nil, fmt.Errorf("unsupported iam backend %q", cfg.Persistence.IAMBackendOrDefault())
+	}
+}
+
+func newCampusLifeRepository(cfg appconfig.AppConfig, clients *persistence.Clients) (clrepo.Repository, error) {
+	switch cfg.Persistence.CampusLifeBackendOrDefault() {
+	case "memory":
+		return clrepo.NewInMemoryRepository(), nil
+	case "postgres":
+		if clients == nil || clients.Postgres == nil {
+			return nil, fmt.Errorf("postgres campus_life backend requires postgres client")
+		}
+		return clrepo.NewPostgresRepository(clients.Postgres), nil
+	default:
+		return nil, fmt.Errorf("unsupported campus_life backend %q", cfg.Persistence.CampusLifeBackendOrDefault())
 	}
 }
 

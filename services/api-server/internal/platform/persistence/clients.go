@@ -43,25 +43,32 @@ func Open(cfg appconfig.AppConfig) (*Clients, error) {
 	return clients, nil
 }
 
-func (c *Clients) EnsureIAMBackendReady(ctx context.Context, cfg appconfig.AppConfig) error {
-	if cfg.Persistence.IAMBackendOrDefault() != "postgres_redis" {
-		return nil
+func (c *Clients) EnsureRuntimeBackendsReady(ctx context.Context, cfg appconfig.AppConfig) error {
+	requiresPostgres := cfg.Persistence.IAMBackendOrDefault() == "postgres_redis" ||
+		cfg.Persistence.CampusLifeBackendOrDefault() == "postgres" ||
+		cfg.Persistence.AutoMigrate
+	requiresRedis := cfg.Persistence.IAMBackendOrDefault() == "postgres_redis"
+
+	if requiresPostgres {
+		if c.Postgres == nil {
+			return fmt.Errorf("postgres client is not configured")
+		}
+		postgresCtx, cancel := context.WithTimeout(ctx, cfg.Dependencies.Postgres.HealthCheckTimeout)
+		defer cancel()
+		if err := c.Postgres.PingContext(postgresCtx); err != nil {
+			return fmt.Errorf("postgres ping failed: %w", err)
+		}
 	}
-	if c.Postgres == nil {
-		return fmt.Errorf("postgres client is not configured")
-	}
-	postgresCtx, cancel := context.WithTimeout(ctx, cfg.Dependencies.Postgres.HealthCheckTimeout)
-	defer cancel()
-	if err := c.Postgres.PingContext(postgresCtx); err != nil {
-		return fmt.Errorf("postgres ping failed: %w", err)
-	}
-	if c.Redis == nil {
-		return fmt.Errorf("redis client is not configured")
-	}
-	redisCtx, cancel := context.WithTimeout(ctx, cfg.Dependencies.Redis.HealthCheckTimeout)
-	defer cancel()
-	if err := c.Redis.Ping(redisCtx).Err(); err != nil {
-		return fmt.Errorf("redis ping failed: %w", err)
+
+	if requiresRedis {
+		if c.Redis == nil {
+			return fmt.Errorf("redis client is not configured")
+		}
+		redisCtx, cancel := context.WithTimeout(ctx, cfg.Dependencies.Redis.HealthCheckTimeout)
+		defer cancel()
+		if err := c.Redis.Ping(redisCtx).Err(); err != nil {
+			return fmt.Errorf("redis ping failed: %w", err)
+		}
 	}
 
 	return nil

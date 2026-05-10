@@ -26,7 +26,12 @@ func (h *Handler) ListFeed(c *gin.Context) {
 		Keyword:    strings.TrimSpace(c.Query("keyword")),
 		UserRole:   strings.TrimSpace(c.Query("user_role")),
 	}
-	httpx.JSON(c, http.StatusOK, h.service.ListFeed(c.Request.Context(), auth.PrincipalFromContext(c), query))
+	response, err := h.service.ListFeed(c.Request.Context(), auth.PrincipalFromContext(c), query)
+	if err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, response)
 }
 
 func (h *Handler) ListMarket(c *gin.Context) {
@@ -35,7 +40,12 @@ func (h *Handler) ListMarket(c *gin.Context) {
 		Category:   strings.TrimSpace(c.Query("category")),
 		Keyword:    strings.TrimSpace(c.Query("keyword")),
 	}
-	httpx.JSON(c, http.StatusOK, h.service.ListMarket(c.Request.Context(), auth.PrincipalFromContext(c), query))
+	response, err := h.service.ListMarket(c.Request.Context(), auth.PrincipalFromContext(c), query)
+	if err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, response)
 }
 
 func (h *Handler) GetMarketDetail(c *gin.Context) {
@@ -81,7 +91,12 @@ func (h *Handler) ListErrands(c *gin.Context) {
 		Keyword:    strings.TrimSpace(c.Query("keyword")),
 		UserRole:   strings.TrimSpace(c.Query("user_role")),
 	}
-	httpx.JSON(c, http.StatusOK, h.service.ListErrands(c.Request.Context(), auth.PrincipalFromContext(c), query))
+	response, err := h.service.ListErrands(c.Request.Context(), auth.PrincipalFromContext(c), query)
+	if err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, response)
 }
 
 func (h *Handler) GetErrandDetail(c *gin.Context) {
@@ -152,7 +167,12 @@ func (h *Handler) ListResources(c *gin.Context) {
 		Category:   strings.TrimSpace(c.Query("category")),
 		Keyword:    strings.TrimSpace(c.Query("keyword")),
 	}
-	httpx.JSON(c, http.StatusOK, h.service.ListResources(c.Request.Context(), query))
+	response, err := h.service.ListResources(c.Request.Context(), query)
+	if err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, response)
 }
 
 func (h *Handler) GetResourceDetail(c *gin.Context) {
@@ -185,7 +205,12 @@ func (h *Handler) ListLostFound(c *gin.Context) {
 		Keyword:    strings.TrimSpace(c.Query("keyword")),
 		Type:       strings.TrimSpace(c.Query("type")),
 	}
-	httpx.JSON(c, http.StatusOK, h.service.ListLostFound(c.Request.Context(), auth.PrincipalFromContext(c), query))
+	response, err := h.service.ListLostFound(c.Request.Context(), auth.PrincipalFromContext(c), query)
+	if err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, response)
 }
 
 func (h *Handler) GetLostFoundDetail(c *gin.Context) {

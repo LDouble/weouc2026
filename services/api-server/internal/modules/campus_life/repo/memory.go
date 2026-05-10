@@ -2,37 +2,12 @@ package repo
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
 
 	cltypes "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/types"
 )
-
-var ErrNotFound = errors.New("item not found")
-
-type Repository interface {
-	ListMarkets(ctx context.Context) []cltypes.MarketItem
-	GetMarket(ctx context.Context, id string) (cltypes.MarketItem, bool)
-	SaveMarket(ctx context.Context, item cltypes.MarketItem) cltypes.MarketItem
-	UpdateMarket(ctx context.Context, id string, mutate func(*cltypes.MarketItem) error) (cltypes.MarketItem, error)
-
-	ListErrands(ctx context.Context) []cltypes.ErrandItem
-	GetErrand(ctx context.Context, id string) (cltypes.ErrandItem, bool)
-	SaveErrand(ctx context.Context, item cltypes.ErrandItem) cltypes.ErrandItem
-	UpdateErrand(ctx context.Context, id string, mutate func(*cltypes.ErrandItem) error) (cltypes.ErrandItem, error)
-
-	ListResources(ctx context.Context) []cltypes.ResourceItem
-	GetResource(ctx context.Context, id string) (cltypes.ResourceItem, bool)
-	SaveResource(ctx context.Context, item cltypes.ResourceItem) cltypes.ResourceItem
-
-	ListLostFound(ctx context.Context) []cltypes.LostFoundItem
-	GetLostFound(ctx context.Context, id string) (cltypes.LostFoundItem, bool)
-	SaveLostFound(ctx context.Context, item cltypes.LostFoundItem) cltypes.LostFoundItem
-
-	NextID(prefix string) string
-}
 
 type InMemoryRepository struct {
 	mu         sync.RWMutex
@@ -192,25 +167,28 @@ func NewInMemoryRepository() *InMemoryRepository {
 	return repository
 }
 
-func (r *InMemoryRepository) ListMarkets(context.Context) []cltypes.MarketItem {
+func (r *InMemoryRepository) ListMarkets(context.Context) ([]cltypes.MarketItem, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return cloneMarketSlice(r.markets)
+	return cloneMarketSlice(r.markets), nil
 }
 
-func (r *InMemoryRepository) GetMarket(_ context.Context, id string) (cltypes.MarketItem, bool) {
+func (r *InMemoryRepository) GetMarket(_ context.Context, id string) (cltypes.MarketItem, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	item, exists := r.markets[id]
-	return cloneMarket(item), exists
+	if !exists {
+		return cltypes.MarketItem{}, ErrNotFound
+	}
+	return cloneMarket(item), nil
 }
 
-func (r *InMemoryRepository) SaveMarket(_ context.Context, item cltypes.MarketItem) cltypes.MarketItem {
+func (r *InMemoryRepository) SaveMarket(_ context.Context, item cltypes.MarketItem) (cltypes.MarketItem, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	item = cloneMarket(item)
 	r.markets[item.ID] = item
-	return cloneMarket(item)
+	return cloneMarket(item), nil
 }
 
 func (r *InMemoryRepository) UpdateMarket(_ context.Context, id string, mutate func(*cltypes.MarketItem) error) (cltypes.MarketItem, error) {
@@ -228,24 +206,27 @@ func (r *InMemoryRepository) UpdateMarket(_ context.Context, id string, mutate f
 	return cloneMarket(next), nil
 }
 
-func (r *InMemoryRepository) ListErrands(context.Context) []cltypes.ErrandItem {
+func (r *InMemoryRepository) ListErrands(context.Context) ([]cltypes.ErrandItem, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return cloneErrandSlice(r.errands)
+	return cloneErrandSlice(r.errands), nil
 }
 
-func (r *InMemoryRepository) GetErrand(_ context.Context, id string) (cltypes.ErrandItem, bool) {
+func (r *InMemoryRepository) GetErrand(_ context.Context, id string) (cltypes.ErrandItem, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	item, exists := r.errands[id]
-	return item, exists
+	if !exists {
+		return cltypes.ErrandItem{}, ErrNotFound
+	}
+	return item, nil
 }
 
-func (r *InMemoryRepository) SaveErrand(_ context.Context, item cltypes.ErrandItem) cltypes.ErrandItem {
+func (r *InMemoryRepository) SaveErrand(_ context.Context, item cltypes.ErrandItem) (cltypes.ErrandItem, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.errands[item.ID] = item
-	return item
+	return item, nil
 }
 
 func (r *InMemoryRepository) UpdateErrand(_ context.Context, id string, mutate func(*cltypes.ErrandItem) error) (cltypes.ErrandItem, error) {
@@ -262,52 +243,58 @@ func (r *InMemoryRepository) UpdateErrand(_ context.Context, id string, mutate f
 	return item, nil
 }
 
-func (r *InMemoryRepository) ListResources(context.Context) []cltypes.ResourceItem {
+func (r *InMemoryRepository) ListResources(context.Context) ([]cltypes.ResourceItem, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return cloneResourceSlice(r.resources)
+	return cloneResourceSlice(r.resources), nil
 }
 
-func (r *InMemoryRepository) GetResource(_ context.Context, id string) (cltypes.ResourceItem, bool) {
+func (r *InMemoryRepository) GetResource(_ context.Context, id string) (cltypes.ResourceItem, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	item, exists := r.resources[id]
-	return cloneResource(item), exists
+	if !exists {
+		return cltypes.ResourceItem{}, ErrNotFound
+	}
+	return cloneResource(item), nil
 }
 
-func (r *InMemoryRepository) SaveResource(_ context.Context, item cltypes.ResourceItem) cltypes.ResourceItem {
+func (r *InMemoryRepository) SaveResource(_ context.Context, item cltypes.ResourceItem) (cltypes.ResourceItem, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	item = cloneResource(item)
 	r.resources[item.ID] = item
-	return cloneResource(item)
+	return cloneResource(item), nil
 }
 
-func (r *InMemoryRepository) ListLostFound(context.Context) []cltypes.LostFoundItem {
+func (r *InMemoryRepository) ListLostFound(context.Context) ([]cltypes.LostFoundItem, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return cloneLostFoundSlice(r.lostFounds)
+	return cloneLostFoundSlice(r.lostFounds), nil
 }
 
-func (r *InMemoryRepository) GetLostFound(_ context.Context, id string) (cltypes.LostFoundItem, bool) {
+func (r *InMemoryRepository) GetLostFound(_ context.Context, id string) (cltypes.LostFoundItem, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	item, exists := r.lostFounds[id]
-	return item, exists
+	if !exists {
+		return cltypes.LostFoundItem{}, ErrNotFound
+	}
+	return item, nil
 }
 
-func (r *InMemoryRepository) SaveLostFound(_ context.Context, item cltypes.LostFoundItem) cltypes.LostFoundItem {
+func (r *InMemoryRepository) SaveLostFound(_ context.Context, item cltypes.LostFoundItem) (cltypes.LostFoundItem, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.lostFounds[item.ID] = item
-	return item
+	return item, nil
 }
 
-func (r *InMemoryRepository) NextID(prefix string) string {
+func (r *InMemoryRepository) NextID(_ context.Context, prefix string) (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.seq++
-	return fmt.Sprintf("%s-%d", prefix, r.seq)
+	return fmt.Sprintf("%s-%d", prefix, r.seq), nil
 }
 
 func cloneMarket(item cltypes.MarketItem) cltypes.MarketItem {
