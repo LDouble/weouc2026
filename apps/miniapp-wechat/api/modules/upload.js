@@ -19,8 +19,10 @@ function readFileArrayBuffer(filePath) {
   });
 }
 
-function fetchCOSSTS() {
-  return get('/upload/cos-sts').then(getUploadResultData);
+function fetchCOSSTS(scene = '') {
+  const query = {};
+  if (scene) query.scene = scene;
+  return get('/upload/cos-sts', query).then(getUploadResultData);
 }
 
 function fetchPresignedGET(objectKey) {
@@ -64,7 +66,7 @@ export function uploadFile(filePath, options = {}) {
     }
 
     const run = async () => {
-      const sts = await fetchCOSSTS();
+      const sts = await fetchCOSSTS(options.scene || '');
       const buf = await readFileArrayBuffer(filePath);
       const hash = md5(buf);
       const ext = pickExt(options.name, filePath);

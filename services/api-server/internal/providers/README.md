@@ -8,5 +8,5 @@
 - `sso_provider`
 - `academic_provider`：当前已提供 mock 验证码和学生信息装配实现
 - `sms_provider`
-- `storage_provider`
+- `storage_provider`：当前已提供腾讯 COS 上传临时凭证、下载预签名与健康检查实现
 - `push_provider`

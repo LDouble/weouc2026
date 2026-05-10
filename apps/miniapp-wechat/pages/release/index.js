@@ -1,6 +1,6 @@
 import { getMenuButtonSafeArea } from '../../utils/navigation';
 import { publishMarket } from '../../api/modules/market';
-import { getUploadResultUrl, uploadFile } from '../../api/modules/upload';
+import { getUploadResultPath, uploadFile } from '../../api/modules/upload';
 import { getMarketCategoryValueMap, getPaletteOptions, getReleaseScene } from '../../stores/config';
 
 const PUBLISH_REDIRECTS = {
@@ -220,8 +220,10 @@ Page({
     if (!imageFiles.length) return [];
 
     try {
-      const uploadResults = await Promise.all(imageFiles.map((file) => uploadFile(file.url)));
-      return uploadResults.map(getUploadResultUrl).filter(Boolean);
+      const uploadResults = await Promise.all(
+        imageFiles.map((file) => uploadFile(file.url, { scene: 'market' })),
+      );
+      return uploadResults.map(getUploadResultPath).filter(Boolean);
     } catch (error) {
       const confirmed = await this.confirmPublishWithoutImages();
       if (!confirmed) return null;

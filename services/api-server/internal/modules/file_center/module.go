@@ -1,15 +1,14 @@
-package campus_life
+package file_center
 
 import (
 	"github.com/gin-gonic/gin"
-	clrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/repo"
-	clservice "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/service"
-	"github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/transport"
+	fcconfig "github.com/liangluo/weouc2026/services/api-server/internal/modules/file_center/config"
+	fcservice "github.com/liangluo/weouc2026/services/api-server/internal/modules/file_center/service"
+	"github.com/liangluo/weouc2026/services/api-server/internal/modules/file_center/transport"
 	"github.com/liangluo/weouc2026/services/api-server/internal/providers/storage_provider"
 )
 
 type Dependencies struct {
-	Repository      clrepo.Repository
 	StorageProvider storage_provider.Provider
 }
 
@@ -18,7 +17,7 @@ type Module struct {
 }
 
 func NewModule(dependencies Dependencies) *Module {
-	service := clservice.New(dependencies.Repository, dependencies.StorageProvider)
+	service := fcservice.New(fcconfig.DefaultModuleConfig(), dependencies.StorageProvider)
 	handler := transport.NewHandler(service)
 	return &Module{handler: handler}
 }

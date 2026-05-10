@@ -10,6 +10,7 @@ const (
 	CodeUnauthorized = "AUTH_UNAUTHORIZED"
 	CodeForbidden    = "AUTH_FORBIDDEN"
 	CodeNotFound     = "COMMON_NOT_FOUND"
+	CodeUnavailable  = "COMMON_SERVICE_UNAVAILABLE"
 	CodeInternal     = "COMMON_INTERNAL_ERROR"
 )
 
@@ -81,6 +82,18 @@ func NotFound(message string, details map[string]any) *AppError {
 		Code:       CodeNotFound,
 		Message:    message,
 		Details:    details,
+	}
+}
+
+func Unavailable(message string) *AppError {
+	if message == "" {
+		message = "服务暂不可用"
+	}
+
+	return &AppError{
+		HTTPStatus: http.StatusServiceUnavailable,
+		Code:       CodeUnavailable,
+		Message:    message,
 	}
 }
 

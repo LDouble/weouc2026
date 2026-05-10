@@ -7,6 +7,7 @@ import (
 
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/system/types"
 	appconfig "github.com/liangluo/weouc2026/services/api-server/internal/platform/config"
+	"github.com/liangluo/weouc2026/services/api-server/internal/providers/storage_provider"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -39,6 +40,11 @@ type RedisProbe struct {
 	client *redis.Client
 }
 
+type ObjectStorageProbe struct {
+	config   appconfig.COSConfig
+	provider storage_provider.Provider
+}
+
 func NewRuntimeStatusRepository(probes ...DependencyProbe) *RuntimeStatusRepository {
 	cloned := make([]DependencyProbe, 0, len(probes))
 	cloned = append(cloned, probes...)
@@ -60,6 +66,10 @@ func NewPostgresProbe(cfg appconfig.PostgresConfig, db *sql.DB) *PostgresProbe {
 
 func NewRedisProbe(cfg appconfig.RedisConfig, client *redis.Client) *RedisProbe {
 	return &RedisProbe{config: cfg, client: client}
+}
+
+func NewObjectStorageProbe(cfg appconfig.COSConfig, provider storage_provider.Provider) *ObjectStorageProbe {
+	return &ObjectStorageProbe{config: cfg, provider: provider}
 }
 
 func (r *RuntimeStatusRepository) ReadinessSnapshot(ctx context.Context) types.ReadinessStatus {
@@ -164,6 +174,44 @@ func (p *RedisProbe) Check(ctx context.Context) types.DependencyStatus {
 
 	return types.DependencyStatus{
 		Name:     "redis",
+		Status:   "ready",
+		Required: true,
+		Detail:   "连接正常",
+	}
+}
+
+func (p *ObjectStorageProbe) Check(ctx context.Context) types.DependencyStatus {
+	if !p.config.Enabled {
+		return types.DependencyStatus{
+			Name:     "object_storage",
+			Status:   "skipped",
+			Required: false,
+			Detail:   "未启用对象存储健康探测",
+		}
+	}
+	if p.provider == nil {
+		return types.DependencyStatus{
+			Name:     "object_storage",
+			Status:   "not_ready",
+			Required: true,
+			Detail:   "对象存储 Provider 初始化失败",
+		}
+	}
+
+	checkCtx, cancel := context.WithTimeout(ctx, p.config.HealthCheckTimeout)
+	defer cancel()
+
+	if err := p.provider.Check(checkCtx); err != nil {
+		return types.DependencyStatus{
+			Name:     "object_storage",
+			Status:   "not_ready",
+			Required: true,
+			Detail:   err.Error(),
+		}
+	}
+
+	return types.DependencyStatus{
+		Name:     "object_storage",
 		Status:   "ready",
 		Required: true,
 		Detail:   "连接正常",

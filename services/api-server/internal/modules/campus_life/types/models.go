@@ -97,6 +97,7 @@ type LostFoundPublishRequest struct {
 
 type ResourceFile struct {
 	Name     string `json:"name"`
+	Path     string `json:"path,omitempty"`
 	URL      string `json:"url"`
 	FileType string `json:"file_type"`
 	FileSize string `json:"file_size"`

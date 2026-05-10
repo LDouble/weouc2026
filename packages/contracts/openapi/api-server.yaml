@@ -11,6 +11,8 @@ tags:
     description: 系统级健康检查、就绪检查与会话画像接口
   - name: IAM
     description: 登录、会话、资料与教务绑定接口
+  - name: FileCenter
+    description: 文件上传临时凭证与对象下载签名接口
   - name: CampusLife
     description: 首页动态、二手、跑腿、资料、失物招领接口
 paths:
@@ -147,6 +149,58 @@ paths:
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
+  /api/upload/cos-sts:
+    get:
+      tags: [FileCenter]
+      summary: 获取腾讯 COS 直传临时凭证
+      operationId: getCOSSTS
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: scene
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [general, market, errand, resource]
+          description: 上传场景，用于隔离对象路径前缀
+      responses:
+        '200':
+          description: 临时凭证签发成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadSTSCredentialsResponseEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableResponse'
+  /api/upload/presigned-get:
+    post:
+      tags: [FileCenter]
+      summary: 按对象路径获取临时下载地址
+      operationId: getPresignedGET
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PresignedGetRequest'
+      responses:
+        '200':
+          description: 下载签名成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PresignedGetResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailableResponse'
   /api/edu/send-captcha:
     post:
       tags: [IAM]
@@ -622,6 +676,12 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponseEnvelope'
+    ServiceUnavailableResponse:
+      description: 依赖服务未启用或暂时不可用
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponseEnvelope'
   schemas:
     RequestEnvelope:
       type: object
@@ -884,6 +944,68 @@ components:
         is_bound:
           type: boolean
           enum: [false]
+    UploadSTSCredentials:
+      type: object
+      required:
+        - tmp_secret_id
+        - tmp_secret_key
+        - session_token
+        - start_time
+        - expired_time
+        - bucket
+        - region
+        - path_prefix
+      properties:
+        tmp_secret_id:
+          type: string
+        tmp_secret_key:
+          type: string
+        session_token:
+          type: string
+        start_time:
+          type: integer
+          format: int64
+        expired_time:
+          type: integer
+          format: int64
+        bucket:
+          type: string
+        region:
+          type: string
+        path_prefix:
+          type: string
+          description: 允许客户端写入的对象键前缀，业务持久化时应保存完整对象路径
+    UploadSTSCredentialsResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/UploadSTSCredentials'
+    PresignedGetRequest:
+      type: object
+      required: [path]
+      properties:
+        path:
+          type: string
+          description: 已持久化的 COS 对象路径
+    PresignedGetResponse:
+      type: object
+      required: [path, url]
+      properties:
+        path:
+          type: string
+        url:
+          type: string
+    PresignedGetResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/PresignedGetResponse'
     MarketPublishRequest:
       type: object
       required: [title, desc]
@@ -906,6 +1028,7 @@ components:
           type: string
         images:
           type: array
+          description: COS 对象路径列表，不直接持久化临时访问 URL
           items:
             type: string
     FavoriteMarketRequest:
@@ -942,6 +1065,7 @@ components:
           type: boolean
         images:
           type: array
+          description: COS 对象路径列表，不直接持久化临时访问 URL
           items:
             type: string
     ErrandActionRequest:
@@ -966,6 +1090,7 @@ components:
           type: string
         file_paths:
           type: array
+          description: 资料文件的 COS 对象路径列表
           items:
             type: string
     LostFoundPublishRequest:

@@ -6,6 +6,7 @@ import (
 	"math"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -42,6 +43,7 @@ type AuthConfig struct {
 type DependenciesConfig struct {
 	Postgres PostgresConfig
 	Redis    RedisConfig
+	COS      COSConfig
 }
 
 type PersistenceConfig struct {
@@ -67,6 +69,18 @@ type RedisConfig struct {
 	Username           string
 	Password           string
 	Database           int
+	HealthCheckTimeout time.Duration
+}
+
+type COSConfig struct {
+	Enabled            bool
+	SecretID           string
+	SecretKey          string
+	Bucket             string
+	Region             string
+	PathPrefix         string
+	STSDuration        time.Duration
+	PresignedGETTTL    time.Duration
 	HealthCheckTimeout time.Duration
 }
 
@@ -111,6 +125,17 @@ func Load() (AppConfig, error) {
 				Database:           getenvInt("API_SERVER_REDIS_DB", 0),
 				HealthCheckTimeout: getenvDuration("API_SERVER_REDIS_HEALTHCHECK_TIMEOUT", 2*time.Second),
 			},
+			COS: COSConfig{
+				Enabled:            getenvBool("API_SERVER_COS_ENABLED", false),
+				SecretID:           getenv("API_SERVER_COS_SECRET_ID", ""),
+				SecretKey:          getenv("API_SERVER_COS_SECRET_KEY", ""),
+				Bucket:             getenv("API_SERVER_COS_BUCKET", ""),
+				Region:             getenv("API_SERVER_COS_REGION", ""),
+				PathPrefix:         getenv("API_SERVER_COS_PATH_PREFIX", "miniapp"),
+				STSDuration:        getenvDuration("API_SERVER_COS_STS_DURATION", time.Hour),
+				PresignedGETTTL:    getenvDuration("API_SERVER_COS_PRESIGNED_GET_TTL", 6*time.Hour),
+				HealthCheckTimeout: getenvDuration("API_SERVER_COS_HEALTHCHECK_TIMEOUT", 2*time.Second),
+			},
 		},
 		Persistence: PersistenceConfig{
 			IAMBackend:  getenv("API_SERVER_IAM_BACKEND", "memory"),
@@ -144,6 +169,9 @@ func (c AppConfig) Validate() error {
 		return err
 	}
 	if err := c.Dependencies.Redis.Validate(); err != nil {
+		return err
+	}
+	if err := c.Dependencies.COS.Validate(); err != nil {
 		return err
 	}
 	if err := c.Persistence.Validate(c.Dependencies); err != nil {
@@ -227,6 +255,57 @@ func (c RedisConfig) Validate() error {
 	}
 
 	return nil
+}
+
+func (c COSConfig) Validate() error {
+	if !c.Enabled {
+		return nil
+	}
+	if c.SecretID == "" {
+		return errors.New("cos secret id is required when enabled")
+	}
+	if c.SecretKey == "" {
+		return errors.New("cos secret key is required when enabled")
+	}
+	if c.Bucket == "" {
+		return errors.New("cos bucket is required when enabled")
+	}
+	if c.Region == "" {
+		return errors.New("cos region is required when enabled")
+	}
+	if c.BucketAppID() == "" {
+		return errors.New("cos bucket must use bucket-appid format when enabled")
+	}
+	if c.STSDuration <= 0 {
+		return errors.New("cos sts duration must be positive")
+	}
+	if c.PresignedGETTTL <= 0 {
+		return errors.New("cos presigned get ttl must be positive")
+	}
+	if c.HealthCheckTimeout <= 0 {
+		return errors.New("cos health check timeout must be positive")
+	}
+
+	return nil
+}
+
+func (c COSConfig) BucketAppID() string {
+	bucket := c.Bucket
+	if bucket == "" {
+		return ""
+	}
+
+	index := strings.LastIndex(bucket, "-")
+	if index <= 0 || index >= len(bucket)-1 {
+		return ""
+	}
+
+	appID := bucket[index+1:]
+	if _, err := strconv.ParseInt(appID, 10, 64); err != nil {
+		return ""
+	}
+
+	return appID
 }
 
 func (c PersistenceConfig) IAMBackendOrDefault() string {

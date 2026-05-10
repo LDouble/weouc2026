@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life"
 	clrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/repo"
+	"github.com/liangluo/weouc2026/services/api-server/internal/modules/file_center"
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/iam"
 	iamrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/iam/repo"
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/system"
@@ -21,6 +22,7 @@ import (
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/migrate"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/persistence"
 	"github.com/liangluo/weouc2026/services/api-server/internal/providers/academic_provider"
+	"github.com/liangluo/weouc2026/services/api-server/internal/providers/storage_provider"
 	"github.com/liangluo/weouc2026/services/api-server/internal/providers/wechat_provider"
 )
 
@@ -82,6 +84,11 @@ func buildRouter(cfg appconfig.AppConfig, logger *slog.Logger) (*gin.Engine, []i
 
 	wechatProvider := wechat_provider.NewMockProvider()
 	academicProvider := academic_provider.NewMockProvider()
+	storageProvider, err := newStorageProvider(cfg)
+	if err != nil {
+		closeClosers(closers)
+		return nil, nil, err
+	}
 	campusLifeRepository := clrepo.NewInMemoryRepository()
 
 	iamModule := iam.NewModule(cfg, iam.Dependencies{
@@ -102,13 +109,17 @@ func buildRouter(cfg appconfig.AppConfig, logger *slog.Logger) (*gin.Engine, []i
 
 	iamModule.RegisterRoutes(engine)
 	campus_life.NewModule(campus_life.Dependencies{
-		Repository: campusLifeRepository,
+		Repository:      campusLifeRepository,
+		StorageProvider: storageProvider,
+	}).RegisterRoutes(engine)
+	file_center.NewModule(file_center.Dependencies{
+		StorageProvider: storageProvider,
 	}).RegisterRoutes(engine)
 	systemModule := system.NewModule(cfg, system.Dependencies{
 		StatusRepository: systemrepo.NewRuntimeStatusRepository(
 			systemrepo.NewPostgresProbe(cfg.Dependencies.Postgres, clients.Postgres),
 			systemrepo.NewRedisProbe(cfg.Dependencies.Redis, clients.Redis),
-			systemrepo.NewStaticProbe("object_storage", "skipped", false, "当前阶段未接入对象存储健康探测"),
+			systemrepo.NewObjectStorageProbe(cfg.Dependencies.COS, storageProvider),
 		),
 	})
 	systemModule.RegisterRoutes(engine)
@@ -169,6 +180,19 @@ func newIAMRepositories(
 	default:
 		return nil, nil, nil, fmt.Errorf("unsupported iam backend %q", cfg.Persistence.IAMBackendOrDefault())
 	}
+}
+
+func newStorageProvider(cfg appconfig.AppConfig) (storage_provider.Provider, error) {
+	if !cfg.Dependencies.COS.Enabled {
+		return nil, nil
+	}
+
+	provider, err := storage_provider.NewCOSProvider(cfg.Dependencies.COS)
+	if err != nil {
+		return nil, fmt.Errorf("create cos storage provider failed: %w", err)
+	}
+
+	return provider, nil
 }
 
 func resolveGinMode(environment string) string {

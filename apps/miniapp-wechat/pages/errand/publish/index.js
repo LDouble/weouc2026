@@ -1,6 +1,6 @@
 import { getMenuButtonSafeArea } from '../../../utils/navigation';
 import { publishErrand } from '../../../api/modules/errand';
-import { getUploadResultUrl, uploadFile } from '../../../api/modules/upload';
+import { getUploadResultPath, uploadFile } from '../../../api/modules/upload';
 import { saveHistoryAddress } from '../../../utils/addressStore';
 import { PUBLISH_CATEGORIES } from '../data';
 
@@ -220,8 +220,10 @@ Page({
     try {
       if (imageFiles.length) {
         try {
-          const uploadResults = await Promise.all(imageFiles.map((file) => uploadFile(file.url)));
-          payload.images = uploadResults.map(getUploadResultUrl).filter(Boolean);
+          const uploadResults = await Promise.all(
+            imageFiles.map((file) => uploadFile(file.url, { scene: 'errand' })),
+          );
+          payload.images = uploadResults.map(getUploadResultPath).filter(Boolean);
         } catch (error) {
           const confirmed = await confirmWithoutImages();
           if (!confirmed) return;

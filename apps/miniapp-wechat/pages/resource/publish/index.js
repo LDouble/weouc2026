@@ -192,7 +192,7 @@ Page({
     let results = [];
     try {
       results = await Promise.all(
-        fileList.map((file) => uploadFile(file.url, { name: file.name })),
+        fileList.map((file) => uploadFile(file.url, { name: file.name, scene: 'resource' })),
       );
     } catch (error) {
       if (error && error.statusCode === 404) {

@@ -36,6 +36,9 @@ func TestLoadUsesDefaults(t *testing.T) {
 	if cfg.Dependencies.Redis.Enabled {
 		t.Fatal("expected redis health probe to be disabled by default")
 	}
+	if cfg.Dependencies.COS.Enabled {
+		t.Fatal("expected cos health probe to be disabled by default")
+	}
 	if cfg.Persistence.IAMBackendOrDefault() != "memory" {
 		t.Fatalf("expected default iam backend memory, got %q", cfg.Persistence.IAMBackendOrDefault())
 	}
@@ -61,6 +64,14 @@ func TestLoadUsesEnvOverrides(t *testing.T) {
 	t.Setenv("API_SERVER_REDIS_ENABLED", "true")
 	t.Setenv("API_SERVER_REDIS_HOST", "redis")
 	t.Setenv("API_SERVER_REDIS_DB", "2")
+	t.Setenv("API_SERVER_COS_ENABLED", "true")
+	t.Setenv("API_SERVER_COS_SECRET_ID", "secret-id")
+	t.Setenv("API_SERVER_COS_SECRET_KEY", "secret-key")
+	t.Setenv("API_SERVER_COS_BUCKET", "weouc-1250000000")
+	t.Setenv("API_SERVER_COS_REGION", "ap-guangzhou")
+	t.Setenv("API_SERVER_COS_PATH_PREFIX", "miniapp")
+	t.Setenv("API_SERVER_COS_STS_DURATION", "45m")
+	t.Setenv("API_SERVER_COS_PRESIGNED_GET_TTL", "8h")
 	t.Setenv("API_SERVER_IAM_BACKEND", "postgres_redis")
 	t.Setenv("API_SERVER_AUTO_MIGRATE", "true")
 
@@ -89,6 +100,9 @@ func TestLoadUsesEnvOverrides(t *testing.T) {
 	}
 	if !cfg.Dependencies.Redis.Enabled || cfg.Dependencies.Redis.Address() != "redis:6379" || cfg.Dependencies.Redis.Database != 2 {
 		t.Fatalf("expected overridden redis config, got %+v", cfg.Dependencies.Redis)
+	}
+	if !cfg.Dependencies.COS.Enabled || cfg.Dependencies.COS.BucketAppID() != "1250000000" || cfg.Dependencies.COS.STSDuration != 45*time.Minute {
+		t.Fatalf("expected overridden cos config, got %+v", cfg.Dependencies.COS)
 	}
 	if cfg.Persistence.IAMBackendOrDefault() != "postgres_redis" || !cfg.Persistence.AutoMigrate {
 		t.Fatalf("expected overridden persistence config, got %+v", cfg.Persistence)
@@ -178,6 +192,42 @@ func TestValidateRejectsInvalidIAMBackend(t *testing.T) {
 
 	if err := cfg.Validate(); err == nil {
 		t.Fatal("expected Validate() to reject invalid iam backend")
+	}
+}
+
+func TestValidateRejectsEnabledCOSWithoutBucketAppID(t *testing.T) {
+	cfg := AppConfig{
+		Service: ServiceConfig{Name: "api-server"},
+		Server: ServerConfig{
+			Host:            "127.0.0.1",
+			Port:            8080,
+			ReadTimeout:     time.Second,
+			WriteTimeout:    time.Second,
+			ShutdownTimeout: time.Second,
+		},
+		Auth: AuthConfig{
+			UserIDHeader:        "X-User-ID",
+			RolesHeader:         "X-User-Roles",
+			PermissionsHeader:   "X-User-Permissions",
+			AcademicBoundHeader: "X-Academic-Bound",
+			AccessTokenTTL:      time.Hour,
+		},
+		Dependencies: DependenciesConfig{
+			COS: COSConfig{
+				Enabled:            true,
+				SecretID:           "secret-id",
+				SecretKey:          "secret-key",
+				Bucket:             "weouc",
+				Region:             "ap-guangzhou",
+				STSDuration:        time.Hour,
+				PresignedGETTTL:    6 * time.Hour,
+				HealthCheckTimeout: time.Second,
+			},
+		},
+	}
+
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected Validate() to reject invalid cos bucket format")
 	}
 }
 

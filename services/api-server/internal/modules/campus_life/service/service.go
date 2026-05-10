@@ -13,14 +13,19 @@ import (
 	cltypes "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/types"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/auth"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/httpx"
+	"github.com/liangluo/weouc2026/services/api-server/internal/providers/storage_provider"
 )
 
 type Service struct {
-	repository clrepo.Repository
+	repository      clrepo.Repository
+	storageProvider storage_provider.Provider
 }
 
-func New(repository clrepo.Repository) *Service {
-	return &Service{repository: repository}
+func New(repository clrepo.Repository, storageProvider storage_provider.Provider) *Service {
+	return &Service{
+		repository:      repository,
+		storageProvider: storageProvider,
+	}
 }
 
 func (s *Service) ListFeed(ctx context.Context, principal auth.Principal, query cltypes.FeedQuery) map[string]any {
@@ -39,6 +44,11 @@ func (s *Service) ListFeed(ctx context.Context, principal auth.Principal, query 
 		if !matchFeedType(query.FeedTypes, "market") || !matchKeyword(query.Keyword, item.Title, item.Desc) {
 			continue
 		}
+		resolvedImages := resolveManagedURLs(ctx, s.storageProvider, item.Extra.Images)
+		resolvedImage := resolveManagedURL(ctx, s.storageProvider, item.Image)
+		if resolvedImage == "" {
+			resolvedImage = firstNonEmpty(resolvedImages...)
+		}
 		rows = append(rows, row{
 			id:        item.ID,
 			feedType:  "market",
@@ -51,9 +61,9 @@ func (s *Service) ListFeed(ctx context.Context, principal auth.Principal, query 
 				"desc":            item.Desc,
 				"publisher":       item.Publisher,
 				"created_at":      item.CreatedAt.Format(time.RFC3339),
-				"image":           item.Image,
+				"image":           resolvedImage,
 				"extra": map[string]any{
-					"images":   append([]string(nil), item.Extra.Images...),
+					"images":   resolvedImages,
 					"likes":    item.Likes,
 					"comments": 0,
 				},
@@ -161,13 +171,18 @@ func (s *Service) ListMarket(ctx context.Context, principal auth.Principal, quer
 			continue
 		}
 		canViewContact := canViewContact(principal, item.PublisherUserID)
+		resolvedImages := resolveManagedURLs(ctx, s.storageProvider, item.Extra.Images)
+		resolvedImage := resolveManagedURL(ctx, s.storageProvider, item.Image)
+		if resolvedImage == "" {
+			resolvedImage = firstNonEmpty(resolvedImages...)
+		}
 		filtered = append(filtered, map[string]any{
 			"id":                item.ID,
 			"title":             item.Title,
 			"desc":              item.Desc,
 			"publisher":         item.Publisher,
 			"publisher_initial": item.PublisherInitial,
-			"image":             item.Image,
+			"image":             resolvedImage,
 			"likes":             item.Likes,
 			"liked":             item.LikedByUserIDs[principal.UserID],
 			"created_at":        item.CreatedAt.Format(time.RFC3339),
@@ -178,7 +193,7 @@ func (s *Service) ListMarket(ctx context.Context, principal auth.Principal, quer
 				"condition":      item.Extra.Condition,
 				"trade_mode":     item.Extra.TradeMode,
 				"contact":        visibleValue(canViewContact, item.Extra.Contact),
-				"images":         append([]string(nil), item.Extra.Images...),
+				"images":         resolvedImages,
 				"likes":          item.Likes,
 				"is_favorited":   item.LikedByUserIDs[principal.UserID],
 			},
@@ -195,13 +210,18 @@ func (s *Service) GetMarketDetail(ctx context.Context, principal auth.Principal,
 	}
 
 	canView := canViewContact(principal, item.PublisherUserID)
+	resolvedImages := resolveManagedURLs(ctx, s.storageProvider, item.Extra.Images)
+	resolvedImage := resolveManagedURL(ctx, s.storageProvider, item.Image)
+	if resolvedImage == "" {
+		resolvedImage = firstNonEmpty(resolvedImages...)
+	}
 	return map[string]any{
 		"id":                item.ID,
 		"title":             item.Title,
 		"desc":              item.Desc,
 		"publisher":         item.Publisher,
 		"publisher_initial": item.PublisherInitial,
-		"image":             item.Image,
+		"image":             resolvedImage,
 		"likes":             item.Likes,
 		"liked":             item.LikedByUserIDs[principal.UserID],
 		"created_at":        item.CreatedAt.Format(time.RFC3339),
@@ -213,7 +233,7 @@ func (s *Service) GetMarketDetail(ctx context.Context, principal auth.Principal,
 			"condition":      item.Extra.Condition,
 			"trade_mode":     item.Extra.TradeMode,
 			"contact":        visibleValue(canView, item.Extra.Contact),
-			"images":         append([]string(nil), item.Extra.Images...),
+			"images":         resolvedImages,
 			"likes":          item.Likes,
 			"is_favorited":   item.LikedByUserIDs[principal.UserID],
 		},
@@ -331,6 +351,7 @@ func (s *Service) GetErrandDetail(ctx context.Context, principal auth.Principal,
 	}
 	role := errandUserRole(item, principal)
 	canView := canViewContact(principal, item.PublisherUserID)
+	resolvedImages := resolveManagedURLs(ctx, s.storageProvider, item.Images)
 	return map[string]any{
 		"item": map[string]any{
 			"id":                item.ID,
@@ -344,7 +365,7 @@ func (s *Service) GetErrandDetail(ctx context.Context, principal auth.Principal,
 			"contact":           visibleValue(canView, item.Contact),
 			"status":            item.Status,
 			"is_accepted":       item.Status == "accepted",
-			"images":            append([]string(nil), item.Images...),
+			"images":            resolvedImages,
 			"publisher":         item.Publisher,
 			"publisher_initial": item.PublisherInitial,
 			"created_at":        item.CreatedAt.Format(time.RFC3339),
@@ -355,7 +376,7 @@ func (s *Service) GetErrandDetail(ctx context.Context, principal auth.Principal,
 				"deadline":    item.Deadline.Format(time.RFC3339),
 				"reward":      item.Reward,
 				"contact":     visibleValue(canView, item.Contact),
-				"images":      append([]string(nil), item.Images...),
+				"images":      resolvedImages,
 				"status":      item.Status,
 				"urgent":      item.Urgent,
 			},
@@ -468,6 +489,7 @@ func (s *Service) ListResources(ctx context.Context, query cltypes.ResourceQuery
 		if !matchKeyword(query.Keyword, item.Title, item.Desc) {
 			continue
 		}
+		resolvedFiles := resolveResourceFiles(ctx, s.storageProvider, item.Extra.Files)
 		filtered = append(filtered, map[string]any{
 			"id":                item.ID,
 			"title":             item.Title,
@@ -479,10 +501,10 @@ func (s *Service) ListResources(ctx context.Context, query cltypes.ResourceQuery
 				"category":     item.Extra.Category,
 				"course_name":  item.Extra.CourseName,
 				"contact":      item.Extra.Contact,
-				"files":        append([]cltypes.ResourceFile(nil), item.Extra.Files...),
+				"files":        resolvedFiles,
 				"file_size":    item.Extra.FileSize,
 				"file_type":    item.Extra.FileType,
-				"download_url": item.Extra.DownloadURL,
+				"download_url": firstResourceURL(resolvedFiles, resolveManagedURL(ctx, s.storageProvider, item.Extra.DownloadURL)),
 				"likes":        item.Extra.Likes,
 				"views":        item.Extra.Views,
 			},
@@ -496,6 +518,7 @@ func (s *Service) GetResourceDetail(ctx context.Context, id string) (map[string]
 	if !exists {
 		return nil, httpx.NotFound("资料不存在", nil)
 	}
+	resolvedFiles := resolveResourceFiles(ctx, s.storageProvider, item.Extra.Files)
 	return map[string]any{
 		"id":                item.ID,
 		"title":             item.Title,
@@ -507,10 +530,10 @@ func (s *Service) GetResourceDetail(ctx context.Context, id string) (map[string]
 			"category":     item.Extra.Category,
 			"course_name":  item.Extra.CourseName,
 			"contact":      item.Extra.Contact,
-			"files":        append([]cltypes.ResourceFile(nil), item.Extra.Files...),
+			"files":        resolvedFiles,
 			"file_size":    item.Extra.FileSize,
 			"file_type":    item.Extra.FileType,
-			"download_url": item.Extra.DownloadURL,
+			"download_url": firstResourceURL(resolvedFiles, resolveManagedURL(ctx, s.storageProvider, item.Extra.DownloadURL)),
 			"likes":        item.Extra.Likes,
 			"views":        item.Extra.Views,
 		},
@@ -529,7 +552,7 @@ func (s *Service) PublishResource(ctx context.Context, principal auth.Principal,
 		}
 		files = append(files, cltypes.ResourceFile{
 			Name:     path.Base(filePath),
-			URL:      "https://example.com/files/" + strings.TrimPrefix(filePath, "/"),
+			Path:     strings.TrimPrefix(filePath, "/"),
 			FileType: detectFileType(filePath),
 			FileSize: "1.0MB",
 		})
