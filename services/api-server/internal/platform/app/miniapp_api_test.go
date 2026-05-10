@@ -35,7 +35,10 @@ func TestMiniappCoreAPIs(t *testing.T) {
 		},
 	}
 
-	router := NewRouter(cfg, applogger.New(cfg))
+	router, err := NewRouter(cfg, applogger.New(cfg))
+	if err != nil {
+		t.Fatalf("NewRouter() returned error: %v", err)
+	}
 	token := loginAndGetToken(t, router)
 
 	t.Run("student profile returns 404 before binding", func(t *testing.T) {

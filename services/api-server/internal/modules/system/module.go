@@ -1,8 +1,6 @@
 package system
 
 import (
-	"io"
-
 	"github.com/gin-gonic/gin"
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/system/repo"
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/system/service"
@@ -10,32 +8,31 @@ import (
 	appconfig "github.com/liangluo/weouc2026/services/api-server/internal/platform/config"
 )
 
-type Module struct {
-	handler *transport.Handler
-	closers []io.Closer
+type Dependencies struct {
+	StatusRepository repo.StatusRepository
 }
 
-func NewModule(appConfig appconfig.AppConfig) *Module {
-	statusRepo, closers := repo.NewRuntimeStatusRepository(appConfig.Dependencies)
+type Module struct {
+	handler *transport.Handler
+}
+
+func NewModule(appConfig appconfig.AppConfig, dependencies Dependencies) *Module {
+	statusRepo := dependencies.StatusRepository
+	if statusRepo == nil {
+		statusRepo = repo.NewRuntimeStatusRepository(
+			repo.NewStaticProbe("postgres", "skipped", false, "未启用 PostgreSQL 健康探测"),
+			repo.NewStaticProbe("redis", "skipped", false, "未启用 Redis 健康探测"),
+			repo.NewStaticProbe("object_storage", "skipped", false, "当前阶段未接入对象存储健康探测"),
+		)
+	}
 	systemService := service.New(statusRepo, appConfig)
 	handler := transport.NewHandler(systemService)
 
 	return &Module{
 		handler: handler,
-		closers: closers,
 	}
 }
 
 func (m *Module) RegisterRoutes(engine *gin.Engine) {
 	transport.RegisterRoutes(engine, m.handler)
-}
-
-func (m *Module) Closers() []io.Closer {
-	if len(m.closers) == 0 {
-		return nil
-	}
-
-	closers := make([]io.Closer, 0, len(m.closers))
-	closers = append(closers, m.closers...)
-	return closers
 }

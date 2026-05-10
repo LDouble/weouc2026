@@ -36,6 +36,12 @@ func TestLoadUsesDefaults(t *testing.T) {
 	if cfg.Dependencies.Redis.Enabled {
 		t.Fatal("expected redis health probe to be disabled by default")
 	}
+	if cfg.Persistence.IAMBackendOrDefault() != "memory" {
+		t.Fatalf("expected default iam backend memory, got %q", cfg.Persistence.IAMBackendOrDefault())
+	}
+	if cfg.Persistence.AutoMigrate {
+		t.Fatal("expected auto migrate to be disabled by default")
+	}
 }
 
 func TestLoadUsesEnvOverrides(t *testing.T) {
@@ -55,6 +61,8 @@ func TestLoadUsesEnvOverrides(t *testing.T) {
 	t.Setenv("API_SERVER_REDIS_ENABLED", "true")
 	t.Setenv("API_SERVER_REDIS_HOST", "redis")
 	t.Setenv("API_SERVER_REDIS_DB", "2")
+	t.Setenv("API_SERVER_IAM_BACKEND", "postgres_redis")
+	t.Setenv("API_SERVER_AUTO_MIGRATE", "true")
 
 	cfg, err := Load()
 	if err != nil {
@@ -81,6 +89,9 @@ func TestLoadUsesEnvOverrides(t *testing.T) {
 	}
 	if !cfg.Dependencies.Redis.Enabled || cfg.Dependencies.Redis.Address() != "redis:6379" || cfg.Dependencies.Redis.Database != 2 {
 		t.Fatalf("expected overridden redis config, got %+v", cfg.Dependencies.Redis)
+	}
+	if cfg.Persistence.IAMBackendOrDefault() != "postgres_redis" || !cfg.Persistence.AutoMigrate {
+		t.Fatalf("expected overridden persistence config, got %+v", cfg.Persistence)
 	}
 }
 
@@ -140,5 +151,59 @@ func TestValidateRejectsEnabledDependencyWithInvalidConfig(t *testing.T) {
 
 	if err := cfg.Validate(); err == nil {
 		t.Fatal("expected Validate() to reject invalid enabled dependency config")
+	}
+}
+
+func TestValidateRejectsInvalidIAMBackend(t *testing.T) {
+	cfg := AppConfig{
+		Service: ServiceConfig{Name: "api-server"},
+		Server: ServerConfig{
+			Host:            "127.0.0.1",
+			Port:            8080,
+			ReadTimeout:     time.Second,
+			WriteTimeout:    time.Second,
+			ShutdownTimeout: time.Second,
+		},
+		Auth: AuthConfig{
+			UserIDHeader:        "X-User-ID",
+			RolesHeader:         "X-User-Roles",
+			PermissionsHeader:   "X-User-Permissions",
+			AcademicBoundHeader: "X-Academic-Bound",
+			AccessTokenTTL:      time.Hour,
+		},
+		Persistence: PersistenceConfig{
+			IAMBackend: "unknown",
+		},
+	}
+
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected Validate() to reject invalid iam backend")
+	}
+}
+
+func TestValidateRejectsPersistentIAMWithoutDependencies(t *testing.T) {
+	cfg := AppConfig{
+		Service: ServiceConfig{Name: "api-server"},
+		Server: ServerConfig{
+			Host:            "127.0.0.1",
+			Port:            8080,
+			ReadTimeout:     time.Second,
+			WriteTimeout:    time.Second,
+			ShutdownTimeout: time.Second,
+		},
+		Auth: AuthConfig{
+			UserIDHeader:        "X-User-ID",
+			RolesHeader:         "X-User-Roles",
+			PermissionsHeader:   "X-User-Permissions",
+			AcademicBoundHeader: "X-Academic-Bound",
+			AccessTokenTTL:      time.Hour,
+		},
+		Persistence: PersistenceConfig{
+			IAMBackend: "postgres_redis",
+		},
+	}
+
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected Validate() to reject postgres_redis backend without dependencies")
 	}
 }

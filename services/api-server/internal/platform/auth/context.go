@@ -29,7 +29,11 @@ func ContextMiddleware(cfg appconfig.AppConfig, resolver TokenResolver) gin.Hand
 	return func(c *gin.Context) {
 		if token := bearerTokenFromHeader(c.GetHeader("Authorization")); token != "" && resolver != nil {
 			principal, err := resolver.ResolveToken(c.Request.Context(), token)
-			if err != nil || !principal.Authenticated {
+			if err != nil {
+				httpx.AbortWithError(c, err)
+				return
+			}
+			if !principal.Authenticated {
 				httpx.AbortWithError(c, httpx.Unauthorized("登录状态已失效，请重新登录"))
 				return
 			}

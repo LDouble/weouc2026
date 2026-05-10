@@ -3,13 +3,13 @@ package auth
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/gin-gonic/gin"
 	appconfig "github.com/liangluo/weouc2026/services/api-server/internal/platform/config"
+	"github.com/liangluo/weouc2026/services/api-server/internal/platform/httpx"
 )
 
 type mockResolver struct {
@@ -159,7 +159,7 @@ func TestContextMiddlewareRejectsInvalidBearerToken(t *testing.T) {
 	}
 
 	router := gin.New()
-	router.Use(ContextMiddleware(cfg, mockResolver{err: errors.New("expired")}))
+	router.Use(ContextMiddleware(cfg, mockResolver{err: httpx.Unauthorized("登录状态已失效，请重新登录")}))
 	router.GET("/principal", func(c *gin.Context) {
 		c.Status(http.StatusOK)
 	})

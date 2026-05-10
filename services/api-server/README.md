@@ -41,7 +41,7 @@ types -> config -> repo -> service -> runtime -> transport
 - `cmd/api-server`：服务启动入口
 - `internal/platform`：配置、日志、请求 ID、统一错误响应、Bearer Token / 头部双通道鉴权上下文
 - `internal/modules/system`：`/healthz`、`/readyz`、`/api/v1/system/profile`，以及 `postgres/redis` 依赖就绪探测
-- `internal/modules/iam`：`/api/auth/wechat/login`、`/api/student`、`/api/edu/send-captcha`
+- `internal/modules/iam`：`/api/auth/wechat/login`、`/api/student`、`/api/edu/send-captcha`，并支持 `PostgreSQL + Redis` 持久化
 - `internal/modules/campus_life`：`/api/feed/list`、二手/跑腿/资料/失物招领列表与关键详情/交互接口
 - `internal/providers/*_provider`：微信与教务 mock provider
 - `packages/contracts/openapi/api-server.yaml`：当前统一契约源文件
@@ -58,9 +58,10 @@ types -> config -> repo -> service -> runtime -> transport
 
 说明：
 
-- 当前阶段使用内存仓储和种子数据，服务重启后会话与运行期发布数据会丢失
+- 当前阶段 `IAM` 已支持持久化仓储；`campus_life` 仍使用内存种子数据
 - 微信登录、教务绑定通过 mock provider 模拟，不依赖真实外部系统
 - `/readyz` 已接入 `postgres`、`redis` 健康探测；依赖未就绪时会返回 `503`
+- 当 `API_SERVER_IAM_BACKEND=postgres_redis` 时，登录会话与教务绑定资料会分别落到 `Redis` 和 `PostgreSQL`
 - `upload/cos-sts` 与真实对象存储直传尚未实现，因此“带真实文件上传”的完整发布联调仍有缺口
 
 ## 本地运行
@@ -91,6 +92,8 @@ docker compose -f ops/docker/api-server/compose.yaml up --build
 - `API_SERVER_AUTH_PERMISSIONS_HEADER`
 - `API_SERVER_AUTH_ACADEMIC_BOUND_HEADER`
 - `API_SERVER_AUTH_ACCESS_TOKEN_TTL`
+- `API_SERVER_IAM_BACKEND`
+- `API_SERVER_AUTO_MIGRATE`
 - `API_SERVER_POSTGRES_ENABLED`
 - `API_SERVER_POSTGRES_HOST`
 - `API_SERVER_POSTGRES_PORT`
@@ -112,6 +115,27 @@ docker compose -f ops/docker/api-server/compose.yaml up --build
 ```bash
 cd services/api-server
 go test ./...
+```
+
+如需本地使用持久化 IAM 仓储，可配合 Docker 中间件启动：
+
+```bash
+cd /Users/liangluo/code/weouc2026
+docker compose -f ops/docker/api-server/compose.yaml up -d postgres redis
+
+cd /Users/liangluo/code/weouc2026/services/api-server
+API_SERVER_IAM_BACKEND=postgres_redis \
+API_SERVER_AUTO_MIGRATE=true \
+API_SERVER_POSTGRES_ENABLED=true \
+API_SERVER_POSTGRES_HOST=127.0.0.1 \
+API_SERVER_POSTGRES_PORT=5432 \
+API_SERVER_POSTGRES_DATABASE=weouc \
+API_SERVER_POSTGRES_USER=weouc \
+API_SERVER_POSTGRES_PASSWORD=weouc \
+API_SERVER_REDIS_ENABLED=true \
+API_SERVER_REDIS_HOST=127.0.0.1 \
+API_SERVER_REDIS_PORT=6379 \
+go run ./cmd/api-server
 ```
 
 ## 调试接口

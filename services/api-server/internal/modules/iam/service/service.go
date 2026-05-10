@@ -17,8 +17,6 @@ import (
 	"github.com/liangluo/weouc2026/services/api-server/internal/providers/wechat_provider"
 )
 
-var errInvalidToken = errors.New("invalid token")
-
 type Service struct {
 	config   config.ModuleConfig
 	users    repo.UserRepository
@@ -56,8 +54,8 @@ func (s *Service) LoginWithWeChat(ctx context.Context, request iamtypes.WeChatLo
 		return iamtypes.WeChatLoginResponse{}, httpx.Internal("微信登录失败", err)
 	}
 
-	user, exists := s.users.FindByOpenID(ctx, identity.OpenID)
-	if !exists {
+	user, err := s.users.FindByOpenID(ctx, identity.OpenID)
+	if errors.Is(err, repo.ErrUserNotFound) {
 		now := time.Now().UTC()
 		user = iamtypes.User{
 			ID:        s.users.NextID(),
@@ -68,25 +66,32 @@ func (s *Service) LoginWithWeChat(ctx context.Context, request iamtypes.WeChatLo
 			CreatedAt: now,
 			UpdatedAt: now,
 		}
+	} else if err != nil {
+		return iamtypes.WeChatLoginResponse{}, httpx.Internal("加载用户资料失败", err)
 	} else {
 		user.Nickname = identity.Nickname
 		user.AvatarURL = identity.AvatarURL
 		user.UpdatedAt = time.Now().UTC()
 	}
 
-	user = s.users.Save(ctx, user)
+	user, err = s.users.Save(ctx, user)
+	if err != nil {
+		return iamtypes.WeChatLoginResponse{}, httpx.Internal("保存用户资料失败", err)
+	}
 
 	token, err := newRandomToken()
 	if err != nil {
 		return iamtypes.WeChatLoginResponse{}, httpx.Internal("生成登录凭证失败", err)
 	}
 
-	s.sessions.Save(ctx, iamtypes.Session{
+	if _, err := s.sessions.Save(ctx, iamtypes.Session{
 		Token:     token,
 		UserID:    user.ID,
 		CreatedAt: time.Now().UTC(),
 		ExpiresAt: time.Now().UTC().Add(s.config.AccessTokenTTL),
-	})
+	}); err != nil {
+		return iamtypes.WeChatLoginResponse{}, httpx.Internal("保存登录会话失败", err)
+	}
 
 	return iamtypes.WeChatLoginResponse{
 		Token:  token,
@@ -100,18 +105,26 @@ func (s *Service) LoginWithWeChat(ctx context.Context, request iamtypes.WeChatLo
 }
 
 func (s *Service) ResolveToken(ctx context.Context, token string) (auth.Principal, error) {
-	session, exists := s.sessions.Find(ctx, token)
-	if !exists {
-		return auth.Principal{}, errInvalidToken
+	session, err := s.sessions.Find(ctx, token)
+	if errors.Is(err, repo.ErrSessionNotFound) {
+		return auth.Principal{}, httpx.Unauthorized("登录状态已失效，请重新登录")
+	}
+	if err != nil {
+		return auth.Principal{}, httpx.Internal("登录态解析失败", err)
 	}
 	if session.ExpiresAt.Before(time.Now().UTC()) {
-		s.sessions.Delete(ctx, token)
-		return auth.Principal{}, errInvalidToken
+		if err := s.sessions.Delete(ctx, token); err != nil {
+			return auth.Principal{}, httpx.Internal("清理过期登录态失败", err)
+		}
+		return auth.Principal{}, httpx.Unauthorized("登录状态已失效，请重新登录")
 	}
 
-	user, exists := s.users.FindByID(ctx, session.UserID)
-	if !exists {
-		return auth.Principal{}, errInvalidToken
+	user, err := s.users.FindByID(ctx, session.UserID)
+	if errors.Is(err, repo.ErrUserNotFound) {
+		return auth.Principal{}, httpx.Unauthorized("登录状态已失效，请重新登录")
+	}
+	if err != nil {
+		return auth.Principal{}, httpx.Internal("加载当前用户失败", err)
 	}
 
 	permissions := append([]string(nil), user.Permissions...)
@@ -131,9 +144,12 @@ func (s *Service) ResolveToken(ctx context.Context, token string) (auth.Principa
 }
 
 func (s *Service) GetStudentProfile(ctx context.Context, principal auth.Principal) (iamtypes.StudentProfile, error) {
-	user, exists := s.users.FindByID(ctx, principal.UserID)
-	if !exists {
+	user, err := s.users.FindByID(ctx, principal.UserID)
+	if errors.Is(err, repo.ErrUserNotFound) {
 		return iamtypes.StudentProfile{}, httpx.Unauthorized("需要登录后访问")
+	}
+	if err != nil {
+		return iamtypes.StudentProfile{}, httpx.Internal("加载当前资料失败", err)
 	}
 	if user.StudentProfile == nil || !user.StudentProfile.IsBound {
 		return iamtypes.StudentProfile{}, httpx.NotFound("当前账号尚未完成教务绑定", nil)
@@ -154,12 +170,14 @@ func (s *Service) SendCaptcha(ctx context.Context, _ auth.Principal, studentID s
 	}
 
 	now := time.Now().UTC()
-	s.captchas.Save(ctx, iamtypes.CaptchaTicket{
+	if err := s.captchas.Save(ctx, iamtypes.CaptchaTicket{
 		StudentID: studentID,
 		Code:      code,
 		SentAt:    now,
 		ExpiresAt: now.Add(s.config.CaptchaTTL),
-	})
+	}); err != nil {
+		return httpx.Internal("保存验证码失败", err)
+	}
 
 	return nil
 }
@@ -172,8 +190,14 @@ func (s *Service) BindStudent(ctx context.Context, principal auth.Principal, req
 		return iamtypes.StudentProfile{}, httpx.BadRequest("student_id、password、captcha 为必填项", nil)
 	}
 
-	ticket, exists := s.captchas.Find(ctx, studentID)
-	if !exists || ticket.ExpiresAt.Before(time.Now().UTC()) {
+	ticket, err := s.captchas.Find(ctx, studentID)
+	if errors.Is(err, repo.ErrCaptchaNotFound) {
+		return iamtypes.StudentProfile{}, httpx.BadRequest("验证码不存在或已过期", nil)
+	}
+	if err != nil {
+		return iamtypes.StudentProfile{}, httpx.Internal("读取验证码失败", err)
+	}
+	if ticket.ExpiresAt.Before(time.Now().UTC()) {
 		return iamtypes.StudentProfile{}, httpx.BadRequest("验证码不存在或已过期", nil)
 	}
 	if ticket.Code != captcha {
@@ -203,7 +227,9 @@ func (s *Service) BindStudent(ctx context.Context, principal auth.Principal, req
 		return iamtypes.StudentProfile{}, err
 	}
 
-	s.captchas.Delete(ctx, studentID)
+	if err := s.captchas.Delete(ctx, studentID); err != nil {
+		return iamtypes.StudentProfile{}, httpx.Internal("清理验证码失败", err)
+	}
 	return profile, nil
 }
 

@@ -3,10 +3,8 @@ package repo
 import (
 	"context"
 	"database/sql"
-	"io"
 	"time"
 
-	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/system/types"
 	appconfig "github.com/liangluo/weouc2026/services/api-server/internal/platform/config"
 	"github.com/redis/go-redis/v9"
@@ -41,22 +39,10 @@ type RedisProbe struct {
 	client *redis.Client
 }
 
-func NewRuntimeStatusRepository(cfg appconfig.DependenciesConfig) (*RuntimeStatusRepository, []io.Closer) {
-	probes := []DependencyProbe{
-		NewPostgresProbe(cfg.Postgres),
-		NewRedisProbe(cfg.Redis),
-		NewStaticProbe("object_storage", "skipped", false, "当前阶段未接入对象存储健康探测"),
-	}
-	closers := make([]io.Closer, 0, len(probes))
-	for _, probe := range probes {
-		closer, ok := probe.(io.Closer)
-		if !ok {
-			continue
-		}
-		closers = append(closers, closer)
-	}
-
-	return &RuntimeStatusRepository{probes: probes}, closers
+func NewRuntimeStatusRepository(probes ...DependencyProbe) *RuntimeStatusRepository {
+	cloned := make([]DependencyProbe, 0, len(probes))
+	cloned = append(cloned, probes...)
+	return &RuntimeStatusRepository{probes: cloned}
 }
 
 func NewStaticProbe(name, status string, required bool, detail string) *StaticProbe {
@@ -68,36 +54,12 @@ func NewStaticProbe(name, status string, required bool, detail string) *StaticPr
 	}
 }
 
-func NewPostgresProbe(cfg appconfig.PostgresConfig) *PostgresProbe {
-	if !cfg.Enabled {
-		return &PostgresProbe{config: cfg}
-	}
-
-	db, err := sql.Open("pgx", cfg.DSN())
-	if err != nil {
-		return &PostgresProbe{config: cfg}
-	}
-
-	return &PostgresProbe{
-		config: cfg,
-		db:     db,
-	}
+func NewPostgresProbe(cfg appconfig.PostgresConfig, db *sql.DB) *PostgresProbe {
+	return &PostgresProbe{config: cfg, db: db}
 }
 
-func NewRedisProbe(cfg appconfig.RedisConfig) *RedisProbe {
-	if !cfg.Enabled {
-		return &RedisProbe{config: cfg}
-	}
-
-	return &RedisProbe{
-		config: cfg,
-		client: redis.NewClient(&redis.Options{
-			Addr:     cfg.Address(),
-			Username: cfg.Username,
-			Password: cfg.Password,
-			DB:       cfg.Database,
-		}),
-	}
+func NewRedisProbe(cfg appconfig.RedisConfig, client *redis.Client) *RedisProbe {
+	return &RedisProbe{config: cfg, client: client}
 }
 
 func (r *RuntimeStatusRepository) ReadinessSnapshot(ctx context.Context) types.ReadinessStatus {
@@ -170,14 +132,6 @@ func (p *PostgresProbe) Check(ctx context.Context) types.DependencyStatus {
 	}
 }
 
-func (p *PostgresProbe) Close() error {
-	if p.db == nil {
-		return nil
-	}
-
-	return p.db.Close()
-}
-
 func (p *RedisProbe) Check(ctx context.Context) types.DependencyStatus {
 	if !p.config.Enabled {
 		return types.DependencyStatus{
@@ -214,12 +168,4 @@ func (p *RedisProbe) Check(ctx context.Context) types.DependencyStatus {
 		Required: true,
 		Detail:   "连接正常",
 	}
-}
-
-func (p *RedisProbe) Close() error {
-	if p.client == nil {
-		return nil
-	}
-
-	return p.client.Close()
 }

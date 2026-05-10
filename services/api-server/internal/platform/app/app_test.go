@@ -34,7 +34,10 @@ func TestSystemRoutes(t *testing.T) {
 		},
 	}
 
-	router := NewRouter(cfg, applogger.New(cfg))
+	router, err := NewRouter(cfg, applogger.New(cfg))
+	if err != nil {
+		t.Fatalf("NewRouter() returned error: %v", err)
+	}
 
 	t.Run("healthz is public", func(t *testing.T) {
 		recorder := httptest.NewRecorder()
@@ -109,7 +112,10 @@ func TestSystemRoutes(t *testing.T) {
 		unavailableCfg.Dependencies.Redis.Port = 1
 		unavailableCfg.Dependencies.Redis.HealthCheckTimeout = 100 * time.Millisecond
 
-		unavailableRouter := NewRouter(unavailableCfg, applogger.New(unavailableCfg))
+		unavailableRouter, err := NewRouter(unavailableCfg, applogger.New(unavailableCfg))
+		if err != nil {
+			t.Fatalf("NewRouter() with unavailable dependency config returned error: %v", err)
+		}
 		recorder := httptest.NewRecorder()
 		request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
 
@@ -120,6 +126,15 @@ func TestSystemRoutes(t *testing.T) {
 		}
 		if !strings.Contains(recorder.Body.String(), "\"status\":\"not_ready\"") {
 			t.Fatalf("expected readiness response to be not_ready, got %s", recorder.Body.String())
+		}
+	})
+
+	t.Run("persistent iam backend fails fast without runtime dependencies", func(t *testing.T) {
+		persistentCfg := cfg
+		persistentCfg.Persistence.IAMBackend = "postgres_redis"
+
+		if _, err := NewRouter(persistentCfg, applogger.New(persistentCfg)); err == nil {
+			t.Fatal("expected NewRouter to fail when persistent iam backend has no runtime dependencies")
 		}
 	})
 }

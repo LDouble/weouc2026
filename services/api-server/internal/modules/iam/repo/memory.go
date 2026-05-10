@@ -11,25 +11,27 @@ import (
 )
 
 var ErrUserNotFound = errors.New("user not found")
+var ErrSessionNotFound = errors.New("session not found")
+var ErrCaptchaNotFound = errors.New("captcha not found")
 
 type UserRepository interface {
-	FindByID(ctx context.Context, userID string) (iamtypes.User, bool)
-	FindByOpenID(ctx context.Context, openID string) (iamtypes.User, bool)
-	Save(ctx context.Context, user iamtypes.User) iamtypes.User
+	FindByID(ctx context.Context, userID string) (iamtypes.User, error)
+	FindByOpenID(ctx context.Context, openID string) (iamtypes.User, error)
+	Save(ctx context.Context, user iamtypes.User) (iamtypes.User, error)
 	Update(ctx context.Context, userID string, mutate func(*iamtypes.User) error) (iamtypes.User, error)
 	NextID() string
 }
 
 type SessionRepository interface {
-	Save(ctx context.Context, session iamtypes.Session) iamtypes.Session
-	Find(ctx context.Context, token string) (iamtypes.Session, bool)
-	Delete(ctx context.Context, token string)
+	Save(ctx context.Context, session iamtypes.Session) (iamtypes.Session, error)
+	Find(ctx context.Context, token string) (iamtypes.Session, error)
+	Delete(ctx context.Context, token string) error
 }
 
 type CaptchaRepository interface {
-	Save(ctx context.Context, ticket iamtypes.CaptchaTicket)
-	Find(ctx context.Context, studentID string) (iamtypes.CaptchaTicket, bool)
-	Delete(ctx context.Context, studentID string)
+	Save(ctx context.Context, ticket iamtypes.CaptchaTicket) error
+	Find(ctx context.Context, studentID string) (iamtypes.CaptchaTicket, error)
+	Delete(ctx context.Context, studentID string) error
 }
 
 type InMemoryUserRepository struct {
@@ -46,28 +48,36 @@ func NewInMemoryUserRepository() *InMemoryUserRepository {
 	}
 }
 
-func (r *InMemoryUserRepository) findByID(userID string) (iamtypes.User, bool) {
+func (r *InMemoryUserRepository) findByID(userID string) (iamtypes.User, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	user, exists := r.byID[userID]
-	return cloneUser(user), exists
+	if !exists {
+		return iamtypes.User{}, ErrUserNotFound
+	}
+
+	return cloneUser(user), nil
 }
 
-func (r *InMemoryUserRepository) FindByOpenID(_ context.Context, openID string) (iamtypes.User, bool) {
+func (r *InMemoryUserRepository) FindByOpenID(_ context.Context, openID string) (iamtypes.User, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	userID, exists := r.byOpenID[openID]
 	if !exists {
-		return iamtypes.User{}, false
+		return iamtypes.User{}, ErrUserNotFound
 	}
 
 	user, userExists := r.byID[userID]
-	return cloneUser(user), userExists
+	if !userExists {
+		return iamtypes.User{}, ErrUserNotFound
+	}
+
+	return cloneUser(user), nil
 }
 
-func (r *InMemoryUserRepository) Save(_ context.Context, user iamtypes.User) iamtypes.User {
+func (r *InMemoryUserRepository) Save(_ context.Context, user iamtypes.User) (iamtypes.User, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -77,7 +87,7 @@ func (r *InMemoryUserRepository) Save(_ context.Context, user iamtypes.User) iam
 		r.byOpenID[user.OpenID] = user.ID
 	}
 
-	return cloneUser(user)
+	return cloneUser(user), nil
 }
 
 func (r *InMemoryUserRepository) Update(_ context.Context, userID string, mutate func(*iamtypes.User) error) (iamtypes.User, error) {
@@ -107,7 +117,7 @@ func (r *InMemoryUserRepository) NextID() string {
 	return fmt.Sprintf("user-%06d", value)
 }
 
-func (r *InMemoryUserRepository) FindByID(ctx context.Context, userID string) (iamtypes.User, bool) {
+func (r *InMemoryUserRepository) FindByID(ctx context.Context, userID string) (iamtypes.User, error) {
 	return r.findByID(userID)
 }
 
@@ -122,27 +132,32 @@ func NewInMemorySessionRepository() *InMemorySessionRepository {
 	}
 }
 
-func (r *InMemorySessionRepository) Save(_ context.Context, session iamtypes.Session) iamtypes.Session {
+func (r *InMemorySessionRepository) Save(_ context.Context, session iamtypes.Session) (iamtypes.Session, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	r.sessions[session.Token] = session
-	return session
+	return session, nil
 }
 
-func (r *InMemorySessionRepository) Find(_ context.Context, token string) (iamtypes.Session, bool) {
+func (r *InMemorySessionRepository) Find(_ context.Context, token string) (iamtypes.Session, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	session, exists := r.sessions[token]
-	return session, exists
+	if !exists {
+		return iamtypes.Session{}, ErrSessionNotFound
+	}
+
+	return session, nil
 }
 
-func (r *InMemorySessionRepository) Delete(_ context.Context, token string) {
+func (r *InMemorySessionRepository) Delete(_ context.Context, token string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	delete(r.sessions, token)
+	return nil
 }
 
 type InMemoryCaptchaRepository struct {
@@ -156,26 +171,32 @@ func NewInMemoryCaptchaRepository() *InMemoryCaptchaRepository {
 	}
 }
 
-func (r *InMemoryCaptchaRepository) Save(_ context.Context, ticket iamtypes.CaptchaTicket) {
+func (r *InMemoryCaptchaRepository) Save(_ context.Context, ticket iamtypes.CaptchaTicket) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	r.tickets[ticket.StudentID] = ticket
+	return nil
 }
 
-func (r *InMemoryCaptchaRepository) Find(_ context.Context, studentID string) (iamtypes.CaptchaTicket, bool) {
+func (r *InMemoryCaptchaRepository) Find(_ context.Context, studentID string) (iamtypes.CaptchaTicket, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	ticket, exists := r.tickets[studentID]
-	return ticket, exists
+	if !exists {
+		return iamtypes.CaptchaTicket{}, ErrCaptchaNotFound
+	}
+
+	return ticket, nil
 }
 
-func (r *InMemoryCaptchaRepository) Delete(_ context.Context, studentID string) {
+func (r *InMemoryCaptchaRepository) Delete(_ context.Context, studentID string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	delete(r.tickets, studentID)
+	return nil
 }
 
 func cloneUser(user iamtypes.User) iamtypes.User {

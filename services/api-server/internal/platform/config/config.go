@@ -14,6 +14,7 @@ type AppConfig struct {
 	Server       ServerConfig
 	Auth         AuthConfig
 	Dependencies DependenciesConfig
+	Persistence  PersistenceConfig
 }
 
 type ServiceConfig struct {
@@ -41,6 +42,11 @@ type AuthConfig struct {
 type DependenciesConfig struct {
 	Postgres PostgresConfig
 	Redis    RedisConfig
+}
+
+type PersistenceConfig struct {
+	IAMBackend  string
+	AutoMigrate bool
 }
 
 type PostgresConfig struct {
@@ -106,6 +112,10 @@ func Load() (AppConfig, error) {
 				HealthCheckTimeout: getenvDuration("API_SERVER_REDIS_HEALTHCHECK_TIMEOUT", 2*time.Second),
 			},
 		},
+		Persistence: PersistenceConfig{
+			IAMBackend:  getenv("API_SERVER_IAM_BACKEND", "memory"),
+			AutoMigrate: getenvBool("API_SERVER_AUTO_MIGRATE", false),
+		},
 	}
 
 	return cfg, cfg.Validate()
@@ -134,6 +144,9 @@ func (c AppConfig) Validate() error {
 		return err
 	}
 	if err := c.Dependencies.Redis.Validate(); err != nil {
+		return err
+	}
+	if err := c.Persistence.Validate(c.Dependencies); err != nil {
 		return err
 	}
 
@@ -214,6 +227,31 @@ func (c RedisConfig) Validate() error {
 	}
 
 	return nil
+}
+
+func (c PersistenceConfig) IAMBackendOrDefault() string {
+	if c.IAMBackend == "" {
+		return "memory"
+	}
+
+	return c.IAMBackend
+}
+
+func (c PersistenceConfig) Validate(dependencies DependenciesConfig) error {
+	switch c.IAMBackendOrDefault() {
+	case "memory":
+		return nil
+	case "postgres_redis":
+		if !dependencies.Postgres.Enabled {
+			return errors.New("postgres must be enabled when iam backend is postgres_redis")
+		}
+		if !dependencies.Redis.Enabled {
+			return errors.New("redis must be enabled when iam backend is postgres_redis")
+		}
+		return nil
+	default:
+		return fmt.Errorf("iam backend %q is invalid", c.IAMBackend)
+	}
 }
 
 func getenv(key, defaultValue string) string {
