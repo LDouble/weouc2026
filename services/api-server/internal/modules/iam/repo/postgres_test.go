@@ -34,10 +34,12 @@ func TestPostgresUserRepositoryFindByID(t *testing.T) {
 	}
 
 	rows := sqlmock.NewRows([]string{
-		"id", "open_id", "nickname", "avatar_url", "roles", "permissions", "student_profile", "created_at", "updated_at",
+		"id", "open_id", "username", "password_hash", "nickname", "avatar_url", "roles", "permissions", "student_profile", "created_at", "updated_at",
 	}).AddRow(
 		"user-001",
 		"openid-001",
+		"student001",
+		"",
 		"海大同学",
 		"https://example.com/avatar.png",
 		`["student"]`,
