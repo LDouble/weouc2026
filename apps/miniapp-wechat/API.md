@@ -211,7 +211,7 @@
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `id` | `string` | 动态 ID |
-| `feed_type` | `string` | `market` / `errand` / `resource` / `lostFound` / `carpool` |
+| `feed_type` | `string` | `market` / `errand` / `resource` / `lostFound` / `carpool` / `meetup` |
 | `feed_type_label` | `string` | 动态类型展示文案 |
 | `title` | `string` | 标题 |
 | `desc` | `string` | 摘要 |
@@ -539,9 +539,130 @@
 - 小程序现在会传稳定的 `travel_date + travel_time`，不再只传中文展示时间
 - 后端会据此统一计算 `today / tomorrow / week / longterm` 的筛选结果与展示文案
 
-## 9. 文件上传
+## 9. 校园组局
 
-### 9.1 获取 COS 临时凭证
+### 9.1 获取列表
+
+- 方法：`GET /meetup/list`
+- 使用位置：校园组局列表页
+
+查询参数：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `category` | `string` | `study` / `sports` / `food` / `game` / `activity` / `other` / `all` |
+| `keyword` | `string` | 搜索主题、地点或发起人 |
+| `user_role` | `string` | `publisher` / `participant` / `viewer` |
+| `page` | `number` | 页码 |
+| `pageSize` | `number` | 每页条数 |
+
+列表项建议字段：
+
+- `id`
+- `category`
+- `title`
+- `desc`
+- `location`
+- `start_at`
+- `deadline_at`
+- `max_participants`
+- `joined_count`
+- `remaining_seats`
+- `fee_text`
+- `tags`
+- `contact`
+- `status`
+- `review_status`
+- `user_role`
+- `can_join`
+- `can_cancel_join`
+- `can_cancel_publish`
+- `publisher`
+- `publisher_initial`
+- `created_at`
+
+说明：
+
+- 公开列表只展示 `published` 的组局；发起人和审核员可继续查看待审内容
+- `status` 会综合 `review_status` 与人数、截止时间、开始时间，常见值包括 `open` / `full` / `cancelled` / `reviewing`
+- `contact` 必须继续由后端按教务绑定状态裁剪
+
+### 9.2 获取详情
+
+- 方法：`GET /meetup/detail/{id}`
+- 使用位置：组局详情页、发布成功后的回流页
+
+说明：
+
+- 详情接口建议继续返回和列表同构的核心字段，并显式返回 `can_view_contact`
+- 发起人可以在详情页看到自己刚发布但仍处于 `reviewing` 的记录
+
+### 9.3 发布
+
+- 方法：`POST /meetup/publish`
+- 使用位置：组局发布页
+
+请求体字段：
+
+- `category`
+- `title`
+- `desc`
+- `location`
+- `start_at`
+- `deadline_at`
+- `max_participants`
+- `fee_text`
+- `tags`
+- `contact`
+
+说明：
+
+- `start_at` 与 `deadline_at` 使用 `RFC3339` 时间字符串
+- `deadline_at` 可为空；为空时默认与 `start_at` 一致
+- 新发布内容默认进入 `reviewing`，发布成功后前端会用返回的 `id` 跳转详情页
+
+### 9.4 报名
+
+- 方法：`POST /meetup/join`
+- 使用位置：组局详情页
+
+请求体：
+
+```json
+{
+  "meetup_id": "meetup-101"
+}
+```
+
+### 9.5 取消报名
+
+- 方法：`POST /meetup/cancel-join`
+- 使用位置：组局详情页
+
+请求体：
+
+```json
+{
+  "meetup_id": "meetup-101"
+}
+```
+
+### 9.6 取消组局
+
+- 方法：`POST /meetup/cancel-publish`
+- 使用位置：组局详情页，仅发起人可见
+
+请求体：
+
+```json
+{
+  "meetup_id": "meetup-101"
+}
+```
+
+## 10. 文件上传
+
+### 10.1 获取 COS 临时凭证
 
 - 方法：`GET /upload/cos-sts`
 - 使用位置：闲置发布页图片上传、跑腿图片上传、资料文件上传
@@ -568,7 +689,7 @@
 - 前端会用 `path_prefix + hash/...` 生成实际对象键
 - `path_prefix` 已包含业务场景、用户隔离和日期维度
 
-### 9.2 获取预签名访问地址
+### 10.2 获取预签名访问地址
 
 - 方法：`POST /upload/presigned-get`
 - 使用位置：文件直传完成后回显
@@ -593,7 +714,7 @@
 }
 ```
 
-## 10. 后续契约收敛建议
+## 11. 后续契约收敛建议
 
 - 统一把列表接口收敛为同一分页包结构，避免小程序为每个业务单独兼容
 - `POST /student` 当前承担“教务绑定”语义，建议后续在 `packages/contracts` 中拆出更明确的绑定接口

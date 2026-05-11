@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: WEOUC API Server Baseline
-  version: 0.2.2
-  description: 校园综合应用后端当前可联调接口契约，覆盖系统接口、微信小程序主链路与校园生活审核闭环基础能力。
+  version: 0.2.3
+  description: 校园综合应用后端当前可联调接口契约，覆盖系统接口、微信小程序主链路、组局/拼车与校园生活审核闭环基础能力。
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -14,7 +14,7 @@ tags:
   - name: FileCenter
     description: 文件上传临时凭证与对象下载签名接口
   - name: CampusLife
-    description: 首页动态、二手、跑腿、资料、失物招领、拼车与审核接口
+    description: 首页动态、二手、跑腿、资料、失物招领、拼车、组局与审核接口
 paths:
   /healthz:
     get:
@@ -637,6 +637,152 @@ paths:
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
+  /api/meetup/list:
+    get:
+      tags: [CampusLife]
+      summary: 获取组局列表
+      operationId: listMeetups
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Keyword'
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [all, study, sports, food, game, activity, other]
+        - name: user_role
+          in: query
+          schema:
+            type: string
+            enum: [publisher, participant, viewer]
+      responses:
+        '200':
+          description: 组局分页结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponseEnvelope'
+  /api/meetup/detail/{id}:
+    get:
+      tags: [CampusLife]
+      summary: 获取组局详情
+      operationId: getMeetupDetail
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: 组局详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+  /api/meetup/publish:
+    post:
+      tags: [CampusLife]
+      summary: 发布组局
+      operationId: publishMeetup
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeetupPublishRequest'
+      responses:
+        '200':
+          description: 发布成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IDResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+  /api/meetup/join:
+    post:
+      tags: [CampusLife]
+      summary: 报名组局
+      operationId: joinMeetup
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeetupActionRequest'
+      responses:
+        '200':
+          description: 报名成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+  /api/meetup/cancel-join:
+    post:
+      tags: [CampusLife]
+      summary: 取消组局报名
+      operationId: cancelMeetupJoin
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeetupActionRequest'
+      responses:
+        '200':
+          description: 取消报名成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+  /api/meetup/cancel-publish:
+    post:
+      tags: [CampusLife]
+      summary: 取消组局发布
+      operationId: cancelMeetupPublish
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MeetupActionRequest'
+      responses:
+        '200':
+          description: 取消组局成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
   /api/admin/campus-life/review/list:
     get:
       tags: [CampusLife]
@@ -652,7 +798,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [market, errand, resource, lostFound, carpool]
+            enum: [market, errand, resource, lostFound, carpool, meetup]
         - name: review_status
           in: query
           schema:
@@ -754,7 +900,7 @@ components:
       in: query
       schema:
         type: string
-        enum: [publisher, acceptor, viewer]
+        enum: [publisher, acceptor, participant, viewer]
     Category:
       name: category
       in: query
@@ -1271,13 +1417,49 @@ components:
             type: string
         contact:
           type: string
+    MeetupPublishRequest:
+      type: object
+      required: [title, location, start_at, max_participants, contact]
+      properties:
+        category:
+          type: string
+          enum: [study, sports, food, game, activity, other]
+        title:
+          type: string
+        desc:
+          type: string
+        location:
+          type: string
+        start_at:
+          type: string
+          format: date-time
+        deadline_at:
+          type: string
+          format: date-time
+        max_participants:
+          type: integer
+          minimum: 2
+        fee_text:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        contact:
+          type: string
+    MeetupActionRequest:
+      type: object
+      required: [meetup_id]
+      properties:
+        meetup_id:
+          type: string
     ReviewUpdateRequest:
       type: object
       required: [content_type, content_id, review_status]
       properties:
         content_type:
           type: string
-          enum: [market, errand, resource, lostFound, carpool]
+          enum: [market, errand, resource, lostFound, carpool, meetup]
         content_id:
           type: string
         review_status:

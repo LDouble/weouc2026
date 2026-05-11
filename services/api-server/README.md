@@ -42,7 +42,7 @@ types -> config -> repo -> service -> runtime -> transport
 - `internal/platform`：配置、日志、请求 ID、统一错误响应、Bearer Token / 头部双通道鉴权上下文
 - `internal/modules/system`：`/healthz`、`/readyz`、`/api/v1/system/profile`，以及 `postgres/redis` 依赖就绪探测
 - `internal/modules/iam`：`/api/auth/wechat/login`、`/api/student`、`/api/edu/send-captcha`，并支持 `PostgreSQL + Redis` 持久化
-- `internal/modules/campus_life`：`/api/feed/list`、二手/跑腿/资料/失物招领/拼车列表与关键详情/交互接口，以及校园生活审核接口
+- `internal/modules/campus_life`：`/api/feed/list`、二手/跑腿/资料/失物招领/拼车/组局列表与关键详情/交互接口，以及校园生活审核接口
 - `internal/modules/file_center`：`/api/upload/cos-sts`、`/api/upload/presigned-get`
 - `internal/providers/*_provider`：微信与教务 mock provider
 - `packages/contracts/openapi/api-server.yaml`：当前统一契约源文件
@@ -57,7 +57,8 @@ types -> config -> repo -> service -> runtime -> transport
 - 资料列表、详情、发布
 - 失物招领列表、详情、发布
 - 拼车列表、详情、发布
-- 校园生活审核列表、审核状态更新
+- 组局列表、详情、发布、报名、取消报名、取消组局
+- 校园生活审核列表、审核状态更新（覆盖二手、跑腿、资料、失物招领、拼车、组局）
 - COS 临时上传凭证与对象下载预签名
 
 说明：
@@ -66,7 +67,7 @@ types -> config -> repo -> service -> runtime -> transport
 - 微信登录、教务绑定通过 mock provider 模拟，不依赖真实外部系统
 - `/readyz` 已接入 `postgres`、`redis`、`object_storage` 健康探测；依赖未就绪时会返回 `503`
 - 当 `API_SERVER_IAM_BACKEND=postgres_redis` 时，登录会话与教务绑定资料会分别落到 `Redis` 和 `PostgreSQL`
-- 当 `API_SERVER_CAMPUS_LIFE_BACKEND=postgres` 时，二手、跑腿、资料、失物招领、拼车会持久化到 `PostgreSQL`
+- 当 `API_SERVER_CAMPUS_LIFE_BACKEND=postgres` 时，二手、跑腿、资料、失物招领、拼车、组局会持久化到 `PostgreSQL`
 - 已支持腾讯 COS 直传；业务层只存对象路径，读取时由后端签发可访问 URL
 - 新发布的校园生活内容默认进入 `reviewing`；公开列表与详情只暴露 `published` 内容，发布者和具备 `campus_life:moderate` 权限的管理员可继续查看待审内容
 
@@ -186,6 +187,7 @@ curl -X POST http://localhost:8080/api/auth/wechat/login \
 ```bash
 curl http://localhost:8080/api/market/list
 curl http://localhost:8080/api/carpool/list
+curl http://localhost:8080/api/meetup/list
 curl http://localhost:8080/api/market/detail/market-101
 curl http://localhost:8080/api/student -H "Authorization: Bearer <token>"
 curl -X POST http://localhost:8080/api/edu/send-captcha \
@@ -202,6 +204,10 @@ curl -X POST http://localhost:8080/api/upload/presigned-get \
   -H "Authorization: Bearer <token>" \
   -H 'Content-Type: application/json' \
   -d '{"path":"miniapp/market/u-1/20260510/example.png"}'
+curl -X POST http://localhost:8080/api/meetup/publish \
+  -H "Authorization: Bearer <token>" \
+  -H 'Content-Type: application/json' \
+  -d '{"category":"study","title":"明晚图书馆自习搭子","desc":"一起准备高数小测","location":"图书馆四楼 A 区","start_at":"2026-05-12T19:00:00+08:00","deadline_at":"2026-05-12T18:30:00+08:00","max_participants":4,"fee_text":"免费","tags":["高数","自习"],"contact":"wx-study-001"}'
 curl http://localhost:8080/api/admin/campus-life/review/list \
   -H 'X-User-ID: admin-001' \
   -H 'X-User-Permissions: campus_life:moderate'
@@ -209,5 +215,5 @@ curl -X POST http://localhost:8080/api/admin/campus-life/review/update \
   -H 'X-User-ID: admin-001' \
   -H 'X-User-Permissions: campus_life:moderate' \
   -H 'Content-Type: application/json' \
-  -d '{"content_type":"carpool","content_id":"carpool-1","review_status":"published"}'
+  -d '{"content_type":"meetup","content_id":"meetup-101","review_status":"published"}'
 ```
