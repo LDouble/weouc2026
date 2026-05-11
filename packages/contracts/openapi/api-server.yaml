@@ -93,6 +93,28 @@ paths:
                 $ref: '#/components/schemas/WeChatLoginResponseEnvelope'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
+  /api/auth/admin/login:
+    post:
+      tags: [IAM]
+      summary: 管理员密码登录
+      operationId: postAdminLogin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminLoginRequest'
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminLoginResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
   /api/student:
     get:
       tags: [IAM]
@@ -1487,6 +1509,36 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/WeChatLoginResponse'
+    AdminLoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+    AdminLoginResponse:
+      type: object
+      required: [token, user_id, username, roles]
+      properties:
+        token:
+          type: string
+        user_id:
+          type: string
+        username:
+          type: string
+        roles:
+          type: array
+          items:
+            type: string
+    AdminLoginResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/AdminLoginResponse'
     StudentProfile:
       type: object
       required: [name, avatar_url, student_id, major, college, grade, is_bound, updated_at]

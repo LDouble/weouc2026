@@ -15,6 +15,8 @@ import (
 const userColumns = `
 id,
 open_id,
+username,
+password_hash,
 nickname,
 avatar_url,
 roles,
@@ -60,6 +62,23 @@ func (r *PostgresUserRepository) FindByOpenID(ctx context.Context, openID string
 	}
 	if err != nil {
 		return iamtypes.User{}, fmt.Errorf("find user by open id failed: %w", err)
+	}
+
+	return user, nil
+}
+
+func (r *PostgresUserRepository) FindByUsername(ctx context.Context, username string) (iamtypes.User, error) {
+	if r.db == nil {
+		return iamtypes.User{}, fmt.Errorf("postgres user repository db is nil")
+	}
+
+	row := r.db.QueryRowContext(ctx, `SELECT `+userColumns+` FROM iam_users WHERE username = $1 LIMIT 1`, username)
+	user, err := scanUser(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return iamtypes.User{}, ErrUserNotFound
+	}
+	if err != nil {
+		return iamtypes.User{}, fmt.Errorf("find user by username failed: %w", err)
 	}
 
 	return user, nil
@@ -147,6 +166,8 @@ func saveUser(ctx context.Context, querier queryRower, user iamtypes.User) (iamt
 		`INSERT INTO iam_users (
 			id,
 			open_id,
+			username,
+			password_hash,
 			nickname,
 			avatar_url,
 			roles,
@@ -154,9 +175,11 @@ func saveUser(ctx context.Context, querier queryRower, user iamtypes.User) (iamt
 			student_profile,
 			created_at,
 			updated_at
-		) VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8, $9)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9::jsonb, $10, $11)
 		ON CONFLICT (id) DO UPDATE SET
 			open_id = EXCLUDED.open_id,
+			username = EXCLUDED.username,
+			password_hash = EXCLUDED.password_hash,
 			nickname = EXCLUDED.nickname,
 			avatar_url = EXCLUDED.avatar_url,
 			roles = EXCLUDED.roles,
@@ -166,6 +189,8 @@ func saveUser(ctx context.Context, querier queryRower, user iamtypes.User) (iamt
 		RETURNING `+userColumns,
 		user.ID,
 		user.OpenID,
+		user.Username,
+		user.PasswordHash,
 		user.Nickname,
 		user.AvatarURL,
 		string(roles),
@@ -196,6 +221,8 @@ func scanUser(scanner userScanner) (iamtypes.User, error) {
 	if err := scanner.Scan(
 		&user.ID,
 		&user.OpenID,
+		&user.Username,
+		&user.PasswordHash,
 		&user.Nickname,
 		&user.AvatarURL,
 		&rolesRaw,

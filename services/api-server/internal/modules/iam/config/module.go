@@ -7,6 +7,7 @@ type ModuleConfig struct {
 	CaptchaTTL        time.Duration
 	AccessTokenTTL    time.Duration
 	StudentPermission string
+	AllowPasswordLogin bool
 }
 
 func New(accessTokenTTL time.Duration) ModuleConfig {
@@ -15,5 +16,6 @@ func New(accessTokenTTL time.Duration) ModuleConfig {
 		CaptchaTTL:        5 * time.Minute,
 		AccessTokenTTL:    accessTokenTTL,
 		StudentPermission: "contact:view",
+		AllowPasswordLogin: true,
 	}
 }

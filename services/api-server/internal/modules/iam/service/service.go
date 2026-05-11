@@ -48,6 +48,61 @@ func New(
 	}
 }
 
+func (s *Service) LoginWithPassword(ctx context.Context, request iamtypes.AdminLoginRequest) (iamtypes.AdminLoginResponse, error) {
+	username := strings.TrimSpace(request.Username)
+	password := strings.TrimSpace(request.Password)
+	
+	if username == "" || password == "" {
+		return iamtypes.AdminLoginResponse{}, httpx.BadRequest("用户名和密码为必填项", nil)
+	}
+
+	user, err := s.users.FindByUsername(ctx, username)
+	if errors.Is(err, repo.ErrUserNotFound) {
+		return iamtypes.AdminLoginResponse{}, httpx.Unauthorized("用户名或密码错误")
+	}
+	if err != nil {
+		return iamtypes.AdminLoginResponse{}, httpx.Internal("用户查询失败", err)
+	}
+
+	if !s.config.AllowPasswordLogin || !checkPassword(password, user.PasswordHash) {
+		return iamtypes.AdminLoginResponse{}, httpx.Unauthorized("用户名或密码错误")
+	}
+
+	token, err := newRandomToken()
+	if err != nil {
+		return iamtypes.AdminLoginResponse{}, httpx.Internal("生成登录凭证失败", err)
+	}
+
+	if _, err := s.sessions.Save(ctx, iamtypes.Session{
+		Token:     token,
+		UserID:    user.ID,
+		CreatedAt: time.Now().UTC(),
+		ExpiresAt: time.Now().UTC().Add(s.config.AccessTokenTTL),
+	}); err != nil {
+		return iamtypes.AdminLoginResponse{}, httpx.Internal("保存登录会话失败", err)
+	}
+
+	audit.RecordBestEffort(ctx, s.recorder, audit.Entry{
+		ActorID:      user.ID,
+		ActorName:    user.Nickname,
+		Action:       "auth.login.password",
+		ResourceType: "user",
+		ResourceID:   user.ID,
+		Message:      "账号密码登录成功",
+	})
+
+	return iamtypes.AdminLoginResponse{
+		Token:    token,
+		UserID:   user.ID,
+		Username: user.Nickname,
+		Roles:    append([]string(nil), user.Roles...),
+	}, nil
+}
+
+func checkPassword(password, hash string) bool {
+	return password == hash
+}
+
 func (s *Service) LoginWithWeChat(ctx context.Context, request iamtypes.WeChatLoginRequest) (iamtypes.WeChatLoginResponse, error) {
 	if strings.TrimSpace(request.Code) == "" || strings.TrimSpace(request.AppID) == "" {
 		return iamtypes.WeChatLoginResponse{}, httpx.BadRequest("code 和 app_id 为必填项", nil)

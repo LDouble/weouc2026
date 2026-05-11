@@ -5,6 +5,8 @@ import "time"
 type User struct {
 	ID             string
 	OpenID         string
+	Username       string
+	PasswordHash   string
 	Nickname       string
 	AvatarURL      string
 	Roles          []string
@@ -68,4 +70,16 @@ type BindStudentRequest struct {
 
 type UpdateStudentRequest struct {
 	IsBound *bool `json:"is_bound"`
+}
+
+type AdminLoginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type AdminLoginResponse struct {
+	Token    string `json:"token"`
+	UserID   string `json:"user_id"`
+	Username string `json:"username"`
+	Roles    []string `json:"roles"`
 }

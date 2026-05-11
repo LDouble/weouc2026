@@ -18,6 +18,22 @@ func NewHandler(service *iamservice.Service) *Handler {
 	return &Handler{service: service}
 }
 
+func (h *Handler) LoginWithPassword(c *gin.Context) {
+	var request iamtypes.AdminLoginRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		httpx.AbortWithError(c, httpx.BadRequest("登录参数格式错误", nil))
+		return
+	}
+
+	response, err := h.service.LoginWithPassword(c.Request.Context(), request)
+	if err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+
+	httpx.JSON(c, http.StatusOK, response)
+}
+
 func (h *Handler) LoginWithWeChat(c *gin.Context) {
 	var request iamtypes.WeChatLoginRequest
 	if err := c.ShouldBindJSON(&request); err != nil {

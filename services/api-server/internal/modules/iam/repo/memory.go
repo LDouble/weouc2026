@@ -17,6 +17,7 @@ var ErrCaptchaNotFound = errors.New("captcha not found")
 type UserRepository interface {
 	FindByID(ctx context.Context, userID string) (iamtypes.User, error)
 	FindByOpenID(ctx context.Context, openID string) (iamtypes.User, error)
+	FindByUsername(ctx context.Context, username string) (iamtypes.User, error)
 	Save(ctx context.Context, user iamtypes.User) (iamtypes.User, error)
 	Update(ctx context.Context, userID string, mutate func(*iamtypes.User) error) (iamtypes.User, error)
 	NextID() string
@@ -35,16 +36,18 @@ type CaptchaRepository interface {
 }
 
 type InMemoryUserRepository struct {
-	mu       sync.RWMutex
-	byID     map[string]iamtypes.User
-	byOpenID map[string]string
-	seq      uint64
+	mu         sync.RWMutex
+	byID       map[string]iamtypes.User
+	byOpenID   map[string]string
+	byUsername map[string]string
+	seq        uint64
 }
 
 func NewInMemoryUserRepository() *InMemoryUserRepository {
 	return &InMemoryUserRepository{
-		byID:     make(map[string]iamtypes.User),
-		byOpenID: make(map[string]string),
+		byID:       make(map[string]iamtypes.User),
+		byOpenID:   make(map[string]string),
+		byUsername: make(map[string]string),
 	}
 }
 
@@ -77,6 +80,23 @@ func (r *InMemoryUserRepository) FindByOpenID(_ context.Context, openID string) 
 	return cloneUser(user), nil
 }
 
+func (r *InMemoryUserRepository) FindByUsername(_ context.Context, username string) (iamtypes.User, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	userID, exists := r.byUsername[username]
+	if !exists {
+		return iamtypes.User{}, ErrUserNotFound
+	}
+
+	user, userExists := r.byID[userID]
+	if !userExists {
+		return iamtypes.User{}, ErrUserNotFound
+	}
+
+	return cloneUser(user), nil
+}
+
 func (r *InMemoryUserRepository) Save(_ context.Context, user iamtypes.User) (iamtypes.User, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -85,6 +105,9 @@ func (r *InMemoryUserRepository) Save(_ context.Context, user iamtypes.User) (ia
 	r.byID[user.ID] = user
 	if user.OpenID != "" {
 		r.byOpenID[user.OpenID] = user.ID
+	}
+	if user.Username != "" {
+		r.byUsername[user.Username] = user.ID
 	}
 
 	return cloneUser(user), nil
@@ -107,6 +130,9 @@ func (r *InMemoryUserRepository) Update(_ context.Context, userID string, mutate
 	r.byID[userID] = updated
 	if updated.OpenID != "" {
 		r.byOpenID[updated.OpenID] = updated.ID
+	}
+	if updated.Username != "" {
+		r.byUsername[updated.Username] = updated.ID
 	}
 
 	return cloneUser(updated), nil
