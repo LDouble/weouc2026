@@ -35,6 +35,11 @@ func RegisterRoutes(engine *gin.Engine, handler *Handler) {
 	protected.POST("/resource/publish", handler.PublishResource)
 	protected.POST("/lostFound/publish", handler.PublishLostFound)
 	protected.POST("/carpool/publish", handler.PublishCarpool)
+
+	admin := api.Group("/admin/campus-life")
+	admin.Use(auth.RequireAuthenticated(), auth.RequirePermission("campus_life:moderate"))
+	admin.GET("/review/list", handler.ListReviewQueue)
+	admin.POST("/review/update", handler.UpdateReviewStatus)
 }
 
 func paginationFromContext(c *gin.Context) cltypes.Pagination {

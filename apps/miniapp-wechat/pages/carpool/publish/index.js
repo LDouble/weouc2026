@@ -207,16 +207,15 @@ Page({
     };
 
     try {
-      await publishCarpool(payload);
+      const res = await publishCarpool(payload);
+      const data = (res && res.data) || res || {};
+      const insertId = data.id || '';
       saveHistoryAddress(form.from.trim());
       saveHistoryAddress(form.to.trim());
       wx.showToast({ title: '发布成功', icon: 'success' });
       setTimeout(() => {
-        if (getCurrentPages().length > 1) {
-          wx.navigateBack({ delta: 1 });
-          return;
-        }
-        wx.redirectTo({ url: '/pages/carpool/index' });
+        const targetUrl = `/pages/carpool/index${insertId ? `?insertId=${insertId}` : ''}`;
+        wx.redirectTo({ url: targetUrl });
       }, 360);
     } catch (e) {
       wx.showToast({ title: '发布失败，请重试', icon: 'none' });

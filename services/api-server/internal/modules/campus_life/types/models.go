@@ -46,6 +46,13 @@ type CarpoolQuery struct {
 	Keyword  string
 }
 
+type ReviewQuery struct {
+	Pagination
+	ContentType  string
+	ReviewStatus string
+	Keyword      string
+}
+
 type MarketPublishRequest struct {
 	Title         string   `json:"title"`
 	Desc          string   `json:"desc"`
@@ -116,6 +123,12 @@ type CarpoolPublishRequest struct {
 	Contact    string   `json:"contact"`
 }
 
+type ReviewUpdateRequest struct {
+	ContentType  string `json:"content_type"`
+	ContentID    string `json:"content_id"`
+	ReviewStatus string `json:"review_status"`
+}
+
 type ResourceFile struct {
 	Name     string `json:"name"`
 	Path     string `json:"path,omitempty"`
@@ -128,6 +141,7 @@ type MarketItem struct {
 	ID               string
 	Title            string
 	Desc             string
+	ReviewStatus     string
 	PublisherUserID  string
 	Publisher        string
 	PublisherInitial string
@@ -152,6 +166,7 @@ type ErrandItem struct {
 	ID               string
 	Title            string
 	Desc             string
+	ReviewStatus     string
 	Category         string
 	RouteStart       string
 	RouteEnd         string
@@ -172,6 +187,7 @@ type ResourceItem struct {
 	ID               string
 	Title            string
 	Desc             string
+	ReviewStatus     string
 	PublisherUserID  string
 	Publisher        string
 	PublisherInitial string
@@ -195,6 +211,7 @@ type LostFoundItem struct {
 	ID               string
 	Title            string
 	Desc             string
+	ReviewStatus     string
 	PublisherUserID  string
 	Publisher        string
 	PublisherInitial string

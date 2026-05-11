@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: WEOUC API Server Baseline
-  version: 0.2.1
-  description: 校园综合应用后端当前可联调接口契约，覆盖系统接口与微信小程序主链路基础能力。
+  version: 0.2.2
+  description: 校园综合应用后端当前可联调接口契约，覆盖系统接口、微信小程序主链路与校园生活审核闭环基础能力。
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -14,7 +14,7 @@ tags:
   - name: FileCenter
     description: 文件上传临时凭证与对象下载签名接口
   - name: CampusLife
-    description: 首页动态、二手、跑腿、资料、失物招领接口
+    description: 首页动态、二手、跑腿、资料、失物招领、拼车与审核接口
 paths:
   /healthz:
     get:
@@ -637,6 +637,66 @@ paths:
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
+  /api/admin/campus-life/review/list:
+    get:
+      tags: [CampusLife]
+      summary: 获取校园生活审核列表
+      operationId: listCampusLifeReviews
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Keyword'
+        - name: content_type
+          in: query
+          schema:
+            type: string
+            enum: [market, errand, resource, lostFound, carpool]
+        - name: review_status
+          in: query
+          schema:
+            type: string
+            enum: [reviewing, published, rejected, offline]
+      responses:
+        '200':
+          description: 审核列表分页结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponseEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+  /api/admin/campus-life/review/update:
+    post:
+      tags: [CampusLife]
+      summary: 更新校园生活内容审核状态
+      operationId: updateCampusLifeReview
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewUpdateRequest'
+      responses:
+        '200':
+          description: 审核更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -1211,3 +1271,15 @@ components:
             type: string
         contact:
           type: string
+    ReviewUpdateRequest:
+      type: object
+      required: [content_type, content_id, review_status]
+      properties:
+        content_type:
+          type: string
+          enum: [market, errand, resource, lostFound, carpool]
+        content_id:
+          type: string
+        review_status:
+          type: string
+          enum: [reviewing, published, rejected, offline]

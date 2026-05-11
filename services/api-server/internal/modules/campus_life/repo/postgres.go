@@ -14,6 +14,7 @@ const marketColumns = `
 id,
 title,
 description,
+review_status,
 publisher_user_id,
 publisher,
 publisher_initial,
@@ -27,6 +28,7 @@ const errandColumns = `
 id,
 title,
 description,
+review_status,
 category,
 route_start,
 route_end,
@@ -46,6 +48,7 @@ const resourceColumns = `
 id,
 title,
 description,
+review_status,
 publisher_user_id,
 publisher,
 publisher_initial,
@@ -56,6 +59,7 @@ const lostFoundColumns = `
 id,
 title,
 description,
+review_status,
 publisher_user_id,
 publisher,
 publisher_initial,
@@ -330,6 +334,43 @@ func (r *PostgresRepository) SaveResource(ctx context.Context, item cltypes.Reso
 	return saved, nil
 }
 
+func (r *PostgresRepository) UpdateResource(
+	ctx context.Context,
+	id string,
+	mutate func(*cltypes.ResourceItem) error,
+) (cltypes.ResourceItem, error) {
+	if r.db == nil {
+		return cltypes.ResourceItem{}, fmt.Errorf("postgres campus_life repository db is nil")
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return cltypes.ResourceItem{}, fmt.Errorf("begin resource update tx failed: %w", err)
+	}
+	defer tx.Rollback()
+
+	current, err := scanResource(tx.QueryRowContext(ctx, `SELECT `+resourceColumns+` FROM campus_resources WHERE id = $1 FOR UPDATE`, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return cltypes.ResourceItem{}, ErrNotFound
+	}
+	if err != nil {
+		return cltypes.ResourceItem{}, fmt.Errorf("load resource for update failed: %w", err)
+	}
+	if err := mutate(&current); err != nil {
+		return cltypes.ResourceItem{}, err
+	}
+
+	updated, err := saveResource(ctx, tx, current)
+	if err != nil {
+		return cltypes.ResourceItem{}, fmt.Errorf("update resource failed: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return cltypes.ResourceItem{}, fmt.Errorf("commit resource update failed: %w", err)
+	}
+
+	return updated, nil
+}
+
 func (r *PostgresRepository) ListLostFound(ctx context.Context) ([]cltypes.LostFoundItem, error) {
 	if r.db == nil {
 		return nil, fmt.Errorf("postgres campus_life repository db is nil")
@@ -386,6 +427,43 @@ func (r *PostgresRepository) SaveLostFound(ctx context.Context, item cltypes.Los
 	return saved, nil
 }
 
+func (r *PostgresRepository) UpdateLostFound(
+	ctx context.Context,
+	id string,
+	mutate func(*cltypes.LostFoundItem) error,
+) (cltypes.LostFoundItem, error) {
+	if r.db == nil {
+		return cltypes.LostFoundItem{}, fmt.Errorf("postgres campus_life repository db is nil")
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return cltypes.LostFoundItem{}, fmt.Errorf("begin lost_found update tx failed: %w", err)
+	}
+	defer tx.Rollback()
+
+	current, err := scanLostFound(tx.QueryRowContext(ctx, `SELECT `+lostFoundColumns+` FROM campus_lost_founds WHERE id = $1 FOR UPDATE`, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return cltypes.LostFoundItem{}, ErrNotFound
+	}
+	if err != nil {
+		return cltypes.LostFoundItem{}, fmt.Errorf("load lost_found for update failed: %w", err)
+	}
+	if err := mutate(&current); err != nil {
+		return cltypes.LostFoundItem{}, err
+	}
+
+	updated, err := saveLostFound(ctx, tx, current)
+	if err != nil {
+		return cltypes.LostFoundItem{}, fmt.Errorf("update lost_found failed: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return cltypes.LostFoundItem{}, fmt.Errorf("commit lost_found update failed: %w", err)
+	}
+
+	return updated, nil
+}
+
 func (r *PostgresRepository) ListCarpools(ctx context.Context) ([]cltypes.CarpoolItem, error) {
 	if r.db == nil {
 		return nil, fmt.Errorf("postgres campus_life repository db is nil")
@@ -440,6 +518,43 @@ func (r *PostgresRepository) SaveCarpool(ctx context.Context, item cltypes.Carpo
 	}
 
 	return saved, nil
+}
+
+func (r *PostgresRepository) UpdateCarpool(
+	ctx context.Context,
+	id string,
+	mutate func(*cltypes.CarpoolItem) error,
+) (cltypes.CarpoolItem, error) {
+	if r.db == nil {
+		return cltypes.CarpoolItem{}, fmt.Errorf("postgres campus_life repository db is nil")
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return cltypes.CarpoolItem{}, fmt.Errorf("begin carpool update tx failed: %w", err)
+	}
+	defer tx.Rollback()
+
+	current, err := scanCarpool(tx.QueryRowContext(ctx, `SELECT `+carpoolColumns+` FROM campus_carpools WHERE id = $1 FOR UPDATE`, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return cltypes.CarpoolItem{}, ErrNotFound
+	}
+	if err != nil {
+		return cltypes.CarpoolItem{}, fmt.Errorf("load carpool for update failed: %w", err)
+	}
+	if err := mutate(&current); err != nil {
+		return cltypes.CarpoolItem{}, err
+	}
+
+	updated, err := saveCarpool(ctx, tx, current)
+	if err != nil {
+		return cltypes.CarpoolItem{}, fmt.Errorf("update carpool failed: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return cltypes.CarpoolItem{}, fmt.Errorf("commit carpool update failed: %w", err)
+	}
+
+	return updated, nil
 }
 
 func (r *PostgresRepository) NextID(ctx context.Context, prefix string) (string, error) {
@@ -500,6 +615,7 @@ func saveMarket(ctx context.Context, querier queryRower, item cltypes.MarketItem
 			id,
 			title,
 			description,
+			review_status,
 			publisher_user_id,
 			publisher,
 			publisher_initial,
@@ -508,10 +624,11 @@ func saveMarket(ctx context.Context, querier queryRower, item cltypes.MarketItem
 			likes,
 			liked_by_user_ids,
 			extra
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11::jsonb)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12::jsonb)
 		ON CONFLICT (id) DO UPDATE SET
 			title = EXCLUDED.title,
 			description = EXCLUDED.description,
+			review_status = EXCLUDED.review_status,
 			publisher_user_id = EXCLUDED.publisher_user_id,
 			publisher = EXCLUDED.publisher,
 			publisher_initial = EXCLUDED.publisher_initial,
@@ -524,6 +641,7 @@ func saveMarket(ctx context.Context, querier queryRower, item cltypes.MarketItem
 		item.ID,
 		item.Title,
 		item.Desc,
+		item.ReviewStatus,
 		item.PublisherUserID,
 		item.Publisher,
 		item.PublisherInitial,
@@ -545,6 +663,7 @@ func scanMarket(scanner rowScanner) (cltypes.MarketItem, error) {
 		&item.ID,
 		&item.Title,
 		&item.Desc,
+		&item.ReviewStatus,
 		&item.PublisherUserID,
 		&item.Publisher,
 		&item.PublisherInitial,
@@ -585,6 +704,7 @@ func saveErrand(ctx context.Context, querier queryRower, item cltypes.ErrandItem
 			id,
 			title,
 			description,
+			review_status,
 			category,
 			route_start,
 			route_end,
@@ -599,10 +719,11 @@ func saveErrand(ctx context.Context, querier queryRower, item cltypes.ErrandItem
 			publisher_initial,
 			acceptor_user_id,
 			created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12, $13, $14, $15, $16, $17)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, $14, $15, $16, $17, $18)
 		ON CONFLICT (id) DO UPDATE SET
 			title = EXCLUDED.title,
 			description = EXCLUDED.description,
+			review_status = EXCLUDED.review_status,
 			category = EXCLUDED.category,
 			route_start = EXCLUDED.route_start,
 			route_end = EXCLUDED.route_end,
@@ -621,6 +742,7 @@ func saveErrand(ctx context.Context, querier queryRower, item cltypes.ErrandItem
 		item.ID,
 		item.Title,
 		item.Desc,
+		item.ReviewStatus,
 		item.Category,
 		item.RouteStart,
 		item.RouteEnd,
@@ -647,6 +769,7 @@ func scanErrand(scanner rowScanner) (cltypes.ErrandItem, error) {
 		&item.ID,
 		&item.Title,
 		&item.Desc,
+		&item.ReviewStatus,
 		&item.Category,
 		&item.RouteStart,
 		&item.RouteEnd,
@@ -685,15 +808,17 @@ func saveResource(ctx context.Context, querier queryRower, item cltypes.Resource
 			id,
 			title,
 			description,
+			review_status,
 			publisher_user_id,
 			publisher,
 			publisher_initial,
 			created_at,
 			extra
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
 		ON CONFLICT (id) DO UPDATE SET
 			title = EXCLUDED.title,
 			description = EXCLUDED.description,
+			review_status = EXCLUDED.review_status,
 			publisher_user_id = EXCLUDED.publisher_user_id,
 			publisher = EXCLUDED.publisher,
 			publisher_initial = EXCLUDED.publisher_initial,
@@ -703,6 +828,7 @@ func saveResource(ctx context.Context, querier queryRower, item cltypes.Resource
 		item.ID,
 		item.Title,
 		item.Desc,
+		item.ReviewStatus,
 		item.PublisherUserID,
 		item.Publisher,
 		item.PublisherInitial,
@@ -720,6 +846,7 @@ func scanResource(scanner rowScanner) (cltypes.ResourceItem, error) {
 		&item.ID,
 		&item.Title,
 		&item.Desc,
+		&item.ReviewStatus,
 		&item.PublisherUserID,
 		&item.Publisher,
 		&item.PublisherInitial,
@@ -749,15 +876,17 @@ func saveLostFound(ctx context.Context, querier queryRower, item cltypes.LostFou
 			id,
 			title,
 			description,
+			review_status,
 			publisher_user_id,
 			publisher,
 			publisher_initial,
 			created_at,
 			extra
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
 		ON CONFLICT (id) DO UPDATE SET
 			title = EXCLUDED.title,
 			description = EXCLUDED.description,
+			review_status = EXCLUDED.review_status,
 			publisher_user_id = EXCLUDED.publisher_user_id,
 			publisher = EXCLUDED.publisher,
 			publisher_initial = EXCLUDED.publisher_initial,
@@ -767,6 +896,7 @@ func saveLostFound(ctx context.Context, querier queryRower, item cltypes.LostFou
 		item.ID,
 		item.Title,
 		item.Desc,
+		item.ReviewStatus,
 		item.PublisherUserID,
 		item.Publisher,
 		item.PublisherInitial,
@@ -848,6 +978,7 @@ func scanLostFound(scanner rowScanner) (cltypes.LostFoundItem, error) {
 		&item.ID,
 		&item.Title,
 		&item.Desc,
+		&item.ReviewStatus,
 		&item.PublisherUserID,
 		&item.Publisher,
 		&item.PublisherInitial,

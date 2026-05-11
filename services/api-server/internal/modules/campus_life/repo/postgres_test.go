@@ -33,12 +33,13 @@ func TestPostgresRepositoryGetMarket(t *testing.T) {
 	}
 
 	rows := sqlmock.NewRows([]string{
-		"id", "title", "description", "publisher_user_id", "publisher", "publisher_initial",
+		"id", "title", "description", "review_status", "publisher_user_id", "publisher", "publisher_initial",
 		"image", "created_at", "likes", "liked_by_user_ids", "extra",
 	}).AddRow(
 		"market-201",
 		"九成新 iPad Pro 11 寸",
 		"M2 芯片，日常记笔记和刷题使用。",
+		"published",
 		"user-001",
 		"海大同学",
 		"海",

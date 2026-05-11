@@ -23,14 +23,17 @@ type Repository interface {
 	ListResources(ctx context.Context) ([]cltypes.ResourceItem, error)
 	GetResource(ctx context.Context, id string) (cltypes.ResourceItem, error)
 	SaveResource(ctx context.Context, item cltypes.ResourceItem) (cltypes.ResourceItem, error)
+	UpdateResource(ctx context.Context, id string, mutate func(*cltypes.ResourceItem) error) (cltypes.ResourceItem, error)
 
 	ListLostFound(ctx context.Context) ([]cltypes.LostFoundItem, error)
 	GetLostFound(ctx context.Context, id string) (cltypes.LostFoundItem, error)
 	SaveLostFound(ctx context.Context, item cltypes.LostFoundItem) (cltypes.LostFoundItem, error)
+	UpdateLostFound(ctx context.Context, id string, mutate func(*cltypes.LostFoundItem) error) (cltypes.LostFoundItem, error)
 
 	ListCarpools(ctx context.Context) ([]cltypes.CarpoolItem, error)
 	GetCarpool(ctx context.Context, id string) (cltypes.CarpoolItem, error)
 	SaveCarpool(ctx context.Context, item cltypes.CarpoolItem) (cltypes.CarpoolItem, error)
+	UpdateCarpool(ctx context.Context, id string, mutate func(*cltypes.CarpoolItem) error) (cltypes.CarpoolItem, error)
 
 	NextID(ctx context.Context, prefix string) (string, error)
 }

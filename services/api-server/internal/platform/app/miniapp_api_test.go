@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -151,6 +152,89 @@ func TestMiniappCoreAPIs(t *testing.T) {
 			t.Fatalf("unexpected errand detail payload: %s", recorder.Body.String())
 		}
 	})
+
+	t.Run("carpool review workflow gates public visibility", func(t *testing.T) {
+		recorder := performJSONRequest(t, router, http.MethodPost, "/api/carpool/publish", token, map[string]any{
+			"category":    "tomorrow",
+			"travel_date": "2026-05-12",
+			"travel_time": "18:30",
+			"from":        "海大南门",
+			"to":          "福州南站",
+			"type":        "明日顺路",
+			"seats_text":  "余座 2",
+			"price":       "人均 20 元",
+			"note":        "可带一个行李箱",
+			"tags":        []string{"明天出发"},
+			"contact":     "wx-carpool-301",
+		})
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected carpool publish status 200, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+
+		var publishPayload struct {
+			Data struct {
+				ID string `json:"id"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &publishPayload); err != nil {
+			t.Fatalf("unmarshal carpool publish payload failed: %v", err)
+		}
+		if publishPayload.Data.ID == "" {
+			t.Fatalf("expected carpool id, got %s", recorder.Body.String())
+		}
+
+		detailURL := "/api/carpool/detail/" + publishPayload.Data.ID
+		recorder = performJSONRequest(t, router, http.MethodGet, detailURL, "", nil)
+		if recorder.Code != http.StatusNotFound {
+			t.Fatalf("expected public pending carpool detail 404, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+
+		recorder = performJSONRequest(t, router, http.MethodGet, detailURL, token, nil)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected owner pending carpool detail 200, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+
+		var ownerDetail struct {
+			Data struct {
+				ReviewStatus string `json:"review_status"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &ownerDetail); err != nil {
+			t.Fatalf("unmarshal owner carpool detail failed: %v", err)
+		}
+		if ownerDetail.Data.ReviewStatus != "reviewing" {
+			t.Fatalf("expected reviewing status, got %s", recorder.Body.String())
+		}
+
+		recorder = performJSONRequest(t, router, http.MethodGet, "/api/carpool/list", "", nil)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected public carpool list 200, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+		if strings.Contains(recorder.Body.String(), publishPayload.Data.ID) {
+			t.Fatalf("expected pending carpool hidden from public list: %s", recorder.Body.String())
+		}
+
+		recorder = performJSONRequestWithHeaders(t, router, http.MethodPost, "/api/admin/campus-life/review/update", map[string]string{
+			"Content-Type":       "application/json",
+			"X-User-ID":          "admin-001",
+			"X-User-Permissions": "campus_life:moderate",
+		}, map[string]any{
+			"content_type":  "carpool",
+			"content_id":    publishPayload.Data.ID,
+			"review_status": "published",
+		})
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected review update 200, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+
+		recorder = performJSONRequest(t, router, http.MethodGet, "/api/carpool/list", "", nil)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected public carpool list after review 200, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+		if !strings.Contains(recorder.Body.String(), publishPayload.Data.ID) {
+			t.Fatalf("expected approved carpool visible in public list: %s", recorder.Body.String())
+		}
+	})
 }
 
 func loginAndGetToken(t *testing.T, router http.Handler) string {
@@ -196,6 +280,34 @@ func performJSONRequest(t *testing.T, router http.Handler, method, url, token st
 	}
 	if token != "" {
 		request.Header.Set("Authorization", "Bearer "+token)
+	}
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	return recorder
+}
+
+func performJSONRequestWithHeaders(
+	t *testing.T,
+	router http.Handler,
+	method, url string,
+	headers map[string]string,
+	body any,
+) *httptest.ResponseRecorder {
+	t.Helper()
+
+	var payload []byte
+	var err error
+	if body != nil {
+		payload, err = json.Marshal(body)
+		if err != nil {
+			t.Fatalf("marshal body failed: %v", err)
+		}
+	}
+
+	request := httptest.NewRequest(method, url, bytes.NewReader(payload))
+	for key, value := range headers {
+		request.Header.Set(key, value)
 	}
 
 	recorder := httptest.NewRecorder()

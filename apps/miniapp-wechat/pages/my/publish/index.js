@@ -8,12 +8,12 @@ const TYPE_MAP = {
   carpool: '拼车',
 };
 
-const URL_MAP = {
-  market: '/pages/market/detail/index',
-  errand: '/pages/errand/detail/index',
-  lostFound: '/pages/lost-found/detail/index',
-  resource: '',
-  carpool: '',
+const ROUTE_MAP = {
+  market: { url: '/pages/market/detail/index', queryKey: 'id' },
+  errand: { url: '/pages/errand/detail/index', queryKey: 'id' },
+  lostFound: { url: '/pages/lost-found/detail/index', queryKey: 'id' },
+  resource: { url: '/pages/resource/index', queryKey: 'insertId' },
+  carpool: { url: '/pages/carpool/index', queryKey: 'insertId' },
 };
 
 const STATUS_MAP = {
@@ -28,6 +28,12 @@ function normalizeStatus(status) {
   if (status === 'pending') return 'reviewing';
   if (status === 'rejected') return 'offline';
   return status || 'published';
+}
+
+function buildRecordUrl(type, id) {
+  const route = ROUTE_MAP[type];
+  if (!route || !route.url || !id) return '';
+  return `${route.url}?${route.queryKey || 'id'}=${id}`;
 }
 
 Page({
@@ -76,7 +82,7 @@ Page({
           status,
           statusText: STATUS_MAP[item.review_status] || STATUS_MAP[status] || '已发布',
           time: item.created_at || '',
-          url: URL_MAP[item.feed_type] || '',
+          url: buildRecordUrl(item.feed_type, item.id),
         };
       }).sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
 
@@ -115,12 +121,12 @@ Page({
   },
 
   onRecordClick(e) {
-    const { url, id } = e.currentTarget.dataset;
+    const { url } = e.currentTarget.dataset;
     if (!url) {
       wx.showToast({ title: '该类型暂不支持查看详情', icon: 'none' });
       return;
     }
-    wx.navigateTo({ url: `${url}?id=${id}` });
+    wx.navigateTo({ url });
   },
 
   onBack() {

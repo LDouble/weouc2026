@@ -34,6 +34,7 @@ func NewInMemoryRepository() *InMemoryRepository {
 		ID:               "market-101",
 		Title:            "九成新 iPad Pro 11 寸",
 		Desc:             "M2 芯片，日常记笔记和刷题使用，配原装保护壳。",
+		ReviewStatus:     "published",
 		PublisherUserID:  "seed-u1",
 		Publisher:        "海大同学",
 		PublisherInitial: "海",
@@ -58,6 +59,7 @@ func NewInMemoryRepository() *InMemoryRepository {
 		ID:               "market-102",
 		Title:            "求购高数下复习资料",
 		Desc:             "想收一本有完整笔记的高数下资料，价格可谈。",
+		ReviewStatus:     "published",
 		PublisherUserID:  "seed-u2",
 		Publisher:        "理工同学",
 		PublisherInitial: "理",
@@ -77,6 +79,7 @@ func NewInMemoryRepository() *InMemoryRepository {
 		ID:               "errand-101",
 		Title:            "求带一份一食堂鸡腿饭",
 		Desc:             "一食堂窗口 3，少辣，送到图书馆东门。",
+		ReviewStatus:     "published",
 		Category:         "food",
 		RouteStart:       "一食堂",
 		RouteEnd:         "图书馆东门",
@@ -93,6 +96,7 @@ func NewInMemoryRepository() *InMemoryRepository {
 		ID:               "errand-102",
 		Title:            "西门快递代取",
 		Desc:             "菜鸟驿站大件，帮忙带到 8 号宿舍楼。",
+		ReviewStatus:     "published",
 		Category:         "parcel",
 		RouteStart:       "西门菜鸟驿站",
 		RouteEnd:         "8号宿舍楼",
@@ -111,6 +115,7 @@ func NewInMemoryRepository() *InMemoryRepository {
 		ID:               "resource-101",
 		Title:            "离散数学期末冲刺笔记",
 		Desc:             "包含重点题型整理、证明题模板和 3 套自测题。",
+		ReviewStatus:     "published",
 		PublisherUserID:  "seed-u3",
 		Publisher:        "计院学长",
 		PublisherInitial: "计",
@@ -137,6 +142,7 @@ func NewInMemoryRepository() *InMemoryRepository {
 		ID:               "lostfound-101",
 		Title:            "蓝色校园卡套",
 		Desc:             "卡套正面有白色鲸鱼贴纸，内含校园卡。",
+		ReviewStatus:     "published",
 		PublisherUserID:  "seed-u1",
 		Publisher:        "海大同学",
 		PublisherInitial: "海",
@@ -153,6 +159,7 @@ func NewInMemoryRepository() *InMemoryRepository {
 		ID:               "lostfound-102",
 		Title:            "黑色保温杯待认领",
 		Desc:             "在二教 302 教室最后一排发现，杯盖有轻微磨损。",
+		ReviewStatus:     "published",
 		PublisherUserID:  "seed-u4",
 		Publisher:        "校园志愿者",
 		PublisherInitial: "校",
@@ -264,8 +271,10 @@ func (r *InMemoryRepository) GetErrand(_ context.Context, id string) (cltypes.Er
 func (r *InMemoryRepository) SaveErrand(_ context.Context, item cltypes.ErrandItem) (cltypes.ErrandItem, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.errands[item.ID] = item
-	return item, nil
+	cloned := item
+	cloned.Images = append([]string(nil), item.Images...)
+	r.errands[item.ID] = cloned
+	return cloned, nil
 }
 
 func (r *InMemoryRepository) UpdateErrand(_ context.Context, id string, mutate func(*cltypes.ErrandItem) error) (cltypes.ErrandItem, error) {
@@ -306,6 +315,21 @@ func (r *InMemoryRepository) SaveResource(_ context.Context, item cltypes.Resour
 	return cloneResource(item), nil
 }
 
+func (r *InMemoryRepository) UpdateResource(_ context.Context, id string, mutate func(*cltypes.ResourceItem) error) (cltypes.ResourceItem, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	item, exists := r.resources[id]
+	if !exists {
+		return cltypes.ResourceItem{}, ErrNotFound
+	}
+	next := cloneResource(item)
+	if err := mutate(&next); err != nil {
+		return cltypes.ResourceItem{}, err
+	}
+	r.resources[id] = next
+	return cloneResource(next), nil
+}
+
 func (r *InMemoryRepository) ListLostFound(context.Context) ([]cltypes.LostFoundItem, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -319,14 +343,30 @@ func (r *InMemoryRepository) GetLostFound(_ context.Context, id string) (cltypes
 	if !exists {
 		return cltypes.LostFoundItem{}, ErrNotFound
 	}
-	return item, nil
+	return cloneLostFound(item), nil
 }
 
 func (r *InMemoryRepository) SaveLostFound(_ context.Context, item cltypes.LostFoundItem) (cltypes.LostFoundItem, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	item = cloneLostFound(item)
 	r.lostFounds[item.ID] = item
-	return item, nil
+	return cloneLostFound(item), nil
+}
+
+func (r *InMemoryRepository) UpdateLostFound(_ context.Context, id string, mutate func(*cltypes.LostFoundItem) error) (cltypes.LostFoundItem, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	item, exists := r.lostFounds[id]
+	if !exists {
+		return cltypes.LostFoundItem{}, ErrNotFound
+	}
+	next := cloneLostFound(item)
+	if err := mutate(&next); err != nil {
+		return cltypes.LostFoundItem{}, err
+	}
+	r.lostFounds[id] = next
+	return cloneLostFound(next), nil
 }
 
 func (r *InMemoryRepository) ListCarpools(context.Context) ([]cltypes.CarpoolItem, error) {
@@ -342,14 +382,30 @@ func (r *InMemoryRepository) GetCarpool(_ context.Context, id string) (cltypes.C
 	if !exists {
 		return cltypes.CarpoolItem{}, ErrNotFound
 	}
-	return item, nil
+	return cloneCarpool(item), nil
 }
 
 func (r *InMemoryRepository) SaveCarpool(_ context.Context, item cltypes.CarpoolItem) (cltypes.CarpoolItem, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	item = cloneCarpool(item)
 	r.carpools[item.ID] = item
-	return item, nil
+	return cloneCarpool(item), nil
+}
+
+func (r *InMemoryRepository) UpdateCarpool(_ context.Context, id string, mutate func(*cltypes.CarpoolItem) error) (cltypes.CarpoolItem, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	item, exists := r.carpools[id]
+	if !exists {
+		return cltypes.CarpoolItem{}, ErrNotFound
+	}
+	next := cloneCarpool(item)
+	if err := mutate(&next); err != nil {
+		return cltypes.CarpoolItem{}, err
+	}
+	r.carpools[id] = next
+	return cloneCarpool(next), nil
 }
 
 func (r *InMemoryRepository) NextID(_ context.Context, prefix string) (string, error) {
@@ -406,17 +462,25 @@ func cloneResourceSlice(items map[string]cltypes.ResourceItem) []cltypes.Resourc
 func cloneLostFoundSlice(items map[string]cltypes.LostFoundItem) []cltypes.LostFoundItem {
 	result := make([]cltypes.LostFoundItem, 0, len(items))
 	for _, item := range items {
-		result = append(result, item)
+		result = append(result, cloneLostFound(item))
 	}
 	return result
+}
+
+func cloneLostFound(item cltypes.LostFoundItem) cltypes.LostFoundItem {
+	return item
 }
 
 func cloneCarpoolSlice(items map[string]cltypes.CarpoolItem) []cltypes.CarpoolItem {
 	result := make([]cltypes.CarpoolItem, 0, len(items))
 	for _, item := range items {
-		cloned := item
-		cloned.Tags = append([]string(nil), item.Tags...)
-		result = append(result, cloned)
+		result = append(result, cloneCarpool(item))
 	}
 	return result
+}
+
+func cloneCarpool(item cltypes.CarpoolItem) cltypes.CarpoolItem {
+	cloned := item
+	cloned.Tags = append([]string(nil), item.Tags...)
+	return cloned
 }

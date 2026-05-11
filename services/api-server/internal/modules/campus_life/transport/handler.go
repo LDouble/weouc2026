@@ -176,7 +176,7 @@ func (h *Handler) ListResources(c *gin.Context) {
 }
 
 func (h *Handler) GetResourceDetail(c *gin.Context) {
-	response, err := h.service.GetResourceDetail(c.Request.Context(), c.Param("id"))
+	response, err := h.service.GetResourceDetail(c.Request.Context(), auth.PrincipalFromContext(c), c.Param("id"))
 	if err != nil {
 		httpx.AbortWithError(c, err)
 		return
@@ -271,4 +271,32 @@ func (h *Handler) PublishLostFound(c *gin.Context) {
 		return
 	}
 	httpx.JSON(c, http.StatusOK, response)
+}
+
+func (h *Handler) ListReviewQueue(c *gin.Context) {
+	query := cltypes.ReviewQuery{
+		Pagination:   paginationFromContext(c),
+		ContentType:  strings.TrimSpace(c.Query("content_type")),
+		ReviewStatus: strings.TrimSpace(c.Query("review_status")),
+		Keyword:      strings.TrimSpace(c.Query("keyword")),
+	}
+	response, err := h.service.ListReviewQueue(c.Request.Context(), query)
+	if err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, response)
+}
+
+func (h *Handler) UpdateReviewStatus(c *gin.Context) {
+	var request cltypes.ReviewUpdateRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		httpx.AbortWithError(c, httpx.BadRequest("审核更新参数格式错误", nil))
+		return
+	}
+	if err := h.service.UpdateReviewStatus(c.Request.Context(), request); err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, gin.H{"success": true})
 }

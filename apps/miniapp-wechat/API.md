@@ -59,6 +59,7 @@
 - 联系方式、教务状态等受限信息必须由后端裁剪后再返回
 - 前端不允许根据本地状态自行推断联系方式是否可见
 - 详情接口推荐显式返回 `can_view_contact`，列表接口推荐在无权场景直接返回空联系方式
+- 校园生活新发布内容默认进入 `reviewing`，公开列表只显示 `published`；“我的发布”依赖 `review_status` 展示待审/已发布/已下架
 
 ## 2. 会话与身份
 
@@ -216,6 +217,7 @@
 | `desc` | `string` | 摘要 |
 | `publisher` | `string` | 发布人 |
 | `created_at` | `string` | 创建时间 |
+| `review_status` | `string` | `reviewing` / `published` / `rejected` / `offline` |
 | `image` | `string` | 封面图 |
 | `extra.images` | `string[]` | 备用图片列表 |
 
@@ -506,6 +508,7 @@
 
 - `contact` 必须继续由后端按教务绑定状态裁剪
 - `time` 由后端基于稳定出发时间动态格式化为“今天 18:30 / 明天 09:00 / 5月18日 14:00”
+- 新发布拼车默认进入 `reviewing`；小程序发布成功后会带 `insertId` 回列表页，依赖详情接口插顶展示自己的待审记录
 
 ### 8.2 获取详情
 
