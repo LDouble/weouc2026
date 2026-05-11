@@ -171,3 +171,52 @@ func TestPostgresRepositoryGetCarpool(t *testing.T) {
 		t.Fatalf("unmet sql expectations: %v", err)
 	}
 }
+
+func TestPostgresRepositoryGetMeetup(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("new sqlmock failed: %v", err)
+	}
+	defer db.Close()
+
+	rows := sqlmock.NewRows([]string{
+		"id", "category", "title", "description", "location", "start_at", "deadline_at",
+		"max_participants", "fee_text", "tags", "contact", "status", "review_status",
+		"publisher_user_id", "publisher", "publisher_initial", "participant_user_ids", "created_at",
+	}).AddRow(
+		"meetup-201",
+		"study",
+		"高数晚自习组队",
+		"想找同学一起刷题。",
+		"图书馆五楼",
+		time.Date(2026, 5, 12, 19, 0, 0, 0, time.FixedZone("CST", 8*3600)),
+		time.Date(2026, 5, 12, 17, 30, 0, 0, time.FixedZone("CST", 8*3600)),
+		4,
+		"免费",
+		`["刷题","期末复习"]`,
+		"wx-meetup-201",
+		"open",
+		"published",
+		"user-301",
+		"学习搭子",
+		"学",
+		`["user-302","user-303"]`,
+		time.Date(2026, 5, 11, 10, 0, 0, 0, time.UTC),
+	)
+
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT ` + meetupColumns + ` FROM campus_meetups WHERE id = $1 LIMIT 1`)).
+		WithArgs("meetup-201").
+		WillReturnRows(rows)
+
+	repository := NewPostgresRepository(db)
+	item, err := repository.GetMeetup(context.Background(), "meetup-201")
+	if err != nil {
+		t.Fatalf("GetMeetup returned error: %v", err)
+	}
+	if item.Category != "study" || item.MaxParticipants != 4 || len(item.ParticipantUserIDs) != 2 {
+		t.Fatalf("unexpected meetup payload: %+v", item)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet sql expectations: %v", err)
+	}
+}

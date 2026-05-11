@@ -235,6 +235,93 @@ func TestMiniappCoreAPIs(t *testing.T) {
 			t.Fatalf("expected approved carpool visible in public list: %s", recorder.Body.String())
 		}
 	})
+
+	t.Run("meetup review and join workflow", func(t *testing.T) {
+		recorder := performJSONRequest(t, router, http.MethodPost, "/api/meetup/publish", token, map[string]any{
+			"category":         "study",
+			"title":            "高数晚自习组队",
+			"desc":             "想找 2 位同学一起在图书馆刷题。",
+			"location":         "图书馆五楼北区",
+			"start_at":         "2026-05-12T19:00:00+08:00",
+			"deadline_at":      "2026-05-12T17:30:00+08:00",
+			"max_participants": 3,
+			"fee_text":         "免费",
+			"tags":             []string{"期末复习", "刷题"},
+			"contact":          "wx-meetup-301",
+		})
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected meetup publish status 200, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+
+		var publishPayload struct {
+			Data struct {
+				ID string `json:"id"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &publishPayload); err != nil {
+			t.Fatalf("unmarshal meetup publish payload failed: %v", err)
+		}
+		if publishPayload.Data.ID == "" {
+			t.Fatalf("expected meetup id, got %s", recorder.Body.String())
+		}
+
+		detailURL := "/api/meetup/detail/" + publishPayload.Data.ID
+		recorder = performJSONRequest(t, router, http.MethodGet, detailURL, "", nil)
+		if recorder.Code != http.StatusNotFound {
+			t.Fatalf("expected public pending meetup detail 404, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+
+		recorder = performJSONRequestWithHeaders(t, router, http.MethodPost, "/api/admin/campus-life/review/update", map[string]string{
+			"Content-Type":       "application/json",
+			"X-User-ID":          "admin-001",
+			"X-User-Permissions": "campus_life:moderate",
+		}, map[string]any{
+			"content_type":  "meetup",
+			"content_id":    publishPayload.Data.ID,
+			"review_status": "published",
+		})
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected meetup review update 200, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+
+		recorder = performJSONRequestWithHeaders(t, router, http.MethodPost, "/api/meetup/join", map[string]string{
+			"Content-Type": "application/json",
+			"X-User-ID":    "participant-001",
+		}, map[string]any{
+			"meetup_id": publishPayload.Data.ID,
+		})
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected meetup join 200, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+
+		recorder = performJSONRequestWithHeaders(t, router, http.MethodGet, detailURL, map[string]string{
+			"X-User-ID":          "participant-001",
+			"X-Academic-Bound":   "true",
+			"X-User-Permissions": "",
+		}, nil)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected participant meetup detail 200, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+
+		var participantDetail struct {
+			Data struct {
+				Joined         bool   `json:"joined"`
+				UserRole       string `json:"user_role"`
+				CanCancelJoin  bool   `json:"can_cancel_join"`
+				JoinedCount    int    `json:"joined_count"`
+				RemainingSeats int    `json:"remaining_seats"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &participantDetail); err != nil {
+			t.Fatalf("unmarshal participant meetup detail failed: %v", err)
+		}
+		if !participantDetail.Data.Joined || participantDetail.Data.UserRole != "participant" || !participantDetail.Data.CanCancelJoin {
+			t.Fatalf("unexpected participant meetup detail payload: %s", recorder.Body.String())
+		}
+		if participantDetail.Data.JoinedCount != 2 || participantDetail.Data.RemainingSeats != 1 {
+			t.Fatalf("unexpected meetup participant counters: %s", recorder.Body.String())
+		}
+	})
 }
 
 func loginAndGetToken(t *testing.T, router http.Handler) string {

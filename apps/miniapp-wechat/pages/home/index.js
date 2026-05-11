@@ -29,6 +29,7 @@ Page({
       { label: '资料', icon: 'book', tone: 'amber', url: '/pages/resource/index' },
       { label: '闲置', icon: 'shop', tone: 'cyan', url: '/pages/market/index' },
       { label: '拼车', icon: 'car', tone: 'teal', url: '/pages/carpool/index' },
+      { label: '组局', icon: 'chat', tone: 'green', url: '/pages/meetup/index' },
       { label: '失物', icon: 'search', tone: 'rose', url: '/pages/lost-found/index' },
       { label: '跑腿', icon: 'send', tone: 'orange', url: '/pages/errand/index' },
       { label: '我的', icon: 'user', tone: 'pink', tab: '/pages/my/index' },

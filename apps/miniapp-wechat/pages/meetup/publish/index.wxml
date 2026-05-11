@@ -1,0 +1,88 @@
+<view class="meetup-publish-page">
+  <common-page-header
+    title="发起组局"
+    background="rgba(255, 255, 255, 0.92)"
+    border-color="rgba(241, 245, 249, 0.9)"
+    button-background="rgba(241, 245, 249, 0.96)"
+    bind:back="onBack"
+    bind:heightchange="onHeaderHeightChange"
+  />
+
+  <view class="meetup-publish-content" style="padding-top: {{headerHeight}}px;">
+    <view class="meetup-publish-card">
+      <view class="meetup-publish-card__title">这次你想组什么局？</view>
+      <view class="meetup-categories">
+        <view
+          wx:for="{{categoryList}}"
+          wx:key="value"
+          class="meetup-category {{form.category === item.value ? 'meetup-category--active' : ''}}"
+          data-value="{{item.value}}"
+          bindtap="onCategorySelect"
+        >
+          {{item.label}}
+        </view>
+      </view>
+
+      <view class="meetup-form">
+        <view class="meetup-field">
+          <view class="meetup-field__label">组局标题</view>
+          <input class="meetup-field__input" value="{{form.title}}" data-field="title" placeholder="例如：今晚高数刷题局" bindinput="onFieldChange" />
+        </view>
+
+        <view class="meetup-field">
+          <view class="meetup-field__label">地点</view>
+          <input class="meetup-field__input" value="{{form.location}}" data-field="location" placeholder="例如：图书馆五楼北区" bindinput="onFieldChange" />
+        </view>
+
+        <view class="meetup-field meetup-field--dual">
+          <view class="meetup-field__item">
+            <view class="meetup-field__label">日期</view>
+            <picker mode="date" start="{{dateRange.start}}" end="{{dateRange.end}}" value="{{form.date}}" data-field="date" bindchange="onFieldChange">
+              <view class="meetup-picker">{{form.date || '选择日期'}}</view>
+            </picker>
+          </view>
+          <view class="meetup-field__item">
+            <view class="meetup-field__label">开始时间</view>
+            <picker mode="time" value="{{form.time}}" data-field="time" bindchange="onFieldChange">
+              <view class="meetup-picker">{{form.time || '选择时间'}}</view>
+            </picker>
+          </view>
+        </view>
+
+        <view class="meetup-field meetup-field--dual">
+          <view class="meetup-field__item">
+            <view class="meetup-field__label">截止时间</view>
+            <picker mode="time" value="{{form.deadlineTime}}" data-field="deadlineTime" bindchange="onFieldChange">
+              <view class="meetup-picker">{{form.deadlineTime || '默认同开始时间'}}</view>
+            </picker>
+          </view>
+          <view class="meetup-field__item">
+            <view class="meetup-field__label">总人数</view>
+            <input class="meetup-field__input" type="number" value="{{form.maxParticipants}}" data-field="maxParticipants" placeholder="至少 2 人" bindinput="onFieldChange" />
+          </view>
+        </view>
+
+        <view class="meetup-field">
+          <view class="meetup-field__label">费用说明</view>
+          <input class="meetup-field__input" value="{{form.feeText}}" data-field="feeText" placeholder="例如：免费 / AA 20 元" bindinput="onFieldChange" />
+        </view>
+
+        <view class="meetup-field">
+          <view class="meetup-field__label">联系方式</view>
+          <input class="meetup-field__input" value="{{form.contact}}" data-field="contact" placeholder="微信号 / 站内私信" bindinput="onFieldChange" />
+        </view>
+
+        <view class="meetup-field">
+          <view class="meetup-field__label">补充说明</view>
+          <textarea class="meetup-field__textarea" value="{{form.desc}}" data-field="desc" maxlength="200" placeholder="说明局的内容、适合谁参加、需要准备什么..." bindinput="onFieldChange"></textarea>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="meetup-publish-bottom">
+    <view class="meetup-publish-button {{canPublish ? '' : 'meetup-publish-button--disabled'}}" hover-class="tap-button" bindtap="onPublish">
+      {{submitting ? '发布中...' : '提交组局'}}
+    </view>
+  </view>
+</view>

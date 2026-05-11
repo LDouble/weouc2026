@@ -1,0 +1,7 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "common-page-header": "/components/common/common-page-header/index",
+    "t-icon": "tdesign-miniprogram/icon/icon"
+  }
+}

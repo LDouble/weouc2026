@@ -39,6 +39,8 @@ func TestCanonicalOpenAPIContainsCoreRoutes(t *testing.T) {
 		"/api/lostFound/detail/{id}",
 		"/api/carpool/list",
 		"/api/carpool/publish",
+		"/api/meetup/list",
+		"/api/meetup/publish",
 		"/api/admin/campus-life/review/list",
 		"/api/admin/campus-life/review/update",
 	}

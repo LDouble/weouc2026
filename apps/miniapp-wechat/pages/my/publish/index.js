@@ -3,6 +3,7 @@ import { fetchFeedList } from '~/api/modules/feed';
 const TYPE_MAP = {
   market: '跳蚤市场',
   errand: '跑腿',
+  meetup: '组局',
   lostFound: '失物招领',
   resource: '资源共享',
   carpool: '拼车',
@@ -11,6 +12,7 @@ const TYPE_MAP = {
 const ROUTE_MAP = {
   market: { url: '/pages/market/detail/index', queryKey: 'id' },
   errand: { url: '/pages/errand/detail/index', queryKey: 'id' },
+  meetup: { url: '/pages/meetup/detail/index', queryKey: 'id' },
   lostFound: { url: '/pages/lost-found/detail/index', queryKey: 'id' },
   resource: { url: '/pages/resource/index', queryKey: 'insertId' },
   carpool: { url: '/pages/carpool/index', queryKey: 'insertId' },
@@ -45,6 +47,7 @@ Page({
       { key: 'all', label: '全部' },
       { key: 'market', label: '跳蚤市场' },
       { key: 'errand', label: '跑腿' },
+      { key: 'meetup', label: '组局' },
       { key: 'lostFound', label: '失物招领' },
       { key: 'resource', label: '资源共享' },
       { key: 'carpool', label: '拼车' },

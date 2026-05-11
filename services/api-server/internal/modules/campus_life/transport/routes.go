@@ -23,6 +23,8 @@ func RegisterRoutes(engine *gin.Engine, handler *Handler) {
 	api.GET("/lostFound/detail/:id", handler.GetLostFoundDetail)
 	api.GET("/carpool/list", handler.ListCarpools)
 	api.GET("/carpool/detail/:id", handler.GetCarpoolDetail)
+	api.GET("/meetup/list", handler.ListMeetups)
+	api.GET("/meetup/detail/:id", handler.GetMeetupDetail)
 
 	protected := api.Group("")
 	protected.Use(auth.RequireAuthenticated())
@@ -35,6 +37,10 @@ func RegisterRoutes(engine *gin.Engine, handler *Handler) {
 	protected.POST("/resource/publish", handler.PublishResource)
 	protected.POST("/lostFound/publish", handler.PublishLostFound)
 	protected.POST("/carpool/publish", handler.PublishCarpool)
+	protected.POST("/meetup/publish", handler.PublishMeetup)
+	protected.POST("/meetup/join", handler.JoinMeetup)
+	protected.POST("/meetup/cancel-join", handler.CancelMeetupJoin)
+	protected.POST("/meetup/cancel-publish", handler.CancelMeetupPublish)
 
 	admin := api.Group("/admin/campus-life")
 	admin.Use(auth.RequireAuthenticated(), auth.RequirePermission("campus_life:moderate"))

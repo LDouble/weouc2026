@@ -16,6 +16,7 @@ type InMemoryRepository struct {
 	resources  map[string]cltypes.ResourceItem
 	lostFounds map[string]cltypes.LostFoundItem
 	carpools   map[string]cltypes.CarpoolItem
+	meetups    map[string]cltypes.MeetupItem
 	seq        int64
 }
 
@@ -27,6 +28,7 @@ func NewInMemoryRepository() *InMemoryRepository {
 		resources:  make(map[string]cltypes.ResourceItem),
 		lostFounds: make(map[string]cltypes.LostFoundItem),
 		carpools:   make(map[string]cltypes.CarpoolItem),
+		meetups:    make(map[string]cltypes.MeetupItem),
 		seq:        100,
 	}
 
@@ -208,6 +210,48 @@ func NewInMemoryRepository() *InMemoryRepository {
 		Publisher:        "通勤搭子",
 		PublisherInitial: "通",
 		CreatedAt:        now.Add(-6 * time.Hour),
+	}
+
+	repository.meetups["meetup-101"] = cltypes.MeetupItem{
+		ID:               "meetup-101",
+		Category:         "sports",
+		Title:            "今晚东操羽毛球双打局",
+		Desc:             "缺 2 位搭子，自带球拍更方便，结束后可一起夜宵。",
+		Location:         "东操羽毛球场 3 号场",
+		StartAt:          now.Add(5 * time.Hour),
+		DeadlineAt:       now.Add(3 * time.Hour),
+		MaxParticipants:  4,
+		FeeText:          "AA 场地费 15 元/人",
+		Tags:             []string{"羽毛球", "今晚", "新手友好"},
+		Contact:          "wx-meetup-101",
+		Status:           "open",
+		ReviewStatus:     "published",
+		PublisherUserID:  "seed-u7",
+		Publisher:        "运动搭子",
+		PublisherInitial: "运",
+		ParticipantUserIDs: []string{
+			"seed-u8",
+		},
+		CreatedAt: now.Add(-70 * time.Minute),
+	}
+	repository.meetups["meetup-102"] = cltypes.MeetupItem{
+		ID:               "meetup-102",
+		Category:         "study",
+		Title:            "高数期末晚自习组队",
+		Desc:             "想找 3 位同学一起在图书馆刷题，互相讲题更高效。",
+		Location:         "图书馆五楼北区",
+		StartAt:          now.Add(28 * time.Hour),
+		DeadlineAt:       now.Add(24 * time.Hour),
+		MaxParticipants:  5,
+		FeeText:          "免费",
+		Tags:             []string{"期末复习", "图书馆", "刷题"},
+		Contact:          "站内私信",
+		Status:           "open",
+		ReviewStatus:     "published",
+		PublisherUserID:  "seed-u9",
+		Publisher:        "数院同学",
+		PublisherInitial: "数",
+		CreatedAt:        now.Add(-9 * time.Hour),
 	}
 
 	return repository
@@ -408,6 +452,45 @@ func (r *InMemoryRepository) UpdateCarpool(_ context.Context, id string, mutate 
 	return cloneCarpool(next), nil
 }
 
+func (r *InMemoryRepository) ListMeetups(context.Context) ([]cltypes.MeetupItem, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return cloneMeetupSlice(r.meetups), nil
+}
+
+func (r *InMemoryRepository) GetMeetup(_ context.Context, id string) (cltypes.MeetupItem, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	item, exists := r.meetups[id]
+	if !exists {
+		return cltypes.MeetupItem{}, ErrNotFound
+	}
+	return cloneMeetup(item), nil
+}
+
+func (r *InMemoryRepository) SaveMeetup(_ context.Context, item cltypes.MeetupItem) (cltypes.MeetupItem, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	item = cloneMeetup(item)
+	r.meetups[item.ID] = item
+	return cloneMeetup(item), nil
+}
+
+func (r *InMemoryRepository) UpdateMeetup(_ context.Context, id string, mutate func(*cltypes.MeetupItem) error) (cltypes.MeetupItem, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	item, exists := r.meetups[id]
+	if !exists {
+		return cltypes.MeetupItem{}, ErrNotFound
+	}
+	next := cloneMeetup(item)
+	if err := mutate(&next); err != nil {
+		return cltypes.MeetupItem{}, err
+	}
+	r.meetups[id] = next
+	return cloneMeetup(next), nil
+}
+
 func (r *InMemoryRepository) NextID(_ context.Context, prefix string) (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -482,5 +565,20 @@ func cloneCarpoolSlice(items map[string]cltypes.CarpoolItem) []cltypes.CarpoolIt
 func cloneCarpool(item cltypes.CarpoolItem) cltypes.CarpoolItem {
 	cloned := item
 	cloned.Tags = append([]string(nil), item.Tags...)
+	return cloned
+}
+
+func cloneMeetupSlice(items map[string]cltypes.MeetupItem) []cltypes.MeetupItem {
+	result := make([]cltypes.MeetupItem, 0, len(items))
+	for _, item := range items {
+		result = append(result, cloneMeetup(item))
+	}
+	return result
+}
+
+func cloneMeetup(item cltypes.MeetupItem) cltypes.MeetupItem {
+	cloned := item
+	cloned.Tags = append([]string(nil), item.Tags...)
+	cloned.ParticipantUserIDs = append([]string(nil), item.ParticipantUserIDs...)
 	return cloned
 }

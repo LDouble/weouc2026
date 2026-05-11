@@ -20,6 +20,11 @@
       "pages": ["index", "publish/index"]
     },
     {
+      "root": "pages/meetup",
+      "name": "meetup",
+      "pages": ["index", "detail/index", "publish/index"]
+    },
+    {
       "root": "pages/lost-found",
       "name": "lostFound",
       "pages": ["index", "publish/index", "detail/index"]

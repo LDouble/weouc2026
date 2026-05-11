@@ -1,0 +1,20 @@
+CREATE TABLE IF NOT EXISTS campus_meetups (
+    id TEXT PRIMARY KEY,
+    category TEXT NOT NULL DEFAULT '',
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    location TEXT NOT NULL DEFAULT '',
+    start_at TIMESTAMPTZ NOT NULL,
+    deadline_at TIMESTAMPTZ NOT NULL,
+    max_participants INTEGER NOT NULL DEFAULT 1,
+    fee_text TEXT NOT NULL DEFAULT '',
+    tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+    contact TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'open',
+    review_status TEXT NOT NULL DEFAULT 'reviewing',
+    publisher_user_id TEXT NOT NULL,
+    publisher TEXT NOT NULL,
+    publisher_initial TEXT NOT NULL,
+    participant_user_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL
+);

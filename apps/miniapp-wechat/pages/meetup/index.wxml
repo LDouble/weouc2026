@@ -1,0 +1,104 @@
+<view class="meetup-page">
+  <view class="meetup-bg"></view>
+
+  <common-page-header
+    title="校园组局"
+    background="rgba(255, 255, 255, 0.82)"
+    border-color="rgba(241, 245, 249, 0.9)"
+    button-background="rgba(241, 245, 249, 0.96)"
+    bind:back="onBack"
+    bind:heightchange="onHeaderHeightChange"
+  >
+    <view slot="body" class="meetup-header__body">
+      <common-search-bar
+        value="{{searchKeyword}}"
+        placeholder="搜索组局主题、地点或发起人"
+        bind:input="onSearchInput"
+        bind:confirm="onSearchConfirm"
+        bind:clear="onSearchClear"
+      />
+      <common-filter-tabs
+        custom-class="meetup-category-filters"
+        items="{{categoryList}}"
+        active="{{activeCategory}}"
+        variant="pill"
+        active-color="#0f766e"
+        bind:change="onCategoryChange"
+      />
+    </view>
+  </common-page-header>
+
+  <view class="meetup-content" style="padding-top: {{headerHeight}}px;">
+    <view class="meetup-hero">
+      <view class="meetup-hero__badge">轻社交撮合</view>
+      <view class="meetup-hero__title">把同校兴趣的人约在一起</view>
+      <view class="meetup-hero__desc">学习搭子、约球、饭搭子和活动约伴，都可以在这里发起。</view>
+      <view class="meetup-hero__meta">
+        <view class="meetup-pill">共 {{visibleMeetups.length}} 场组局</view>
+        <view class="meetup-pill meetup-pill--soft">审核通过后公开展示</view>
+      </view>
+      <view class="meetup-hero__action" hover-class="tap-button" bindtap="onCreateTap">发起组局</view>
+    </view>
+
+    <view wx:if="{{visibleMeetups.length}}" class="meetup-list">
+      <view
+        wx:for="{{visibleMeetups}}"
+        wx:key="id"
+        class="meetup-card"
+        hover-class="tap-card"
+        data-id="{{item.id}}"
+        bindtap="onOpenMeetup"
+      >
+        <view class="meetup-card__top">
+          <view class="meetup-card__author">
+            <view class="meetup-card__avatar">{{item.publisherInitial}}</view>
+            <view class="meetup-card__author-meta">
+              <view class="meetup-card__name">{{item.publisher}}</view>
+              <view class="meetup-card__role">{{item.publisherMeta}}</view>
+            </view>
+          </view>
+          <view class="meetup-status meetup-status--{{item.statusTone}}">{{item.statusText}}</view>
+        </view>
+
+        <view class="meetup-card__title">{{item.title}}</view>
+        <view class="meetup-card__desc">{{item.desc}}</view>
+
+        <view class="meetup-card__meta">
+          <view class="meetup-meta">
+            <t-icon name="location" size="24rpx" />
+            <text>{{item.location}}</text>
+          </view>
+          <view class="meetup-meta">
+            <t-icon name="time" size="24rpx" />
+            <text>{{item.startLabel}}</text>
+          </view>
+        </view>
+
+        <view class="meetup-card__tags">
+          <view class="meetup-tag meetup-tag--category">{{item.categoryLabel}}</view>
+          <view wx:if="{{item.remainingSeats >= 0}}" class="meetup-tag">剩余 {{item.remainingSeats}} 位</view>
+          <view wx:if="{{item.feeText}}" class="meetup-tag">{{item.feeText}}</view>
+          <view wx:for="{{item.tags}}" wx:key="*this" class="meetup-tag">{{item}}</view>
+        </view>
+      </view>
+    </view>
+
+    <common-empty-state
+      wx:else
+      icon="chat"
+      title="{{searchKeyword ? '未找到相关组局' : '还没有新的组局'}}"
+      description="{{searchKeyword ? '试试更换关键词或切换分类' : '你可以先发起一场组局，等同校搭子来响应。'}}"
+      action-text="发起我的组局"
+      icon-color="#0f766e"
+      icon-background="#d1fae5"
+      action-background="linear-gradient(135deg, #0f766e, #0ea5a4)"
+      bind:action="onCreateTap"
+    />
+  </view>
+
+  <common-fab
+    background="linear-gradient(135deg, #0f766e, #0ea5a4)"
+    shadow="0 16rpx 30rpx rgba(15, 118, 110, 0.28)"
+    bind:tap="onCreateTap"
+  />
+</view>

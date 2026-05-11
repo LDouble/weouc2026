@@ -5,6 +5,7 @@ import { getMarketCategoryValueMap, getPaletteOptions, getReleaseScene } from '.
 
 const PUBLISH_REDIRECTS = {
   errand: '/pages/errand/publish/index',
+  meetup: '/pages/meetup/publish/index',
   lostFound: '/pages/lost-found/publish/index',
   resource: '/pages/resource/publish/index',
 };
@@ -12,6 +13,7 @@ const PUBLISH_REDIRECTS = {
 const PUBLISH_SCENE_OPTIONS = [
   { label: '发布闲置', value: 'market' },
   { label: '发布跑腿', value: 'errand' },
+  { label: '发起组局', value: 'meetup' },
   { label: '发布登记', value: 'lostFound' },
   { label: '上传资料', value: 'resource' },
 ];

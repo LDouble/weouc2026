@@ -46,6 +46,13 @@ type CarpoolQuery struct {
 	Keyword  string
 }
 
+type MeetupQuery struct {
+	Pagination
+	Category string
+	Keyword  string
+	UserRole string
+}
+
 type ReviewQuery struct {
 	Pagination
 	ContentType  string
@@ -123,10 +130,27 @@ type CarpoolPublishRequest struct {
 	Contact    string   `json:"contact"`
 }
 
+type MeetupPublishRequest struct {
+	Category        string   `json:"category"`
+	Title           string   `json:"title"`
+	Desc            string   `json:"desc"`
+	Location        string   `json:"location"`
+	StartAt         string   `json:"start_at"`
+	DeadlineAt      string   `json:"deadline_at"`
+	MaxParticipants int      `json:"max_participants"`
+	FeeText         string   `json:"fee_text"`
+	Tags            []string `json:"tags"`
+	Contact         string   `json:"contact"`
+}
+
 type ReviewUpdateRequest struct {
 	ContentType  string `json:"content_type"`
 	ContentID    string `json:"content_id"`
 	ReviewStatus string `json:"review_status"`
+}
+
+type MeetupActionRequest struct {
+	MeetupID string `json:"meetup_id"`
 }
 
 type ResourceFile struct {
@@ -245,4 +269,25 @@ type CarpoolItem struct {
 	Publisher        string
 	PublisherInitial string
 	CreatedAt        time.Time
+}
+
+type MeetupItem struct {
+	ID                 string
+	Category           string
+	Title              string
+	Desc               string
+	Location           string
+	StartAt            time.Time
+	DeadlineAt         time.Time
+	MaxParticipants    int
+	FeeText            string
+	Tags               []string
+	Contact            string
+	Status             string
+	ReviewStatus       string
+	PublisherUserID    string
+	Publisher          string
+	PublisherInitial   string
+	ParticipantUserIDs []string
+	CreatedAt          time.Time
 }

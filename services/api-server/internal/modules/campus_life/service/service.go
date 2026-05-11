@@ -229,6 +229,49 @@ func (s *Service) ListFeed(ctx context.Context, principal auth.Principal, query 
 			},
 		})
 	}
+	meetups, err := s.repository.ListMeetups(ctx)
+	if err != nil {
+		return nil, httpx.Internal("读取组局动态失败", err)
+	}
+	for _, item := range meetups {
+		if !matchMeetupUserRole(item, principal, query.UserRole) {
+			continue
+		}
+		if !shouldExposeContent(principal, item.PublisherUserID, item.ReviewStatus, query.UserRole) {
+			continue
+		}
+		if !shouldExposeMeetupState(principal, item, query.UserRole) {
+			continue
+		}
+		if !matchFeedType(query.FeedTypes, "meetup") || !matchKeyword(query.Keyword, item.Title, item.Desc, item.Location) {
+			continue
+		}
+		rows = append(rows, row{
+			id:        item.ID,
+			feedType:  "meetup",
+			createdAt: item.CreatedAt,
+			payload: map[string]any{
+				"id":              item.ID,
+				"feed_type":       "meetup",
+				"feed_type_label": "校园组局",
+				"title":           item.Title,
+				"desc":            meetupFeedDesc(item),
+				"publisher":       item.Publisher,
+				"created_at":      item.CreatedAt.Format(time.RFC3339),
+				"review_status":   normalizeReviewStatus(item.ReviewStatus),
+				"extra": map[string]any{
+					"category":        item.Category,
+					"location":        item.Location,
+					"start_at":        item.StartAt.In(chinaLocation).Format(time.RFC3339),
+					"joined_count":    meetupJoinedCount(item),
+					"remaining_seats": meetupRemainingSeats(item),
+					"fee_text":        item.FeeText,
+					"tags":            append([]string(nil), item.Tags...),
+					"comments":        0,
+				},
+			},
+		})
+	}
 
 	sort.Slice(rows, func(i, j int) bool {
 		return rows[i].createdAt.After(rows[j].createdAt)
@@ -952,6 +995,199 @@ func (s *Service) PublishCarpool(ctx context.Context, principal auth.Principal, 
 	return map[string]any{"id": item.ID}, nil
 }
 
+func (s *Service) ListMeetups(ctx context.Context, principal auth.Principal, query cltypes.MeetupQuery) (map[string]any, error) {
+	items, err := s.repository.ListMeetups(ctx)
+	if err != nil {
+		return nil, httpx.Internal("读取组局列表失败", err)
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
+
+	filtered := make([]map[string]any, 0)
+	now := time.Now().In(chinaLocation)
+	for _, item := range items {
+		if !matchMeetupUserRole(item, principal, query.UserRole) {
+			continue
+		}
+		if !shouldExposeContent(principal, item.PublisherUserID, item.ReviewStatus, query.UserRole) {
+			continue
+		}
+		if !shouldExposeMeetupState(principal, item, query.UserRole) {
+			continue
+		}
+		if query.Category != "" && query.Category != "all" && query.Category != item.Category {
+			continue
+		}
+		if !matchKeyword(query.Keyword, item.Title, item.Desc, item.Location, item.Publisher) {
+			continue
+		}
+		filtered = append(filtered, buildMeetupPayload(item, principal, now))
+	}
+
+	return listEnvelope(paginateMaps(filtered, query.Pagination), len(filtered), query.Pagination), nil
+}
+
+func (s *Service) GetMeetupDetail(ctx context.Context, principal auth.Principal, id string) (map[string]any, error) {
+	item, err := s.repository.GetMeetup(ctx, id)
+	if errors.Is(err, clrepo.ErrNotFound) {
+		return nil, httpx.NotFound("组局不存在", nil)
+	}
+	if err != nil {
+		return nil, httpx.Internal("读取组局详情失败", err)
+	}
+	if err := ensureContentVisible(principal, item.PublisherUserID, item.ReviewStatus, "组局不存在"); err != nil {
+		return nil, err
+	}
+	if !shouldExposeMeetupState(principal, item, "") {
+		return nil, httpx.NotFound("组局不存在", nil)
+	}
+
+	payload := buildMeetupPayload(item, principal, time.Now().In(chinaLocation))
+	payload["can_view_contact"] = canViewContact(principal, item.PublisherUserID)
+	return payload, nil
+}
+
+func (s *Service) PublishMeetup(ctx context.Context, principal auth.Principal, request cltypes.MeetupPublishRequest) (map[string]any, error) {
+	if strings.TrimSpace(request.Title) == "" || strings.TrimSpace(request.Location) == "" || strings.TrimSpace(request.Contact) == "" {
+		return nil, httpx.BadRequest("标题、地点和联系方式不能为空", nil)
+	}
+	if request.MaxParticipants <= 1 {
+		return nil, httpx.BadRequest("max_participants 至少为 2", nil)
+	}
+
+	startAt, err := time.Parse(time.RFC3339, strings.TrimSpace(request.StartAt))
+	if err != nil {
+		return nil, httpx.BadRequest("start_at 必须为 RFC3339 时间", nil)
+	}
+	deadlineAt := startAt
+	if strings.TrimSpace(request.DeadlineAt) != "" {
+		deadlineAt, err = time.Parse(time.RFC3339, strings.TrimSpace(request.DeadlineAt))
+		if err != nil {
+			return nil, httpx.BadRequest("deadline_at 必须为 RFC3339 时间", nil)
+		}
+	}
+	if deadlineAt.After(startAt) {
+		return nil, httpx.BadRequest("deadline_at 不能晚于 start_at", nil)
+	}
+
+	id, err := s.repository.NextID(ctx, "meetup")
+	if err != nil {
+		return nil, httpx.Internal("生成组局 ID 失败", err)
+	}
+
+	item := cltypes.MeetupItem{
+		ID:               id,
+		Category:         strings.TrimSpace(request.Category),
+		Title:            strings.TrimSpace(request.Title),
+		Desc:             firstNonEmpty(strings.TrimSpace(request.Desc), strings.TrimSpace(request.Title)),
+		Location:         strings.TrimSpace(request.Location),
+		StartAt:          startAt,
+		DeadlineAt:       deadlineAt,
+		MaxParticipants:  request.MaxParticipants,
+		FeeText:          strings.TrimSpace(request.FeeText),
+		Tags:             sanitizeTags(request.Tags),
+		Contact:          strings.TrimSpace(request.Contact),
+		Status:           "open",
+		ReviewStatus:     reviewStatusReviewing,
+		PublisherUserID:  principal.UserID,
+		Publisher:        displayName(principal),
+		PublisherInitial: initialOf(displayName(principal)),
+		CreatedAt:        time.Now().UTC(),
+	}
+	item = refreshMeetupStatus(item)
+	item, err = s.repository.SaveMeetup(ctx, item)
+	if err != nil {
+		return nil, httpx.Internal("保存组局失败", err)
+	}
+
+	return map[string]any{"id": item.ID}, nil
+}
+
+func (s *Service) JoinMeetup(ctx context.Context, principal auth.Principal, meetupID string) error {
+	_, err := s.repository.UpdateMeetup(ctx, meetupID, func(item *cltypes.MeetupItem) error {
+		if item.PublisherUserID == principal.UserID {
+			return httpx.BadRequest("不能报名自己发起的组局", nil)
+		}
+		if normalizeReviewStatus(item.ReviewStatus) != reviewStatusPublished {
+			return httpx.BadRequest("该组局仍在审核中，暂不可报名", nil)
+		}
+		*item = refreshMeetupStatus(*item)
+		if item.Status == "cancelled" {
+			return httpx.BadRequest("该组局已取消", nil)
+		}
+		if item.Status == "full" {
+			return httpx.BadRequest("该组局人数已满", nil)
+		}
+		now := time.Now().UTC()
+		if !item.DeadlineAt.IsZero() && item.DeadlineAt.Before(now) {
+			return httpx.BadRequest("该组局报名已截止", nil)
+		}
+		if !item.StartAt.IsZero() && item.StartAt.Before(now) {
+			return httpx.BadRequest("该组局已开始，无法再报名", nil)
+		}
+		if slices.Contains(item.ParticipantUserIDs, principal.UserID) {
+			return httpx.BadRequest("你已经报名过该组局", nil)
+		}
+		item.ParticipantUserIDs = append(item.ParticipantUserIDs, principal.UserID)
+		*item = refreshMeetupStatus(*item)
+		return nil
+	})
+	if err != nil {
+		if err == clrepo.ErrNotFound {
+			return httpx.NotFound("组局不存在", nil)
+		}
+		if isAppError(err) {
+			return err
+		}
+		return httpx.Internal("报名组局失败", err)
+	}
+
+	return nil
+}
+
+func (s *Service) CancelMeetupJoin(ctx context.Context, principal auth.Principal, meetupID string) error {
+	_, err := s.repository.UpdateMeetup(ctx, meetupID, func(item *cltypes.MeetupItem) error {
+		index := slices.Index(item.ParticipantUserIDs, principal.UserID)
+		if index < 0 {
+			return httpx.BadRequest("你尚未报名该组局", nil)
+		}
+		item.ParticipantUserIDs = append(item.ParticipantUserIDs[:index], item.ParticipantUserIDs[index+1:]...)
+		*item = refreshMeetupStatus(*item)
+		return nil
+	})
+	if err != nil {
+		if err == clrepo.ErrNotFound {
+			return httpx.NotFound("组局不存在", nil)
+		}
+		if isAppError(err) {
+			return err
+		}
+		return httpx.Internal("取消报名组局失败", err)
+	}
+
+	return nil
+}
+
+func (s *Service) CancelMeetupPublish(ctx context.Context, principal auth.Principal, meetupID string) error {
+	_, err := s.repository.UpdateMeetup(ctx, meetupID, func(item *cltypes.MeetupItem) error {
+		if item.PublisherUserID != principal.UserID {
+			return httpx.Forbidden("只有发起人可以取消组局", nil)
+		}
+		item.Status = "cancelled"
+		return nil
+	})
+	if err != nil {
+		if err == clrepo.ErrNotFound {
+			return httpx.NotFound("组局不存在", nil)
+		}
+		if isAppError(err) {
+			return err
+		}
+		return httpx.Internal("取消组局失败", err)
+	}
+
+	return nil
+}
+
 func (s *Service) ListReviewQueue(ctx context.Context, query cltypes.ReviewQuery) (map[string]any, error) {
 	type row struct {
 		createdAt time.Time
@@ -1035,6 +1271,20 @@ func (s *Service) ListReviewQueue(ctx context.Context, query cltypes.ReviewQuery
 			"seats_text": item.SeatsText,
 		})
 	}
+	meetups, err := s.repository.ListMeetups(ctx)
+	if err != nil {
+		return nil, httpx.Internal("读取组局审核列表失败", err)
+	}
+	for _, item := range meetups {
+		appendRow("meetup", item.CreatedAt, item.ReviewStatus, item.Title, item.Desc, item.Publisher, item.ID, map[string]any{
+			"category":         item.Category,
+			"location":         item.Location,
+			"start_at":         item.StartAt.In(chinaLocation).Format(time.RFC3339),
+			"max_participants": item.MaxParticipants,
+			"joined_count":     meetupJoinedCount(item),
+			"status":           normalizeMeetupStatus(item.Status),
+		})
+	}
 
 	sort.Slice(rows, func(i, j int) bool {
 		return rows[i].createdAt.After(rows[j].createdAt)
@@ -1088,8 +1338,13 @@ func (s *Service) UpdateReviewStatus(ctx context.Context, request cltypes.Review
 			item.ReviewStatus = reviewStatus
 			return nil
 		})
+	case "meetup":
+		_, err = s.repository.UpdateMeetup(ctx, contentID, func(item *cltypes.MeetupItem) error {
+			item.ReviewStatus = reviewStatus
+			return nil
+		})
 	default:
-		return httpx.BadRequest("content_type 仅支持 market/errand/resource/lostFound/carpool", nil)
+		return httpx.BadRequest("content_type 仅支持 market/errand/resource/lostFound/carpool/meetup", nil)
 	}
 
 	if errors.Is(err, clrepo.ErrNotFound) {
@@ -1118,6 +1373,19 @@ func errandUserRole(item cltypes.ErrandItem, principal auth.Principal) string {
 	return "viewer"
 }
 
+func meetupUserRole(item cltypes.MeetupItem, principal auth.Principal) string {
+	if !principal.Authenticated {
+		return "viewer"
+	}
+	if item.PublisherUserID == principal.UserID {
+		return "publisher"
+	}
+	if slices.Contains(item.ParticipantUserIDs, principal.UserID) {
+		return "participant"
+	}
+	return "viewer"
+}
+
 func matchUserRole(publisherUserID, acceptorUserID string, principal auth.Principal, userRole string) bool {
 	if userRole == "" {
 		return true
@@ -1130,6 +1398,20 @@ func matchUserRole(publisherUserID, acceptorUserID string, principal auth.Princi
 		return publisherUserID == principal.UserID
 	case "acceptor":
 		return acceptorUserID == principal.UserID
+	default:
+		return true
+	}
+}
+
+func matchMeetupUserRole(item cltypes.MeetupItem, principal auth.Principal, userRole string) bool {
+	if userRole == "" {
+		return true
+	}
+	switch userRole {
+	case "publisher":
+		return principal.Authenticated && item.PublisherUserID == principal.UserID
+	case "participant":
+		return principal.Authenticated && slices.Contains(item.ParticipantUserIDs, principal.UserID)
 	default:
 		return true
 	}
@@ -1322,6 +1604,61 @@ func buildCarpoolPayload(item cltypes.CarpoolItem, canView bool, now time.Time) 
 	}
 }
 
+func buildMeetupPayload(item cltypes.MeetupItem, principal auth.Principal, now time.Time) map[string]any {
+	canView := canViewContact(principal, item.PublisherUserID)
+	userRole := meetupUserRole(item, principal)
+	status := normalizeMeetupStatus(item.Status)
+	joinedCount := meetupJoinedCount(item)
+	remainingSeats := meetupRemainingSeats(item)
+	canJoin := principal.Authenticated &&
+		userRole == "viewer" &&
+		normalizeReviewStatus(item.ReviewStatus) == reviewStatusPublished &&
+		status == "open" &&
+		remainingSeats > 0 &&
+		(item.DeadlineAt.IsZero() || item.DeadlineAt.After(now.UTC())) &&
+		(item.StartAt.IsZero() || item.StartAt.After(now.UTC()))
+
+	return map[string]any{
+		"id":                 item.ID,
+		"category":           item.Category,
+		"title":              item.Title,
+		"desc":               item.Desc,
+		"location":           item.Location,
+		"start_at":           item.StartAt.In(chinaLocation).Format(time.RFC3339),
+		"deadline_at":        item.DeadlineAt.In(chinaLocation).Format(time.RFC3339),
+		"max_participants":   item.MaxParticipants,
+		"joined_count":       joinedCount,
+		"remaining_seats":    remainingSeats,
+		"fee_text":           item.FeeText,
+		"tags":               append([]string(nil), item.Tags...),
+		"contact":            visibleValue(canView, item.Contact),
+		"status":             status,
+		"review_status":      normalizeReviewStatus(item.ReviewStatus),
+		"publisher":          item.Publisher,
+		"publisher_initial":  item.PublisherInitial,
+		"created_at":         item.CreatedAt.Format(time.RFC3339),
+		"user_role":          userRole,
+		"joined":             userRole == "participant",
+		"can_join":           canJoin,
+		"can_cancel_join":    userRole == "participant" && status != "cancelled",
+		"can_cancel_publish": userRole == "publisher" && status != "cancelled",
+		"extra": map[string]any{
+			"category":         item.Category,
+			"location":         item.Location,
+			"start_at":         item.StartAt.In(chinaLocation).Format(time.RFC3339),
+			"deadline_at":      item.DeadlineAt.In(chinaLocation).Format(time.RFC3339),
+			"max_participants": item.MaxParticipants,
+			"joined_count":     joinedCount,
+			"remaining_seats":  remainingSeats,
+			"fee_text":         item.FeeText,
+			"tags":             append([]string(nil), item.Tags...),
+			"contact":          visibleValue(canView, item.Contact),
+			"status":           status,
+			"review_status":    normalizeReviewStatus(item.ReviewStatus),
+		},
+	}
+}
+
 func shouldExposeContent(principal auth.Principal, ownerUserID, reviewStatus, userRole string) bool {
 	if normalizeReviewStatus(reviewStatus) == reviewStatusPublished {
 		return true
@@ -1347,6 +1684,61 @@ func canAccessPendingContent(principal auth.Principal, ownerUserID, userRole str
 		return principal.UserID == ownerUserID
 	}
 	return principal.UserID == ownerUserID
+}
+
+func shouldExposeMeetupState(principal auth.Principal, item cltypes.MeetupItem, userRole string) bool {
+	if normalizeMeetupStatus(item.Status) != "cancelled" {
+		return true
+	}
+	if canModerateCampusLife(principal) {
+		return true
+	}
+	if !principal.Authenticated {
+		return false
+	}
+	if userRole == "publisher" {
+		return item.PublisherUserID == principal.UserID
+	}
+	if item.PublisherUserID == principal.UserID {
+		return true
+	}
+	return slices.Contains(item.ParticipantUserIDs, principal.UserID)
+}
+
+func normalizeMeetupStatus(status string) string {
+	switch strings.TrimSpace(strings.ToLower(status)) {
+	case "cancelled":
+		return "cancelled"
+	case "full":
+		return "full"
+	default:
+		return "open"
+	}
+}
+
+func meetupJoinedCount(item cltypes.MeetupItem) int {
+	return len(item.ParticipantUserIDs) + 1
+}
+
+func meetupRemainingSeats(item cltypes.MeetupItem) int {
+	remaining := item.MaxParticipants - meetupJoinedCount(item)
+	if remaining < 0 {
+		return 0
+	}
+	return remaining
+}
+
+func refreshMeetupStatus(item cltypes.MeetupItem) cltypes.MeetupItem {
+	if normalizeMeetupStatus(item.Status) == "cancelled" {
+		item.Status = "cancelled"
+		return item
+	}
+	if meetupRemainingSeats(item) == 0 {
+		item.Status = "full"
+		return item
+	}
+	item.Status = "open"
+	return item
 }
 
 func canModerateCampusLife(principal auth.Principal) bool {
@@ -1502,4 +1894,23 @@ func carpoolFeedDesc(item cltypes.CarpoolItem) string {
 		return strings.Join(parts, " · ")
 	}
 	return item.Note
+}
+
+func meetupFeedDesc(item cltypes.MeetupItem) string {
+	parts := make([]string, 0, 4)
+	if item.Location != "" {
+		parts = append(parts, item.Location)
+	}
+	if !item.StartAt.IsZero() {
+		parts = append(parts, item.StartAt.In(chinaLocation).Format("1月2日 15:04"))
+	}
+	if remaining := meetupRemainingSeats(item); remaining > 0 {
+		parts = append(parts, "剩余 "+strconv.Itoa(remaining)+" 位")
+	} else {
+		parts = append(parts, "人数已满")
+	}
+	if item.FeeText != "" {
+		parts = append(parts, item.FeeText)
+	}
+	return strings.Join(parts, " · ")
 }

@@ -259,6 +259,83 @@ func (h *Handler) PublishCarpool(c *gin.Context) {
 	httpx.JSON(c, http.StatusOK, response)
 }
 
+func (h *Handler) ListMeetups(c *gin.Context) {
+	query := cltypes.MeetupQuery{
+		Pagination: paginationFromContext(c),
+		Category:   strings.TrimSpace(c.Query("category")),
+		Keyword:    strings.TrimSpace(c.Query("keyword")),
+		UserRole:   strings.TrimSpace(c.Query("user_role")),
+	}
+	response, err := h.service.ListMeetups(c.Request.Context(), auth.PrincipalFromContext(c), query)
+	if err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, response)
+}
+
+func (h *Handler) GetMeetupDetail(c *gin.Context) {
+	response, err := h.service.GetMeetupDetail(c.Request.Context(), auth.PrincipalFromContext(c), c.Param("id"))
+	if err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, response)
+}
+
+func (h *Handler) PublishMeetup(c *gin.Context) {
+	var request cltypes.MeetupPublishRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		httpx.AbortWithError(c, httpx.BadRequest("组局发布参数格式错误", nil))
+		return
+	}
+	response, err := h.service.PublishMeetup(c.Request.Context(), auth.PrincipalFromContext(c), request)
+	if err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, response)
+}
+
+func (h *Handler) JoinMeetup(c *gin.Context) {
+	var request cltypes.MeetupActionRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		httpx.AbortWithError(c, httpx.BadRequest("组局报名参数格式错误", nil))
+		return
+	}
+	if err := h.service.JoinMeetup(c.Request.Context(), auth.PrincipalFromContext(c), request.MeetupID); err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, gin.H{"success": true})
+}
+
+func (h *Handler) CancelMeetupJoin(c *gin.Context) {
+	var request cltypes.MeetupActionRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		httpx.AbortWithError(c, httpx.BadRequest("取消组局报名参数格式错误", nil))
+		return
+	}
+	if err := h.service.CancelMeetupJoin(c.Request.Context(), auth.PrincipalFromContext(c), request.MeetupID); err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, gin.H{"success": true})
+}
+
+func (h *Handler) CancelMeetupPublish(c *gin.Context) {
+	var request cltypes.MeetupActionRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		httpx.AbortWithError(c, httpx.BadRequest("取消组局参数格式错误", nil))
+		return
+	}
+	if err := h.service.CancelMeetupPublish(c.Request.Context(), auth.PrincipalFromContext(c), request.MeetupID); err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, gin.H{"success": true})
+}
+
 func (h *Handler) PublishLostFound(c *gin.Context) {
 	var request cltypes.LostFoundPublishRequest
 	if err := c.ShouldBindJSON(&request); err != nil {

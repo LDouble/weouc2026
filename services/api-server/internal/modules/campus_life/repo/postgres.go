@@ -84,6 +84,26 @@ publisher,
 publisher_initial,
 created_at`
 
+const meetupColumns = `
+id,
+category,
+title,
+description,
+location,
+start_at,
+deadline_at,
+max_participants,
+fee_text,
+tags,
+contact,
+status,
+review_status,
+publisher_user_id,
+publisher,
+publisher_initial,
+participant_user_ids,
+created_at`
+
 type PostgresRepository struct {
 	db *sql.DB
 }
@@ -557,6 +577,99 @@ func (r *PostgresRepository) UpdateCarpool(
 	return updated, nil
 }
 
+func (r *PostgresRepository) ListMeetups(ctx context.Context) ([]cltypes.MeetupItem, error) {
+	if r.db == nil {
+		return nil, fmt.Errorf("postgres campus_life repository db is nil")
+	}
+
+	rows, err := r.db.QueryContext(ctx, `SELECT `+meetupColumns+` FROM campus_meetups`)
+	if err != nil {
+		return nil, fmt.Errorf("list meetups failed: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]cltypes.MeetupItem, 0)
+	for rows.Next() {
+		item, scanErr := scanMeetup(rows)
+		if scanErr != nil {
+			return nil, fmt.Errorf("scan meetup failed: %w", scanErr)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate meetups failed: %w", err)
+	}
+
+	return items, nil
+}
+
+func (r *PostgresRepository) GetMeetup(ctx context.Context, id string) (cltypes.MeetupItem, error) {
+	if r.db == nil {
+		return cltypes.MeetupItem{}, fmt.Errorf("postgres campus_life repository db is nil")
+	}
+
+	row := r.db.QueryRowContext(ctx, `SELECT `+meetupColumns+` FROM campus_meetups WHERE id = $1 LIMIT 1`, id)
+	item, err := scanMeetup(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return cltypes.MeetupItem{}, ErrNotFound
+	}
+	if err != nil {
+		return cltypes.MeetupItem{}, fmt.Errorf("get meetup failed: %w", err)
+	}
+
+	return item, nil
+}
+
+func (r *PostgresRepository) SaveMeetup(ctx context.Context, item cltypes.MeetupItem) (cltypes.MeetupItem, error) {
+	if r.db == nil {
+		return cltypes.MeetupItem{}, fmt.Errorf("postgres campus_life repository db is nil")
+	}
+
+	saved, err := saveMeetup(ctx, r.db, item)
+	if err != nil {
+		return cltypes.MeetupItem{}, fmt.Errorf("save meetup failed: %w", err)
+	}
+
+	return saved, nil
+}
+
+func (r *PostgresRepository) UpdateMeetup(
+	ctx context.Context,
+	id string,
+	mutate func(*cltypes.MeetupItem) error,
+) (cltypes.MeetupItem, error) {
+	if r.db == nil {
+		return cltypes.MeetupItem{}, fmt.Errorf("postgres campus_life repository db is nil")
+	}
+
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return cltypes.MeetupItem{}, fmt.Errorf("begin meetup update tx failed: %w", err)
+	}
+	defer tx.Rollback()
+
+	current, err := scanMeetup(tx.QueryRowContext(ctx, `SELECT `+meetupColumns+` FROM campus_meetups WHERE id = $1 FOR UPDATE`, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return cltypes.MeetupItem{}, ErrNotFound
+	}
+	if err != nil {
+		return cltypes.MeetupItem{}, fmt.Errorf("load meetup for update failed: %w", err)
+	}
+	if err := mutate(&current); err != nil {
+		return cltypes.MeetupItem{}, err
+	}
+
+	updated, err := saveMeetup(ctx, tx, current)
+	if err != nil {
+		return cltypes.MeetupItem{}, fmt.Errorf("update meetup failed: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return cltypes.MeetupItem{}, fmt.Errorf("commit meetup update failed: %w", err)
+	}
+
+	return updated, nil
+}
+
 func (r *PostgresRepository) NextID(ctx context.Context, prefix string) (string, error) {
 	if r.db == nil {
 		return "", fmt.Errorf("postgres campus_life repository db is nil")
@@ -1022,6 +1135,120 @@ func scanCarpool(scanner rowScanner) (cltypes.CarpoolItem, error) {
 	if len(tagsRaw) > 0 {
 		if err := json.Unmarshal(tagsRaw, &item.Tags); err != nil {
 			return cltypes.CarpoolItem{}, fmt.Errorf("unmarshal carpool tags failed: %w", err)
+		}
+	}
+
+	return item, nil
+}
+
+func saveMeetup(ctx context.Context, querier queryRower, item cltypes.MeetupItem) (cltypes.MeetupItem, error) {
+	tagsRaw, err := json.Marshal(item.Tags)
+	if err != nil {
+		return cltypes.MeetupItem{}, fmt.Errorf("marshal meetup tags failed: %w", err)
+	}
+	participantsRaw, err := json.Marshal(item.ParticipantUserIDs)
+	if err != nil {
+		return cltypes.MeetupItem{}, fmt.Errorf("marshal meetup participants failed: %w", err)
+	}
+
+	row := querier.QueryRowContext(
+		ctx,
+		`INSERT INTO campus_meetups (
+			id,
+			category,
+			title,
+			description,
+			location,
+			start_at,
+			deadline_at,
+			max_participants,
+			fee_text,
+			tags,
+			contact,
+			status,
+			review_status,
+			publisher_user_id,
+			publisher,
+			publisher_initial,
+			participant_user_ids,
+			created_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13, $14, $15, $16, $17::jsonb, $18)
+		ON CONFLICT (id) DO UPDATE SET
+			category = EXCLUDED.category,
+			title = EXCLUDED.title,
+			description = EXCLUDED.description,
+			location = EXCLUDED.location,
+			start_at = EXCLUDED.start_at,
+			deadline_at = EXCLUDED.deadline_at,
+			max_participants = EXCLUDED.max_participants,
+			fee_text = EXCLUDED.fee_text,
+			tags = EXCLUDED.tags,
+			contact = EXCLUDED.contact,
+			status = EXCLUDED.status,
+			review_status = EXCLUDED.review_status,
+			publisher_user_id = EXCLUDED.publisher_user_id,
+			publisher = EXCLUDED.publisher,
+			publisher_initial = EXCLUDED.publisher_initial,
+			participant_user_ids = EXCLUDED.participant_user_ids,
+			created_at = EXCLUDED.created_at
+		RETURNING `+meetupColumns,
+		item.ID,
+		item.Category,
+		item.Title,
+		item.Desc,
+		item.Location,
+		item.StartAt,
+		item.DeadlineAt,
+		item.MaxParticipants,
+		item.FeeText,
+		string(tagsRaw),
+		item.Contact,
+		item.Status,
+		item.ReviewStatus,
+		item.PublisherUserID,
+		item.Publisher,
+		item.PublisherInitial,
+		string(participantsRaw),
+		item.CreatedAt,
+	)
+
+	return scanMeetup(row)
+}
+
+func scanMeetup(scanner rowScanner) (cltypes.MeetupItem, error) {
+	var item cltypes.MeetupItem
+	var tagsRaw []byte
+	var participantsRaw []byte
+	if err := scanner.Scan(
+		&item.ID,
+		&item.Category,
+		&item.Title,
+		&item.Desc,
+		&item.Location,
+		&item.StartAt,
+		&item.DeadlineAt,
+		&item.MaxParticipants,
+		&item.FeeText,
+		&tagsRaw,
+		&item.Contact,
+		&item.Status,
+		&item.ReviewStatus,
+		&item.PublisherUserID,
+		&item.Publisher,
+		&item.PublisherInitial,
+		&participantsRaw,
+		&item.CreatedAt,
+	); err != nil {
+		return cltypes.MeetupItem{}, err
+	}
+	if len(tagsRaw) > 0 {
+		if err := json.Unmarshal(tagsRaw, &item.Tags); err != nil {
+			return cltypes.MeetupItem{}, fmt.Errorf("unmarshal meetup tags failed: %w", err)
+		}
+	}
+	if len(participantsRaw) > 0 {
+		if err := json.Unmarshal(participantsRaw, &item.ParticipantUserIDs); err != nil {
+			return cltypes.MeetupItem{}, fmt.Errorf("unmarshal meetup participants failed: %w", err)
 		}
 	}
 

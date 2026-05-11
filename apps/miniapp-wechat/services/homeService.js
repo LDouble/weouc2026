@@ -9,6 +9,7 @@ function getFeedTargetUrl(feedType, id) {
     market: '/pages/market/detail/index',
     errand: '/pages/errand/detail/index',
     lostFound: '/pages/lost-found/detail/index',
+    meetup: '/pages/meetup/detail/index',
   };
 
   if (detailRoutes[feedType]) {

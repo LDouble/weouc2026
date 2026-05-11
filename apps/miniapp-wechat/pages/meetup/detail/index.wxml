@@ -1,0 +1,114 @@
+<view class="meetup-detail-page">
+  <view class="meetup-detail-bg"></view>
+
+  <common-page-header
+    title="组局详情"
+    background="rgba(255, 255, 255, 0.82)"
+    border-color="rgba(241, 245, 249, 0.9)"
+    button-background="rgba(241, 245, 249, 0.96)"
+    bind:back="onBack"
+    bind:heightchange="onHeaderHeightChange"
+  />
+
+  <view class="meetup-detail-content" style="padding-top: {{headerHeight}}px;">
+    <view class="meetup-detail-hero">
+      <view class="meetup-detail-hero__tag">{{detail.categoryLabel}}</view>
+      <view class="meetup-detail-hero__status meetup-detail-hero__status--{{detail.statusTone}}">{{detail.statusText}}</view>
+      <view class="meetup-detail-hero__title">{{detail.title}}</view>
+      <view class="meetup-detail-hero__desc">{{detail.desc}}</view>
+    </view>
+
+    <view class="meetup-detail-card">
+      <view class="meetup-detail-card__section">
+        <view class="meetup-detail-card__row">
+          <t-icon name="location" size="28rpx" />
+          <view>
+            <view class="meetup-detail-card__label">集合地点</view>
+            <view class="meetup-detail-card__value">{{detail.location}}</view>
+          </view>
+        </view>
+        <view class="meetup-detail-card__row">
+          <t-icon name="time" size="28rpx" />
+          <view>
+            <view class="meetup-detail-card__label">开始时间</view>
+            <view class="meetup-detail-card__value">{{detail.startLabel}}</view>
+          </view>
+        </view>
+        <view class="meetup-detail-card__row">
+          <t-icon name="calendar" size="28rpx" />
+          <view>
+            <view class="meetup-detail-card__label">报名截止</view>
+            <view class="meetup-detail-card__value">{{detail.deadlineLabel || '同开始时间'}}</view>
+          </view>
+        </view>
+      </view>
+
+      <view class="meetup-detail-card__divider"></view>
+
+      <view class="meetup-stats">
+        <view class="meetup-stat">
+          <text class="meetup-stat__number">{{detail.joinedCount}}</text>
+          <text class="meetup-stat__label">已报名</text>
+        </view>
+        <view class="meetup-stat">
+          <text class="meetup-stat__number">{{detail.remainingSeats}}</text>
+          <text class="meetup-stat__label">剩余名额</text>
+        </view>
+        <view class="meetup-stat">
+          <text class="meetup-stat__number">{{detail.maxParticipants}}</text>
+          <text class="meetup-stat__label">总名额</text>
+        </view>
+      </view>
+
+      <view wx:if="{{detail.feeText}}" class="meetup-fee">
+        <t-icon name="wallet" size="26rpx" />
+        <text>{{detail.feeText}}</text>
+      </view>
+
+      <view class="meetup-tags">
+        <view wx:for="{{detail.tags}}" wx:key="*this" class="meetup-tag">{{item}}</view>
+      </view>
+    </view>
+
+    <view class="meetup-detail-card meetup-publisher-card">
+      <view class="meetup-publisher-card__avatar">{{detail.publisherInitial}}</view>
+      <view class="meetup-publisher-card__body">
+        <view class="meetup-publisher-card__name">{{detail.publisher}}</view>
+        <view class="meetup-publisher-card__meta">{{detail.publisherMeta}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="meetup-detail-bottom">
+    <view class="meetup-detail-bottom__inner">
+      <view class="meetup-contact" hover-class="tap-button" bindtap="onContact">
+        <t-icon name="{{detail.canViewContact === false ? 'lock-on' : 'chat'}}" size="32rpx" />
+        <text>{{detail.canViewContact === false ? '绑定后查看' : '联系发起人'}}</text>
+      </view>
+      <view
+        wx:if="{{detail.canCancelPublish}}"
+        class="meetup-action meetup-action--secondary"
+        hover-class="tap-button"
+        bindtap="onCancelPublishTap"
+      >
+        取消组局
+      </view>
+      <view
+        wx:elif="{{detail.canCancelJoin}}"
+        class="meetup-action meetup-action--secondary"
+        hover-class="tap-button"
+        bindtap="onCancelJoinTap"
+      >
+        取消报名
+      </view>
+      <view
+        wx:else
+        class="meetup-action {{detail.canJoin ? '' : 'meetup-action--disabled'}}"
+        hover-class="tap-button"
+        bindtap="onJoinTap"
+      >
+        {{detail.actionText}}
+      </view>
+    </view>
+  </view>
+</view>

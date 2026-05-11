@@ -35,5 +35,10 @@ type Repository interface {
 	SaveCarpool(ctx context.Context, item cltypes.CarpoolItem) (cltypes.CarpoolItem, error)
 	UpdateCarpool(ctx context.Context, id string, mutate func(*cltypes.CarpoolItem) error) (cltypes.CarpoolItem, error)
 
+	ListMeetups(ctx context.Context) ([]cltypes.MeetupItem, error)
+	GetMeetup(ctx context.Context, id string) (cltypes.MeetupItem, error)
+	SaveMeetup(ctx context.Context, item cltypes.MeetupItem) (cltypes.MeetupItem, error)
+	UpdateMeetup(ctx context.Context, id string, mutate func(*cltypes.MeetupItem) error) (cltypes.MeetupItem, error)
+
 	NextID(ctx context.Context, prefix string) (string, error)
 }

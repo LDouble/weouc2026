@@ -15,6 +15,16 @@ export const RESOURCE_CATEGORIES = [
   { label: '办事指南', value: 'guide', icon: 'root-list' },
 ];
 
+export const MEETUP_CATEGORIES = [
+  { label: '全部', value: 'all' },
+  { label: '学习搭子', value: 'study', icon: 'book' },
+  { label: '运动约球', value: 'sports', icon: 'play-circle' },
+  { label: '饭搭子', value: 'food', icon: 'shop' },
+  { label: '游戏开黑', value: 'game', icon: 'play-circle-stroke' },
+  { label: '活动约伴', value: 'activity', icon: 'calendar' },
+  { label: '其他', value: 'other', icon: 'app' },
+];
+
 export const LOST_FOUND_TYPES = [
   { value: 'lost', label: '我丢了' },
   { value: 'found', label: '我捡到' },
@@ -31,4 +41,5 @@ export const LOST_FOUND_CATEGORIES = [
 
 export const ERRAND_PUBLISH_CATEGORIES = ERRAND_CATEGORIES.filter((item) => item.value !== 'all');
 export const RESOURCE_PUBLISH_CATEGORIES = RESOURCE_CATEGORIES.filter((item) => item.value !== 'all');
+export const MEETUP_PUBLISH_CATEGORIES = MEETUP_CATEGORIES.filter((item) => item.value !== 'all');
 export const LOST_FOUND_PUBLISH_CATEGORIES = LOST_FOUND_CATEGORIES.filter((item) => item.value !== 'all');
