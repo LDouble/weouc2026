@@ -6,7 +6,7 @@
 
 - `wechat_provider`：当前已提供 mock 登录身份交换实现
 - `sso_provider`
-- `academic_provider`：当前已提供 mock 验证码和学生信息装配实现
+- `academic_provider`：当前已提供 mock 验证码、学生信息装配、学期/课表/考试/成绩读取实现
 - `sms_provider`
 - `storage_provider`：当前已提供腾讯 COS 上传临时凭证、下载预签名与健康检查实现
 - `push_provider`

@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/liangluo/weouc2026/services/api-server/internal/modules/academic"
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/analytics"
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life"
 	clrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/repo"
@@ -122,6 +123,11 @@ func buildRouter(cfg appconfig.AppConfig, logger *slog.Logger) (*gin.Engine, []i
 	)
 
 	iamModule.RegisterRoutes(engine)
+	academic.NewModule(academic.Dependencies{
+		UserRepository:   userRepository,
+		AcademicProvider: academicProvider,
+		AuditRecorder:    auditStore,
+	}).RegisterRoutes(engine)
 	portal.NewModule(portal.Dependencies{
 		Repository:    portalRepository,
 		AuditRecorder: auditStore,

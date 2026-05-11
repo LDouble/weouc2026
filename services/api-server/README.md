@@ -42,6 +42,7 @@ types -> config -> repo -> service -> runtime -> transport
 - `internal/platform`：配置、日志、请求 ID、统一错误响应、Bearer Token / 头部双通道鉴权上下文
 - `internal/modules/system`：`/healthz`、`/readyz`、`/api/v1/system/profile`，以及 `postgres/redis` 依赖就绪探测
 - `internal/modules/iam`：`/api/auth/wechat/login`、`/api/student`、`/api/edu/send-captcha`，并支持 `PostgreSQL + Redis` 持久化
+- `internal/modules/academic`：`/api/academic/semesters`、`/api/academic/schedule`、`/api/academic/exams`、`/api/academic/grades`
 - `internal/modules/portal`：`/api/portal/home`、公告列表/详情，以及管理端公告发布接口
 - `internal/modules/notification`：站内通知列表、未读计数、已读回执，以及管理端通知发布接口
 - `internal/modules/analytics`：`/api/admin/analytics/dashboard`、`/api/admin/analytics/audit-logs`，以及统一审计日志读取能力
@@ -54,6 +55,7 @@ types -> config -> repo -> service -> runtime -> transport
 
 - 微信小程序登录和 Bearer Token 会话
 - 当前用户资料获取、教务验证码发送、绑定与解绑
+- 当前已绑定学生的学期、课程表、考试安排、成绩单查询
 - 门户首页轮播、公告列表、公告详情、管理端公告发布
 - 当前用户通知列表、未读数量、通知已读回执、管理端通知发布
 - 审计日志列表、基础运营看板
@@ -72,7 +74,7 @@ types -> config -> repo -> service -> runtime -> transport
 - 当前阶段 `IAM` 已支持 `PostgreSQL + Redis` 持久化；`campus_life` 已支持 `memory / postgres` 双后端
 - `portal` 与 `notification` 当前先以 `memory` 内置种子数据提供联调入口，后续再切换持久化后端
 - `analytics` 当前先以内存审计存储提供联调入口，重启服务后日志不会保留
-- 微信登录、教务绑定通过 mock provider 模拟，不依赖真实外部系统
+- 微信登录、教务绑定、教务课表/考试/成绩读取当前均通过 mock provider 模拟，不依赖真实外部系统
 - `/readyz` 已接入 `postgres`、`redis`、`object_storage` 健康探测；依赖未就绪时会返回 `503`
 - 当 `API_SERVER_IAM_BACKEND=postgres_redis` 时，登录会话与教务绑定资料会分别落到 `Redis` 和 `PostgreSQL`
 - 当 `API_SERVER_CAMPUS_LIFE_BACKEND=postgres` 时，二手、跑腿、资料、失物招领、拼车、组局会持久化到 `PostgreSQL`
@@ -211,6 +213,12 @@ curl -X POST http://localhost:8080/api/student \
   -H "Authorization: Bearer <token>" \
   -H 'Content-Type: application/json' \
   -d '{"student_id":"20260001","password":"password-001","captcha":"123456"}'
+curl http://localhost:8080/api/academic/semesters \
+  -H "Authorization: Bearer <token>"
+curl http://localhost:8080/api/academic/schedule \
+  -H "Authorization: Bearer <token>"
+curl http://localhost:8080/api/academic/grades?semester_id=2025-2026-2 \
+  -H "Authorization: Bearer <token>"
 curl http://localhost:8080/api/upload/cos-sts \
   -H "Authorization: Bearer <token>"
 curl -X POST http://localhost:8080/api/upload/presigned-get \

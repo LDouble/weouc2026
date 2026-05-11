@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: WEOUC API Server Baseline
-  version: 0.2.5
-  description: 校园综合应用后端当前可联调接口契约，覆盖系统接口、门户、通知、分析审计、微信小程序主链路与校园生活闭环基础能力。
+  version: 0.2.6
+  description: 校园综合应用后端当前可联调接口契约，覆盖系统接口、身份绑定、教务查询、门户、通知、分析审计、微信小程序主链路与校园生活闭环基础能力。
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -11,6 +11,8 @@ tags:
     description: 系统级健康检查、就绪检查与会话画像接口
   - name: IAM
     description: 登录、会话、资料与教务绑定接口
+  - name: Academic
+    description: 已绑定学生的学期、课程表、考试与成绩查询接口
   - name: Portal
     description: 首页门户、轮播与公告接口
   - name: Notification
@@ -155,6 +157,105 @@ paths:
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
+  /api/academic/semesters:
+    get:
+      tags: [Academic]
+      summary: 获取当前学生可用学期列表
+      operationId: listAcademicSemesters
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 学期列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicSemestersResponseEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+  /api/academic/schedule:
+    get:
+      tags: [Academic]
+      summary: 获取当前学生课程表
+      operationId: getAcademicSchedule
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: semester_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 为空时默认返回当前学期课程表
+      responses:
+        '200':
+          description: 课程表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicScheduleResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+  /api/academic/exams:
+    get:
+      tags: [Academic]
+      summary: 获取当前学生考试安排
+      operationId: listAcademicExams
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: semester_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 为空时默认返回当前学期考试安排
+      responses:
+        '200':
+          description: 考试安排
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicExamsResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+  /api/academic/grades:
+    get:
+      tags: [Academic]
+      summary: 获取当前学生成绩单
+      operationId: listAcademicGrades
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: semester_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: 为空时默认返回当前学期成绩单
+      responses:
+        '200':
+          description: 成绩单
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicGradesResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
   /api/upload/cos-sts:
     get:
       tags: [FileCenter]
@@ -1415,6 +1516,198 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/StudentProfile'
+    AcademicSemester:
+      type: object
+      required: [id, name, start_at, end_at, is_current]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        start_at:
+          type: string
+          format: date-time
+        end_at:
+          type: string
+          format: date-time
+        is_current:
+          type: boolean
+    AcademicScheduleCourse:
+      type: object
+      required: [id, semester_id, course_name, teacher, location, weekday, start_section, end_section, weeks, credit]
+      properties:
+        id:
+          type: string
+        semester_id:
+          type: string
+        course_name:
+          type: string
+        teacher:
+          type: string
+        location:
+          type: string
+        weekday:
+          type: integer
+        start_section:
+          type: integer
+        end_section:
+          type: integer
+        weeks:
+          type: array
+          items:
+            type: integer
+        credit:
+          type: number
+    AcademicExamItem:
+      type: object
+      required: [id, semester_id, course_name, location, seat_no, status, starts_at, ends_at]
+      properties:
+        id:
+          type: string
+        semester_id:
+          type: string
+        course_name:
+          type: string
+        location:
+          type: string
+        seat_no:
+          type: string
+        status:
+          type: string
+          enum: [scheduled, completed]
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+    AcademicGradeItem:
+      type: object
+      required: [id, semester_id, course_name, course_type, credit, score, grade_point, status]
+      properties:
+        id:
+          type: string
+        semester_id:
+          type: string
+        course_name:
+          type: string
+        course_type:
+          type: string
+        credit:
+          type: number
+        score:
+          type: number
+        grade_point:
+          type: number
+        status:
+          type: string
+          enum: [passed, failed]
+    AcademicSemestersPayload:
+      type: object
+      required: [current_semester_id, list]
+      properties:
+        current_semester_id:
+          type: string
+        list:
+          type: array
+          items:
+            $ref: '#/components/schemas/AcademicSemester'
+    AcademicSemestersResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/AcademicSemestersPayload'
+    AcademicScheduleSummary:
+      type: object
+      required: [course_count, teaching_days]
+      properties:
+        course_count:
+          type: integer
+        teaching_days:
+          type: integer
+    AcademicSchedulePayload:
+      type: object
+      required: [semester, list, summary]
+      properties:
+        semester:
+          $ref: '#/components/schemas/AcademicSemester'
+        list:
+          type: array
+          items:
+            $ref: '#/components/schemas/AcademicScheduleCourse'
+        summary:
+          $ref: '#/components/schemas/AcademicScheduleSummary'
+    AcademicScheduleResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/AcademicSchedulePayload'
+    AcademicExamSummary:
+      type: object
+      required: [count, upcoming_count]
+      properties:
+        count:
+          type: integer
+        upcoming_count:
+          type: integer
+    AcademicExamsPayload:
+      type: object
+      required: [semester, list, summary]
+      properties:
+        semester:
+          $ref: '#/components/schemas/AcademicSemester'
+        list:
+          type: array
+          items:
+            $ref: '#/components/schemas/AcademicExamItem'
+        summary:
+          $ref: '#/components/schemas/AcademicExamSummary'
+    AcademicExamsResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/AcademicExamsPayload'
+    AcademicGradeSummary:
+      type: object
+      required: [course_count, passed_count, average_score, average_grade_point]
+      properties:
+        course_count:
+          type: integer
+        passed_count:
+          type: integer
+        average_score:
+          type: number
+        average_grade_point:
+          type: number
+    AcademicGradesPayload:
+      type: object
+      required: [semester, list, summary]
+      properties:
+        semester:
+          $ref: '#/components/schemas/AcademicSemester'
+        list:
+          type: array
+          items:
+            $ref: '#/components/schemas/AcademicGradeItem'
+        summary:
+          $ref: '#/components/schemas/AcademicGradeSummary'
+    AcademicGradesResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/AcademicGradesPayload'
     SendCaptchaRequest:
       type: object
       required: [sid]
