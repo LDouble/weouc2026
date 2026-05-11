@@ -14,6 +14,10 @@ import (
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/file_center"
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/iam"
 	iamrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/iam/repo"
+	"github.com/liangluo/weouc2026/services/api-server/internal/modules/notification"
+	notificationrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/notification/repo"
+	"github.com/liangluo/weouc2026/services/api-server/internal/modules/portal"
+	portalrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/portal/repo"
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/system"
 	systemrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/system/repo"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/auth"
@@ -94,6 +98,8 @@ func buildRouter(cfg appconfig.AppConfig, logger *slog.Logger) (*gin.Engine, []i
 		closeClosers(closers)
 		return nil, nil, err
 	}
+	portalRepository := portalrepo.NewInMemoryRepository()
+	notificationRepository := notificationrepo.NewInMemoryRepository()
 
 	iamModule := iam.NewModule(cfg, iam.Dependencies{
 		UserRepository:    userRepository,
@@ -112,6 +118,12 @@ func buildRouter(cfg appconfig.AppConfig, logger *slog.Logger) (*gin.Engine, []i
 	)
 
 	iamModule.RegisterRoutes(engine)
+	portal.NewModule(portal.Dependencies{
+		Repository: portalRepository,
+	}).RegisterRoutes(engine)
+	notification.NewModule(notification.Dependencies{
+		Repository: notificationRepository,
+	}).RegisterRoutes(engine)
 	campus_life.NewModule(campus_life.Dependencies{
 		Repository:      campusLifeRepository,
 		StorageProvider: storageProvider,

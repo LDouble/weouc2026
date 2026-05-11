@@ -42,6 +42,8 @@ types -> config -> repo -> service -> runtime -> transport
 - `internal/platform`：配置、日志、请求 ID、统一错误响应、Bearer Token / 头部双通道鉴权上下文
 - `internal/modules/system`：`/healthz`、`/readyz`、`/api/v1/system/profile`，以及 `postgres/redis` 依赖就绪探测
 - `internal/modules/iam`：`/api/auth/wechat/login`、`/api/student`、`/api/edu/send-captcha`，并支持 `PostgreSQL + Redis` 持久化
+- `internal/modules/portal`：`/api/portal/home`、公告列表/详情，以及管理端公告发布接口
+- `internal/modules/notification`：站内通知列表、未读计数、已读回执，以及管理端通知发布接口
 - `internal/modules/campus_life`：`/api/feed/list`、二手/跑腿/资料/失物招领/拼车/组局列表与关键详情/交互接口，以及校园生活审核接口
 - `internal/modules/file_center`：`/api/upload/cos-sts`、`/api/upload/presigned-get`
 - `internal/providers/*_provider`：微信与教务 mock provider
@@ -51,6 +53,8 @@ types -> config -> repo -> service -> runtime -> transport
 
 - 微信小程序登录和 Bearer Token 会话
 - 当前用户资料获取、教务验证码发送、绑定与解绑
+- 门户首页轮播、公告列表、公告详情、管理端公告发布
+- 当前用户通知列表、未读数量、通知已读回执、管理端通知发布
 - 首页动态流
 - 二手列表、详情、收藏、发布
 - 跑腿列表、详情、发布、接单、取消发布、取消接单
@@ -64,6 +68,7 @@ types -> config -> repo -> service -> runtime -> transport
 说明：
 
 - 当前阶段 `IAM` 已支持 `PostgreSQL + Redis` 持久化；`campus_life` 已支持 `memory / postgres` 双后端
+- `portal` 与 `notification` 当前先以 `memory` 内置种子数据提供联调入口，后续再切换持久化后端
 - 微信登录、教务绑定通过 mock provider 模拟，不依赖真实外部系统
 - `/readyz` 已接入 `postgres`、`redis`、`object_storage` 健康探测；依赖未就绪时会返回 `503`
 - 当 `API_SERVER_IAM_BACKEND=postgres_redis` 时，登录会话与教务绑定资料会分别落到 `Redis` 和 `PostgreSQL`
@@ -188,8 +193,10 @@ curl -X POST http://localhost:8080/api/auth/wechat/login \
 curl http://localhost:8080/api/market/list
 curl http://localhost:8080/api/carpool/list
 curl http://localhost:8080/api/meetup/list
+curl http://localhost:8080/api/portal/home
 curl http://localhost:8080/api/market/detail/market-101
 curl http://localhost:8080/api/student -H "Authorization: Bearer <token>"
+curl http://localhost:8080/api/notification/list -H "Authorization: Bearer <token>"
 curl -X POST http://localhost:8080/api/edu/send-captcha \
   -H "Authorization: Bearer <token>" \
   -H 'Content-Type: application/json' \
@@ -208,6 +215,16 @@ curl -X POST http://localhost:8080/api/meetup/publish \
   -H "Authorization: Bearer <token>" \
   -H 'Content-Type: application/json' \
   -d '{"category":"study","title":"明晚图书馆自习搭子","desc":"一起准备高数小测","location":"图书馆四楼 A 区","start_at":"2026-05-12T19:00:00+08:00","deadline_at":"2026-05-12T18:30:00+08:00","max_participants":4,"fee_text":"免费","tags":["高数","自习"],"contact":"wx-study-001"}'
+curl -X POST http://localhost:8080/api/admin/portal/notices/publish \
+  -H 'X-User-ID: admin-001' \
+  -H 'X-User-Permissions: portal:publish' \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"明晚停机维护通知","summary":"今晚 23:00 至明日 01:00 维护","content":"发布与审核链路将短暂只读。","audience":"all","tags":["运维","通知"],"pinned":true}'
+curl -X POST http://localhost:8080/api/admin/notification/publish \
+  -H 'X-User-ID: admin-001' \
+  -H 'X-User-Permissions: notification:publish' \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"今晚 23 点起暂停内容发布","content":"发布、审核和消息写入链路将短暂进入只读维护窗口。","category":"system","target_scope":"all","action_url":"/pages/home/index"}'
 curl http://localhost:8080/api/admin/campus-life/review/list \
   -H 'X-User-ID: admin-001' \
   -H 'X-User-Permissions: campus_life:moderate'

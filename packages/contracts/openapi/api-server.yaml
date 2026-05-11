@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: WEOUC API Server Baseline
-  version: 0.2.3
-  description: 校园综合应用后端当前可联调接口契约，覆盖系统接口、微信小程序主链路、组局/拼车与校园生活审核闭环基础能力。
+  version: 0.2.4
+  description: 校园综合应用后端当前可联调接口契约，覆盖系统接口、门户、通知、微信小程序主链路与校园生活闭环基础能力。
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -11,6 +11,10 @@ tags:
     description: 系统级健康检查、就绪检查与会话画像接口
   - name: IAM
     description: 登录、会话、资料与教务绑定接口
+  - name: Portal
+    description: 首页门户、轮播与公告接口
+  - name: Notification
+    description: 站内通知收件箱与管理发布接口
   - name: FileCenter
     description: 文件上传临时凭证与对象下载签名接口
   - name: CampusLife
@@ -225,6 +229,171 @@ paths:
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
+  /api/portal/home:
+    get:
+      tags: [Portal]
+      summary: 获取门户首页聚合内容
+      operationId: getPortalHome
+      responses:
+        '200':
+          description: 门户首页聚合内容
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+  /api/portal/notices:
+    get:
+      tags: [Portal]
+      summary: 获取公告列表
+      operationId: listPortalNotices
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Keyword'
+      responses:
+        '200':
+          description: 公告分页结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponseEnvelope'
+  /api/portal/notices/{id}:
+    get:
+      tags: [Portal]
+      summary: 获取公告详情
+      operationId: getPortalNoticeDetail
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: 公告详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+  /api/admin/portal/notices/publish:
+    post:
+      tags: [Portal]
+      summary: 发布门户公告
+      operationId: publishPortalNotice
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PortalNoticePublishRequest'
+      responses:
+        '200':
+          description: 发布成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IDResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+  /api/notification/list:
+    get:
+      tags: [Notification]
+      summary: 获取当前用户通知列表
+      operationId: listNotifications
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: unread_only
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: 通知分页结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponseEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+  /api/notification/unread-count:
+    get:
+      tags: [Notification]
+      summary: 获取当前用户未读通知数量
+      operationId: getNotificationUnreadCount
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 未读通知数量
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+  /api/notification/read:
+    post:
+      tags: [Notification]
+      summary: 标记通知为已读
+      operationId: markNotificationRead
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationMarkReadRequest'
+      responses:
+        '200':
+          description: 标记成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+  /api/admin/notification/publish:
+    post:
+      tags: [Notification]
+      summary: 发布站内通知
+      operationId: publishNotification
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationPublishRequest'
+      responses:
+        '200':
+          description: 发布成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IDResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
   /api/feed/list:
     get:
       tags: [CampusLife]
@@ -1273,6 +1442,50 @@ components:
           properties:
             data:
               $ref: '#/components/schemas/PresignedGetResponse'
+    PortalNoticePublishRequest:
+      type: object
+      required: [title, content]
+      properties:
+        title:
+          type: string
+        summary:
+          type: string
+        content:
+          type: string
+        audience:
+          type: string
+          description: all / student / teacher 等受众标识
+        tags:
+          type: array
+          items:
+            type: string
+        pinned:
+          type: boolean
+    NotificationPublishRequest:
+      type: object
+      required: [title, content]
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        category:
+          type: string
+        target_scope:
+          type: string
+          enum: [all, users]
+        target_user_ids:
+          type: array
+          items:
+            type: string
+        action_url:
+          type: string
+    NotificationMarkReadRequest:
+      type: object
+      required: [message_id]
+      properties:
+        message_id:
+          type: string
     MarketPublishRequest:
       type: object
       required: [title, desc]
