@@ -1266,7 +1266,11 @@ func (s *Service) ListReviewQueue(ctx context.Context, query cltypes.ReviewQuery
 	}
 	for _, item := range markets {
 		appendRow("market", item.CreatedAt, item.ReviewStatus, item.Title, item.Desc, item.Publisher, item.ID, map[string]any{
-			"category": item.Extra.Category,
+			"category":       item.Extra.Category,
+			"price":          item.Extra.Price,
+			"original_price": item.Extra.OriginalPrice,
+			"condition":      item.Extra.Condition,
+			"trade_mode":     item.Extra.TradeMode,
 		})
 	}
 
@@ -1276,8 +1280,12 @@ func (s *Service) ListReviewQueue(ctx context.Context, query cltypes.ReviewQuery
 	}
 	for _, item := range errands {
 		appendRow("errand", item.CreatedAt, item.ReviewStatus, item.Title, item.Desc, item.Publisher, item.ID, map[string]any{
-			"category": item.Category,
-			"status":   item.Status,
+			"category":    item.Category,
+			"status":      item.Status,
+			"route_start": item.RouteStart,
+			"route_end":   item.RouteEnd,
+			"deadline":    item.Deadline.Format(time.RFC3339),
+			"reward":      item.Reward,
 		})
 	}
 
@@ -1289,6 +1297,8 @@ func (s *Service) ListReviewQueue(ctx context.Context, query cltypes.ReviewQuery
 		appendRow("resource", item.CreatedAt, item.ReviewStatus, item.Title, item.Desc, item.Publisher, item.ID, map[string]any{
 			"category":    item.Extra.Category,
 			"course_name": item.Extra.CourseName,
+			"file_type":   item.Extra.FileType,
+			"file_size":   item.Extra.FileSize,
 		})
 	}
 
@@ -1298,8 +1308,10 @@ func (s *Service) ListReviewQueue(ctx context.Context, query cltypes.ReviewQuery
 	}
 	for _, item := range lostFounds {
 		appendRow("lostFound", item.CreatedAt, item.ReviewStatus, item.Title, item.Desc, item.Publisher, item.ID, map[string]any{
-			"category": item.Extra.Category,
-			"type":     item.Extra.Type,
+			"category":   item.Extra.Category,
+			"type":       item.Extra.Type,
+			"location":   item.Extra.Location,
+			"event_time": item.Extra.EventTime,
 		})
 	}
 
