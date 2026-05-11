@@ -102,15 +102,7 @@ async function handleSubmit() {
       id: response.user_id,
       username: response.username,
       role: response.roles?.[0] || 'admin',
-      permissions: [
-        'iam:user:view', 'iam:user:manage',
-        'iam:role:view', 'iam:role:manage',
-        'iam:permission:view',
-        'portal:publish', 'portal:view',
-        'campus_life:moderate', 'campus_life:view',
-        'moderation:review',
-        'analytics:view'
-      ]
+      permissions: response.permissions || []
     })
     
     console.log('[Login] Token saved to localStorage:', localStorage.getItem('adminToken'))

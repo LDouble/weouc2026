@@ -105,8 +105,8 @@ npm run preview
 ## 权限控制
 
 - 使用 `meta.requiresAuth` 标记需要认证的路由
-- 登录状态通过 `localStorage` 存储 Token
-- 权限码通过 `stores/auth.ts` 的 `hasPermission()` 方法校验
+- 登录状态与当前管理员权限快照通过 `localStorage` 持久化
+- 路由和侧边栏统一通过 `stores/auth.ts` 的 `hasPermission()` 方法按真实权限码校验
 
 ## 当前真实联调范围
 
@@ -115,6 +115,7 @@ npm run preview
 - 校园生活管理：跑腿、组局、二手、资料、失物招领已切到真实审核数据源，并支持详情查看与状态操作
 - 待审核内容：已接入真实审核列表与审核更新接口
 - 审核历史：已切换为真实审核结果查询
+- 登录与导航权限：已切换为后端返回的真实 `roles / permissions`，不再在登录页硬编码权限集合
 - 文章管理：后端模型尚未实现，当前页面保留为预留入口，不再请求不存在的接口
 
 ## 架构约束

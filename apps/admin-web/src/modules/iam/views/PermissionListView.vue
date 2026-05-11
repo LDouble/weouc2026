@@ -37,7 +37,7 @@ const permissions = ref<Permission[]>([
   { id: '7', code: 'portal:view', name: '查看内容', description: '查看内容列表', category: 'portal' },
   { id: '8', code: 'campus_life:moderate', name: '审核校园生活', description: '审核跑腿、组局、二手等内容', category: 'campus_life' },
   { id: '9', code: 'campus_life:view', name: '查看校园生活', description: '查看校园生活内容', category: 'campus_life' },
-  { id: '10', code: 'moderation:review', name: '审核内容', description: '审核待审核内容', category: 'moderation' },
+  { id: '10', code: 'campus_life:view', name: '查看校园生活', description: '查看校园生活内容列表', category: 'campus_life' },
   { id: '11', code: 'analytics:view', name: '查看数据', description: '查看统计数据和审计日志', category: 'analytics' }
 ])
 

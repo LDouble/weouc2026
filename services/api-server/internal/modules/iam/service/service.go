@@ -92,10 +92,11 @@ func (s *Service) LoginWithPassword(ctx context.Context, request iamtypes.AdminL
 	})
 
 	return iamtypes.AdminLoginResponse{
-		Token:    token,
-		UserID:   user.ID,
-		Username: user.Nickname,
-		Roles:    append([]string(nil), user.Roles...),
+		Token:       token,
+		UserID:      user.ID,
+		Username:    user.Nickname,
+		Roles:       append([]string(nil), user.Roles...),
+		Permissions: append([]string(nil), user.Permissions...),
 	}, nil
 }
 

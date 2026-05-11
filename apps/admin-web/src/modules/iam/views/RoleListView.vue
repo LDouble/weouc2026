@@ -79,7 +79,6 @@ const availablePermissions = [
   'iam:permission:view',
   'portal:publish', 'portal:view',
   'campus_life:moderate', 'campus_life:view',
-  'moderation:review',
   'analytics:view'
 ]
 
@@ -91,7 +90,7 @@ const form = reactive({
 
 const roles = ref<Role[]>([
   { id: '1', name: '超级管理员', description: '拥有所有权限', permissions: availablePermissions, createdAt: '2024-01-01' },
-  { id: '2', name: '内容运营', description: '负责内容发布和审核', permissions: ['portal:publish', 'portal:view', 'moderation:review'], createdAt: '2024-01-02' },
+  { id: '2', name: '内容运营', description: '负责内容发布和审核', permissions: ['portal:publish', 'portal:view', 'campus_life:view', 'campus_life:moderate'], createdAt: '2024-01-02' },
   { id: '3', name: '用户管理员', description: '负责用户管理', permissions: ['iam:user:view', 'iam:user:manage'], createdAt: '2024-01-03' },
   { id: '4', name: '数据分析员', description: '查看数据统计', permissions: ['analytics:view', 'portal:view', 'campus_life:view'], createdAt: '2024-01-04' }
 ])

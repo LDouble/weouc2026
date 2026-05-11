@@ -78,8 +78,9 @@ type AdminLoginRequest struct {
 }
 
 type AdminLoginResponse struct {
-	Token    string `json:"token"`
-	UserID   string `json:"user_id"`
-	Username string `json:"username"`
-	Roles    []string `json:"roles"`
+	Token       string   `json:"token"`
+	UserID      string   `json:"user_id"`
+	Username    string   `json:"username"`
+	Roles       []string `json:"roles"`
+	Permissions []string `json:"permissions"`
 }

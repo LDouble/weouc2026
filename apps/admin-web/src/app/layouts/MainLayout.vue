@@ -5,22 +5,22 @@
         <span class="text-white font-bold text-lg">校园管理后台</span>
       </div>
       <a-menu mode="inline" theme="dark" class="mt-4" :selected-keys="[currentKey]">
-        <a-menu-item key="/" @click="navigate('/')">
+        <a-menu-item v-if="canView('analytics:view')" key="/" @click="navigate('/')">
           <component :is="icons.Dashboard" />
           <span>仪表盘</span>
         </a-menu-item>
         
-        <a-sub-menu key="iam">
+        <a-sub-menu v-if="canViewAny(['iam:user:view', 'iam:role:view', 'iam:permission:view'])" key="iam">
           <template #title>
             <component :is="icons.User" />
             <span>用户权限</span>
           </template>
-          <a-menu-item key="/users" @click="navigate('/users')">用户管理</a-menu-item>
-          <a-menu-item key="/roles" @click="navigate('/roles')">角色管理</a-menu-item>
-          <a-menu-item key="/permissions" @click="navigate('/permissions')">权限管理</a-menu-item>
+          <a-menu-item v-if="canView('iam:user:view')" key="/users" @click="navigate('/users')">用户管理</a-menu-item>
+          <a-menu-item v-if="canView('iam:role:view')" key="/roles" @click="navigate('/roles')">角色管理</a-menu-item>
+          <a-menu-item v-if="canView('iam:permission:view')" key="/permissions" @click="navigate('/permissions')">权限管理</a-menu-item>
         </a-sub-menu>
         
-        <a-sub-menu key="portal">
+        <a-sub-menu v-if="canView('portal:view')" key="portal">
           <template #title>
             <component :is="icons.FileText" />
             <span>内容管理</span>
@@ -30,7 +30,7 @@
           <a-menu-item key="/portal/notices" @click="navigate('/portal/notices')">公告管理</a-menu-item>
         </a-sub-menu>
         
-        <a-sub-menu key="campus-life">
+        <a-sub-menu v-if="canView('campus_life:view')" key="campus-life">
           <template #title>
             <component :is="icons.Home" />
             <span>校园生活</span>
@@ -42,7 +42,7 @@
           <a-menu-item key="/campus-life/lost-items" @click="navigate('/campus-life/lost-items')">失物招领</a-menu-item>
         </a-sub-menu>
         
-        <a-sub-menu key="moderation">
+        <a-sub-menu v-if="canView('campus_life:moderate')" key="moderation">
           <template #title>
             <component :is="icons.CheckCircle" />
             <span>内容审核</span>
@@ -51,7 +51,7 @@
           <a-menu-item key="/moderation/history" @click="navigate('/moderation/history')">审核历史</a-menu-item>
         </a-sub-menu>
         
-        <a-sub-menu key="analytics">
+        <a-sub-menu v-if="canView('analytics:view')" key="analytics">
           <template #title>
             <component :is="icons.BarChart" />
             <span>数据分析</span>
@@ -129,29 +129,21 @@ const icons = {
 }
 
 const currentKey = computed(() => router.currentRoute.value.path)
-
-const titleMap: Record<string, string> = {
-  '/': '仪表盘',
-  '/users': '用户管理',
-  '/roles': '角色管理',
-  '/permissions': '权限管理',
-  '/portal/articles': '文章管理',
-  '/portal/banners': '轮播管理',
-  '/portal/notices': '公告管理',
-  '/campus-life/errands': '跑腿服务',
-  '/campus-life/meetups': '组局活动',
-  '/campus-life/listings': '二手交易',
-  '/campus-life/resources': '资料共享',
-  '/campus-life/lost-items': '失物招领',
-  '/moderation/pending': '待审核',
-  '/moderation/history': '审核历史',
-  '/analytics/audit-logs': '审计日志'
-}
-
-const currentTitle = computed(() => titleMap[router.currentRoute.value.path] || '')
+const currentTitle = computed(() => {
+  const title = router.currentRoute.value.meta.title
+  return typeof title === 'string' ? title : ''
+})
 
 function navigate(path: string) {
   router.push(path)
+}
+
+function canView(permission: string) {
+  return authStore.hasPermission(permission)
+}
+
+function canViewAny(permissions: string[]) {
+  return permissions.some((permission) => authStore.hasPermission(permission))
 }
 
 function handleLogout() {

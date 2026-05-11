@@ -32,6 +32,7 @@ export interface AdminLoginResponse {
   user_id: string
   username: string
   roles: string[]
+  permissions: string[]
 }
 
 export interface SendCaptchaRequest {
