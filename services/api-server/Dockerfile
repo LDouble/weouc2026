@@ -3,7 +3,7 @@ FROM golang:1.25.3-alpine AS builder
 WORKDIR /src
 
 COPY go.mod go.sum ./
-RUN go mod download
+RUN GOPROXY=https://goproxy.cn,direct go mod download
 
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o /out/api-server ./cmd/api-server
