@@ -12,17 +12,9 @@ export interface TdDateTimePickerProps {
         type: StringConstructor;
         value?: string;
     };
-    customLocale?: {
-        type: StringConstructor;
-        value?: string;
-    };
     end?: {
         type: null;
         value?: string | number;
-    };
-    externalClasses?: {
-        type: ArrayConstructor;
-        value?: ['t-class', 't-class-confirm', 't-class-cancel', 't-class-title'];
     };
     filter?: {
         type: undefined;
@@ -31,6 +23,10 @@ export interface TdDateTimePickerProps {
     format?: {
         type: StringConstructor;
         value?: string;
+    };
+    formatter?: {
+        type: undefined;
+        value?: (option: DateTimePickerColumnItem, columnIndex: number) => DateTimePickerColumnItem;
     };
     header?: {
         type: BooleanConstructor;
@@ -54,7 +50,9 @@ export interface TdDateTimePickerProps {
     };
     steps?: {
         type: ObjectConstructor;
-        value?: object;
+        value?: {
+            [key in TimeModeValues]?: number;
+        };
     };
     title?: {
         type: StringConstructor;

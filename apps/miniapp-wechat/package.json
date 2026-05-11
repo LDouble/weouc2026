@@ -5,6 +5,7 @@
   "description": "微信小程序依赖（COS 直传等），需在开发者工具中「工具 → 构建 npm」",
   "dependencies": {
     "cos-wx-sdk-v5": "^1.1.7",
-    "js-md5": "^0.8.3"
+    "js-md5": "^0.8.3",
+    "tdesign-miniprogram":""
   }
 }

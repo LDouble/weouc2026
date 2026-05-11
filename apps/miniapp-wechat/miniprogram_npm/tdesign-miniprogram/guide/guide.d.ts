@@ -5,6 +5,7 @@ export interface GuideProps extends TdGuideProps {
 }
 export { GuideStep };
 export default class Guide extends SuperComponent {
+    behaviors: string[];
     externalClasses: string[];
     properties: TdGuideProps;
     options: WechatMiniprogram.Component.ComponentOptions;
@@ -71,7 +72,7 @@ export default class Guide extends SuperComponent {
                 right: string;
             };
             'left-bottom': (rect: any, place: any, offset: any) => {
-                bottom: string;
+                top: string;
                 right: string;
             };
             right: (rect: any, place: any, offset: any) => {
@@ -83,19 +84,19 @@ export default class Guide extends SuperComponent {
                 left: string;
             };
             'right-bottom': (rect: any, place: any, offset: any) => {
-                bottom: string;
+                top: string;
                 left: string;
             };
             top: (rect: any, place: any, offset: any) => {
-                bottom: string;
+                top: string;
                 left: string;
             };
             'top-left': (rect: any, place: any, offset: any) => {
-                bottom: string;
+                top: string;
                 left: string;
             };
             'top-right': (rect: any, place: any, offset: any) => {
-                bottom: string;
+                top: string;
                 right: string;
             };
         };

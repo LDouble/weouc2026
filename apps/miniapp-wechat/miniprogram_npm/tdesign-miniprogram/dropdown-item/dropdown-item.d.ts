@@ -3,6 +3,7 @@ import type { TdDropdownItemProps } from './type';
 export interface DropdownItemProps extends TdDropdownItemProps {
 }
 export default class DropdownMenuItem extends SuperComponent {
+    behaviors: string[];
     options: {
         multipleSlots: boolean;
     };
@@ -32,7 +33,7 @@ export default class DropdownMenuItem extends SuperComponent {
     observers: {
         keys(obj: any): void;
         value(v: any): void;
-        'label, computedLabel'(): void;
+        'label, computedLabel, disabled'(): void;
         show(visible: any): void;
     };
     methods: {
