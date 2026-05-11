@@ -38,6 +38,8 @@ func TestCanonicalOpenAPIContainsCoreRoutes(t *testing.T) {
 		"/api/notification/list",
 		"/api/notification/read",
 		"/api/admin/notification/publish",
+		"/api/admin/analytics/dashboard",
+		"/api/admin/analytics/audit-logs",
 		"/api/feed/list",
 		"/api/market/detail/{id}",
 		"/api/errand/accept",

@@ -44,6 +44,7 @@ types -> config -> repo -> service -> runtime -> transport
 - `internal/modules/iam`：`/api/auth/wechat/login`、`/api/student`、`/api/edu/send-captcha`，并支持 `PostgreSQL + Redis` 持久化
 - `internal/modules/portal`：`/api/portal/home`、公告列表/详情，以及管理端公告发布接口
 - `internal/modules/notification`：站内通知列表、未读计数、已读回执，以及管理端通知发布接口
+- `internal/modules/analytics`：`/api/admin/analytics/dashboard`、`/api/admin/analytics/audit-logs`，以及统一审计日志读取能力
 - `internal/modules/campus_life`：`/api/feed/list`、二手/跑腿/资料/失物招领/拼车/组局列表与关键详情/交互接口，以及校园生活审核接口
 - `internal/modules/file_center`：`/api/upload/cos-sts`、`/api/upload/presigned-get`
 - `internal/providers/*_provider`：微信与教务 mock provider
@@ -55,6 +56,7 @@ types -> config -> repo -> service -> runtime -> transport
 - 当前用户资料获取、教务验证码发送、绑定与解绑
 - 门户首页轮播、公告列表、公告详情、管理端公告发布
 - 当前用户通知列表、未读数量、通知已读回执、管理端通知发布
+- 审计日志列表、基础运营看板
 - 首页动态流
 - 二手列表、详情、收藏、发布
 - 跑腿列表、详情、发布、接单、取消发布、取消接单
@@ -69,6 +71,7 @@ types -> config -> repo -> service -> runtime -> transport
 
 - 当前阶段 `IAM` 已支持 `PostgreSQL + Redis` 持久化；`campus_life` 已支持 `memory / postgres` 双后端
 - `portal` 与 `notification` 当前先以 `memory` 内置种子数据提供联调入口，后续再切换持久化后端
+- `analytics` 当前先以内存审计存储提供联调入口，重启服务后日志不会保留
 - 微信登录、教务绑定通过 mock provider 模拟，不依赖真实外部系统
 - `/readyz` 已接入 `postgres`、`redis`、`object_storage` 健康探测；依赖未就绪时会返回 `503`
 - 当 `API_SERVER_IAM_BACKEND=postgres_redis` 时，登录会话与教务绑定资料会分别落到 `Redis` 和 `PostgreSQL`
@@ -197,6 +200,9 @@ curl http://localhost:8080/api/portal/home
 curl http://localhost:8080/api/market/detail/market-101
 curl http://localhost:8080/api/student -H "Authorization: Bearer <token>"
 curl http://localhost:8080/api/notification/list -H "Authorization: Bearer <token>"
+curl http://localhost:8080/api/admin/analytics/dashboard \
+  -H 'X-User-ID: admin-001' \
+  -H 'X-User-Permissions: analytics:view'
 curl -X POST http://localhost:8080/api/edu/send-captcha \
   -H "Authorization: Bearer <token>" \
   -H 'Content-Type: application/json' \
@@ -225,6 +231,9 @@ curl -X POST http://localhost:8080/api/admin/notification/publish \
   -H 'X-User-Permissions: notification:publish' \
   -H 'Content-Type: application/json' \
   -d '{"title":"今晚 23 点起暂停内容发布","content":"发布、审核和消息写入链路将短暂进入只读维护窗口。","category":"system","target_scope":"all","action_url":"/pages/home/index"}'
+curl http://localhost:8080/api/admin/analytics/audit-logs?action=campus_life.review.update \
+  -H 'X-User-ID: admin-001' \
+  -H 'X-User-Permissions: analytics:view'
 curl http://localhost:8080/api/admin/campus-life/review/list \
   -H 'X-User-ID: admin-001' \
   -H 'X-User-Permissions: campus_life:moderate'

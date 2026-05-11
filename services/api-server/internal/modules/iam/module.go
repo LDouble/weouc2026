@@ -6,6 +6,7 @@ import (
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/iam/repo"
 	iamservice "github.com/liangluo/weouc2026/services/api-server/internal/modules/iam/service"
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/iam/transport"
+	"github.com/liangluo/weouc2026/services/api-server/internal/platform/audit"
 	appconfig "github.com/liangluo/weouc2026/services/api-server/internal/platform/config"
 	"github.com/liangluo/weouc2026/services/api-server/internal/providers/academic_provider"
 	"github.com/liangluo/weouc2026/services/api-server/internal/providers/wechat_provider"
@@ -17,6 +18,7 @@ type Dependencies struct {
 	CaptchaRepository repo.CaptchaRepository
 	WeChatProvider    wechat_provider.Provider
 	AcademicProvider  academic_provider.Provider
+	AuditRecorder     audit.Recorder
 }
 
 type Module struct {
@@ -33,6 +35,7 @@ func NewModule(appCfg appconfig.AppConfig, dependencies Dependencies) *Module {
 		dependencies.CaptchaRepository,
 		dependencies.WeChatProvider,
 		dependencies.AcademicProvider,
+		dependencies.AuditRecorder,
 	)
 	handler := transport.NewHandler(service)
 

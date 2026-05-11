@@ -9,6 +9,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/liangluo/weouc2026/services/api-server/internal/modules/analytics"
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life"
 	clrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/repo"
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/file_center"
@@ -20,6 +21,7 @@ import (
 	portalrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/portal/repo"
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/system"
 	systemrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/system/repo"
+	"github.com/liangluo/weouc2026/services/api-server/internal/platform/audit"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/auth"
 	appconfig "github.com/liangluo/weouc2026/services/api-server/internal/platform/config"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/httpx"
@@ -100,6 +102,7 @@ func buildRouter(cfg appconfig.AppConfig, logger *slog.Logger) (*gin.Engine, []i
 	}
 	portalRepository := portalrepo.NewInMemoryRepository()
 	notificationRepository := notificationrepo.NewInMemoryRepository()
+	auditStore := audit.NewInMemoryStore()
 
 	iamModule := iam.NewModule(cfg, iam.Dependencies{
 		UserRepository:    userRepository,
@@ -107,6 +110,7 @@ func buildRouter(cfg appconfig.AppConfig, logger *slog.Logger) (*gin.Engine, []i
 		CaptchaRepository: captchaRepository,
 		WeChatProvider:    wechatProvider,
 		AcademicProvider:  academicProvider,
+		AuditRecorder:     auditStore,
 	})
 
 	engine := gin.New()
@@ -119,14 +123,20 @@ func buildRouter(cfg appconfig.AppConfig, logger *slog.Logger) (*gin.Engine, []i
 
 	iamModule.RegisterRoutes(engine)
 	portal.NewModule(portal.Dependencies{
-		Repository: portalRepository,
+		Repository:    portalRepository,
+		AuditRecorder: auditStore,
 	}).RegisterRoutes(engine)
 	notification.NewModule(notification.Dependencies{
-		Repository: notificationRepository,
+		Repository:    notificationRepository,
+		AuditRecorder: auditStore,
+	}).RegisterRoutes(engine)
+	analytics.NewModule(analytics.Dependencies{
+		AuditStore: auditStore,
 	}).RegisterRoutes(engine)
 	campus_life.NewModule(campus_life.Dependencies{
 		Repository:      campusLifeRepository,
 		StorageProvider: storageProvider,
+		AuditRecorder:   auditStore,
 	}).RegisterRoutes(engine)
 	file_center.NewModule(file_center.Dependencies{
 		StorageProvider: storageProvider,

@@ -12,6 +12,7 @@ import (
 
 	clrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/repo"
 	cltypes "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/types"
+	"github.com/liangluo/weouc2026/services/api-server/internal/platform/audit"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/auth"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/httpx"
 	"github.com/liangluo/weouc2026/services/api-server/internal/providers/storage_provider"
@@ -20,6 +21,7 @@ import (
 type Service struct {
 	repository      clrepo.Repository
 	storageProvider storage_provider.Provider
+	recorder        audit.Recorder
 }
 
 var chinaLocation = time.FixedZone("Asia/Shanghai", 8*3600)
@@ -37,10 +39,11 @@ const (
 	campusLifeModeratePermission = "campus_life:moderate"
 )
 
-func New(repository clrepo.Repository, storageProvider storage_provider.Provider) *Service {
+func New(repository clrepo.Repository, storageProvider storage_provider.Provider, recorder audit.Recorder) *Service {
 	return &Service{
 		repository:      repository,
 		storageProvider: storageProvider,
+		recorder:        recorder,
 	}
 }
 
@@ -422,6 +425,11 @@ func (s *Service) PublishMarket(ctx context.Context, principal auth.Principal, r
 		return nil, httpx.Internal("保存二手信息失败", err)
 	}
 
+	s.recordAudit(ctx, principal, "campus_life.market.publish", "market", item.ID, "二手信息发布成功", map[string]any{
+		"review_status": item.ReviewStatus,
+		"category":      item.Extra.Category,
+	})
+
 	return map[string]any{"id": item.ID}, nil
 }
 
@@ -593,6 +601,10 @@ func (s *Service) PublishErrand(ctx context.Context, principal auth.Principal, r
 	if err != nil {
 		return nil, httpx.Internal("保存跑腿任务失败", err)
 	}
+	s.recordAudit(ctx, principal, "campus_life.errand.publish", "errand", item.ID, "跑腿任务发布成功", map[string]any{
+		"review_status": item.ReviewStatus,
+		"category":      item.Category,
+	})
 	return map[string]any{"id": item.ID}, nil
 }
 
@@ -797,6 +809,11 @@ func (s *Service) PublishResource(ctx context.Context, principal auth.Principal,
 	if err != nil {
 		return nil, httpx.Internal("保存资料失败", err)
 	}
+	s.recordAudit(ctx, principal, "campus_life.resource.publish", "resource", item.ID, "资料发布成功", map[string]any{
+		"review_status": item.ReviewStatus,
+		"category":      item.Extra.Category,
+		"course_name":   item.Extra.CourseName,
+	})
 	return map[string]any{"id": item.ID}, nil
 }
 
@@ -903,6 +920,11 @@ func (s *Service) PublishLostFound(ctx context.Context, principal auth.Principal
 	if err != nil {
 		return nil, httpx.Internal("保存失物招领失败", err)
 	}
+	s.recordAudit(ctx, principal, "campus_life.lost_found.publish", "lostFound", item.ID, "失物招领发布成功", map[string]any{
+		"review_status": item.ReviewStatus,
+		"type":          item.Extra.Type,
+		"category":      item.Extra.Category,
+	})
 	return map[string]any{"id": item.ID}, nil
 }
 
@@ -999,6 +1021,11 @@ func (s *Service) PublishCarpool(ctx context.Context, principal auth.Principal, 
 	if err != nil {
 		return nil, httpx.Internal("保存拼车信息失败", err)
 	}
+
+	s.recordAudit(ctx, principal, "campus_life.carpool.publish", "carpool", item.ID, "拼车信息发布成功", map[string]any{
+		"review_status": item.ReviewStatus,
+		"category":      item.Category,
+	})
 
 	return map[string]any{"id": item.ID}, nil
 }
@@ -1106,6 +1133,12 @@ func (s *Service) PublishMeetup(ctx context.Context, principal auth.Principal, r
 	if err != nil {
 		return nil, httpx.Internal("保存组局失败", err)
 	}
+
+	s.recordAudit(ctx, principal, "campus_life.meetup.publish", "meetup", item.ID, "组局发布成功", map[string]any{
+		"review_status":    item.ReviewStatus,
+		"category":         item.Category,
+		"max_participants": item.MaxParticipants,
+	})
 
 	return map[string]any{"id": item.ID}, nil
 }
@@ -1312,7 +1345,7 @@ func (s *Service) ListReviewQueue(ctx context.Context, query cltypes.ReviewQuery
 	return listEnvelope(list, len(rows), query.Pagination), nil
 }
 
-func (s *Service) UpdateReviewStatus(ctx context.Context, request cltypes.ReviewUpdateRequest) error {
+func (s *Service) UpdateReviewStatus(ctx context.Context, principal auth.Principal, request cltypes.ReviewUpdateRequest) error {
 	contentType := strings.TrimSpace(request.ContentType)
 	contentID := strings.TrimSpace(request.ContentID)
 	reviewStatus := normalizeReviewStatus(request.ReviewStatus)
@@ -1369,6 +1402,10 @@ func (s *Service) UpdateReviewStatus(ctx context.Context, request cltypes.Review
 		}
 		return httpx.Internal("更新审核状态失败", err)
 	}
+
+	s.recordAudit(ctx, principal, "campus_life.review.update", contentType, contentID, "校园生活审核状态更新成功", map[string]any{
+		"review_status": reviewStatus,
+	})
 
 	return nil
 }
@@ -1601,18 +1638,18 @@ func buildCarpoolPayload(item cltypes.CarpoolItem, canView bool, now time.Time) 
 		"publisher_initial": item.PublisherInitial,
 		"created_at":        item.CreatedAt.Format(time.RFC3339),
 		"extra": map[string]any{
-			"category":  category,
-			"from":      item.From,
-			"to":        item.To,
-			"time":      timeText,
-			"type":      item.Type,
+			"category":   category,
+			"from":       item.From,
+			"to":         item.To,
+			"time":       timeText,
+			"type":       item.Type,
 			"seats_text": item.SeatsText,
-			"price":     item.Price,
-			"note":      item.Note,
-			"tags":      append([]string(nil), item.Tags...),
-			"contact":   visibleValue(canView, item.Contact),
-			"travel_at": item.TravelAt.In(chinaLocation).Format(time.RFC3339),
-			"status":    status,
+			"price":      item.Price,
+			"note":       item.Note,
+			"tags":       append([]string(nil), item.Tags...),
+			"contact":    visibleValue(canView, item.Contact),
+			"travel_at":  item.TravelAt.In(chinaLocation).Format(time.RFC3339),
+			"status":     status,
 		},
 	}
 }
@@ -1946,4 +1983,24 @@ func meetupFeedDesc(item cltypes.MeetupItem) string {
 		parts = append(parts, item.FeeText)
 	}
 	return strings.Join(parts, " · ")
+}
+
+func (s *Service) recordAudit(
+	ctx context.Context,
+	principal auth.Principal,
+	action string,
+	resourceType string,
+	resourceID string,
+	message string,
+	details map[string]any,
+) {
+	audit.RecordBestEffort(ctx, s.recorder, audit.Entry{
+		ActorID:      principal.UserID,
+		ActorName:    displayName(principal),
+		Action:       action,
+		ResourceType: resourceType,
+		ResourceID:   resourceID,
+		Message:      message,
+		Details:      details,
+	})
 }

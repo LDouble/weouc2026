@@ -11,6 +11,7 @@ import (
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/iam/config"
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/iam/repo"
 	iamtypes "github.com/liangluo/weouc2026/services/api-server/internal/modules/iam/types"
+	"github.com/liangluo/weouc2026/services/api-server/internal/platform/audit"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/auth"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/httpx"
 	"github.com/liangluo/weouc2026/services/api-server/internal/providers/academic_provider"
@@ -24,6 +25,7 @@ type Service struct {
 	captchas repo.CaptchaRepository
 	wechat   wechat_provider.Provider
 	academic academic_provider.Provider
+	recorder audit.Recorder
 }
 
 func New(
@@ -33,6 +35,7 @@ func New(
 	captchas repo.CaptchaRepository,
 	wechat wechat_provider.Provider,
 	academic academic_provider.Provider,
+	recorder audit.Recorder,
 ) *Service {
 	return &Service{
 		config:   cfg,
@@ -41,6 +44,7 @@ func New(
 		captchas: captchas,
 		wechat:   wechat,
 		academic: academic,
+		recorder: recorder,
 	}
 }
 
@@ -92,6 +96,18 @@ func (s *Service) LoginWithWeChat(ctx context.Context, request iamtypes.WeChatLo
 	}); err != nil {
 		return iamtypes.WeChatLoginResponse{}, httpx.Internal("保存登录会话失败", err)
 	}
+
+	audit.RecordBestEffort(ctx, s.recorder, audit.Entry{
+		ActorID:      user.ID,
+		ActorName:    user.Nickname,
+		Action:       "auth.login",
+		ResourceType: "user",
+		ResourceID:   user.ID,
+		Message:      "微信登录成功",
+		Details: map[string]any{
+			"openid": user.OpenID,
+		},
+	})
 
 	return iamtypes.WeChatLoginResponse{
 		Token:  token,
@@ -230,11 +246,29 @@ func (s *Service) BindStudent(ctx context.Context, principal auth.Principal, req
 	if err := s.captchas.Delete(ctx, studentID); err != nil {
 		return iamtypes.StudentProfile{}, httpx.Internal("清理验证码失败", err)
 	}
+
+	audit.RecordBestEffort(ctx, s.recorder, audit.Entry{
+		ActorID:      principal.UserID,
+		ActorName:    principal.DisplayName,
+		Action:       "auth.bind_student",
+		ResourceType: "student_profile",
+		ResourceID:   studentID,
+		Message:      "教务绑定成功",
+		Details: map[string]any{
+			"college": profile.College,
+			"major":   profile.Major,
+			"grade":   profile.Grade,
+		},
+	})
 	return profile, nil
 }
 
 func (s *Service) UnbindStudent(ctx context.Context, principal auth.Principal) error {
+	var previousStudentID string
 	_, err := s.users.Update(ctx, principal.UserID, func(user *iamtypes.User) error {
+		if user.StudentProfile != nil {
+			previousStudentID = user.StudentProfile.StudentID
+		}
 		user.StudentProfile = nil
 		user.UpdatedAt = time.Now().UTC()
 		return nil
@@ -242,6 +276,15 @@ func (s *Service) UnbindStudent(ctx context.Context, principal auth.Principal) e
 	if err != nil {
 		return httpx.Internal("解绑失败", err)
 	}
+
+	audit.RecordBestEffort(ctx, s.recorder, audit.Entry{
+		ActorID:      principal.UserID,
+		ActorName:    principal.DisplayName,
+		Action:       "auth.unbind_student",
+		ResourceType: "student_profile",
+		ResourceID:   previousStudentID,
+		Message:      "教务解绑成功",
+	})
 
 	return nil
 }

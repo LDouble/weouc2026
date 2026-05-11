@@ -9,19 +9,21 @@ import (
 
 	portalrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/portal/repo"
 	portaltypes "github.com/liangluo/weouc2026/services/api-server/internal/modules/portal/types"
+	"github.com/liangluo/weouc2026/services/api-server/internal/platform/audit"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/auth"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/httpx"
 )
 
 type Service struct {
 	repository portalrepo.Repository
+	recorder   audit.Recorder
 }
 
-func New(repository portalrepo.Repository) *Service {
+func New(repository portalrepo.Repository, recorder audit.Recorder) *Service {
 	if repository == nil {
 		repository = portalrepo.NewInMemoryRepository()
 	}
-	return &Service{repository: repository}
+	return &Service{repository: repository, recorder: recorder}
 }
 
 func (s *Service) GetHome(ctx context.Context) (map[string]any, error) {
@@ -115,6 +117,19 @@ func (s *Service) PublishNotice(
 	if _, err := s.repository.SaveNotice(ctx, item); err != nil {
 		return nil, httpx.Internal("保存公告失败", err)
 	}
+
+	audit.RecordBestEffort(ctx, s.recorder, audit.Entry{
+		ActorID:      principal.UserID,
+		ActorName:    principal.DisplayName,
+		Action:       "portal.notice.publish",
+		ResourceType: "portal_notice",
+		ResourceID:   item.ID,
+		Message:      "门户公告发布成功",
+		Details: map[string]any{
+			"audience": item.Audience,
+			"pinned":   item.Pinned,
+		},
+	})
 	return map[string]any{"id": item.ID}, nil
 }
 

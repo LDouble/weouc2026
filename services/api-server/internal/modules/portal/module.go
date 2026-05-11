@@ -5,10 +5,12 @@ import (
 	portalrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/portal/repo"
 	portalservice "github.com/liangluo/weouc2026/services/api-server/internal/modules/portal/service"
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/portal/transport"
+	"github.com/liangluo/weouc2026/services/api-server/internal/platform/audit"
 )
 
 type Dependencies struct {
-	Repository portalrepo.Repository
+	Repository    portalrepo.Repository
+	AuditRecorder audit.Recorder
 }
 
 type Module struct {
@@ -20,7 +22,7 @@ func NewModule(dependencies Dependencies) *Module {
 	if repository == nil {
 		repository = portalrepo.NewInMemoryRepository()
 	}
-	service := portalservice.New(repository)
+	service := portalservice.New(repository, dependencies.AuditRecorder)
 	handler := transport.NewHandler(service)
 	return &Module{handler: handler}
 }

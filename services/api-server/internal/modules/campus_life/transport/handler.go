@@ -371,7 +371,7 @@ func (h *Handler) UpdateReviewStatus(c *gin.Context) {
 		httpx.AbortWithError(c, httpx.BadRequest("审核更新参数格式错误", nil))
 		return
 	}
-	if err := h.service.UpdateReviewStatus(c.Request.Context(), request); err != nil {
+	if err := h.service.UpdateReviewStatus(c.Request.Context(), auth.PrincipalFromContext(c), request); err != nil {
 		httpx.AbortWithError(c, err)
 		return
 	}

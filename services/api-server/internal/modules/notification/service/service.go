@@ -9,19 +9,21 @@ import (
 
 	notificationrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/notification/repo"
 	notificationtypes "github.com/liangluo/weouc2026/services/api-server/internal/modules/notification/types"
+	"github.com/liangluo/weouc2026/services/api-server/internal/platform/audit"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/auth"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/httpx"
 )
 
 type Service struct {
 	repository notificationrepo.Repository
+	recorder   audit.Recorder
 }
 
-func New(repository notificationrepo.Repository) *Service {
+func New(repository notificationrepo.Repository, recorder audit.Recorder) *Service {
 	if repository == nil {
 		repository = notificationrepo.NewInMemoryRepository()
 	}
-	return &Service{repository: repository}
+	return &Service{repository: repository, recorder: recorder}
 }
 
 func (s *Service) ListMessages(
@@ -116,6 +118,19 @@ func (s *Service) PublishMessage(
 	if _, err := s.repository.SaveMessage(ctx, item); err != nil {
 		return nil, httpx.Internal("保存通知失败", err)
 	}
+
+	audit.RecordBestEffort(ctx, s.recorder, audit.Entry{
+		ActorID:      principal.UserID,
+		ActorName:    principal.DisplayName,
+		Action:       "notification.publish",
+		ResourceType: "notification_message",
+		ResourceID:   item.ID,
+		Message:      "站内通知发布成功",
+		Details: map[string]any{
+			"category":     item.Category,
+			"target_scope": item.TargetScope,
+		},
+	})
 	return map[string]any{"id": item.ID}, nil
 }
 
@@ -147,6 +162,15 @@ func (s *Service) MarkRead(ctx context.Context, principal auth.Principal, messag
 	if err != nil {
 		return httpx.Internal("更新通知已读状态失败", err)
 	}
+
+	audit.RecordBestEffort(ctx, s.recorder, audit.Entry{
+		ActorID:      principal.UserID,
+		ActorName:    principal.DisplayName,
+		Action:       "notification.read",
+		ResourceType: "notification_message",
+		ResourceID:   item.ID,
+		Message:      "通知标记为已读",
+	})
 	return nil
 }
 

@@ -5,12 +5,14 @@ import (
 	clrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/repo"
 	clservice "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/service"
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/transport"
+	"github.com/liangluo/weouc2026/services/api-server/internal/platform/audit"
 	"github.com/liangluo/weouc2026/services/api-server/internal/providers/storage_provider"
 )
 
 type Dependencies struct {
 	Repository      clrepo.Repository
 	StorageProvider storage_provider.Provider
+	AuditRecorder   audit.Recorder
 }
 
 type Module struct {
@@ -18,7 +20,7 @@ type Module struct {
 }
 
 func NewModule(dependencies Dependencies) *Module {
-	service := clservice.New(dependencies.Repository, dependencies.StorageProvider)
+	service := clservice.New(dependencies.Repository, dependencies.StorageProvider, dependencies.AuditRecorder)
 	handler := transport.NewHandler(service)
 	return &Module{handler: handler}
 }

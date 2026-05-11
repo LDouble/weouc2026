@@ -5,10 +5,12 @@ import (
 	notificationrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/notification/repo"
 	notificationservice "github.com/liangluo/weouc2026/services/api-server/internal/modules/notification/service"
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/notification/transport"
+	"github.com/liangluo/weouc2026/services/api-server/internal/platform/audit"
 )
 
 type Dependencies struct {
-	Repository notificationrepo.Repository
+	Repository    notificationrepo.Repository
+	AuditRecorder audit.Recorder
 }
 
 type Module struct {
@@ -20,7 +22,7 @@ func NewModule(dependencies Dependencies) *Module {
 	if repository == nil {
 		repository = notificationrepo.NewInMemoryRepository()
 	}
-	service := notificationservice.New(repository)
+	service := notificationservice.New(repository, dependencies.AuditRecorder)
 	handler := transport.NewHandler(service)
 	return &Module{handler: handler}
 }

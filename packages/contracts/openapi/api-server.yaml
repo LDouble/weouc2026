@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: WEOUC API Server Baseline
-  version: 0.2.4
-  description: 校园综合应用后端当前可联调接口契约，覆盖系统接口、门户、通知、微信小程序主链路与校园生活闭环基础能力。
+  version: 0.2.5
+  description: 校园综合应用后端当前可联调接口契约，覆盖系统接口、门户、通知、分析审计、微信小程序主链路与校园生活闭环基础能力。
 servers:
   - url: http://localhost:8080
     description: Local development
@@ -15,6 +15,8 @@ tags:
     description: 首页门户、轮播与公告接口
   - name: Notification
     description: 站内通知收件箱与管理发布接口
+  - name: Analytics
+    description: 审计日志与基础运营看板接口
   - name: FileCenter
     description: 文件上传临时凭证与对象下载签名接口
   - name: CampusLife
@@ -390,6 +392,61 @@ paths:
                 $ref: '#/components/schemas/IDResponseEnvelope'
         '400':
           $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+  /api/admin/analytics/dashboard:
+    get:
+      tags: [Analytics]
+      summary: 获取分析审计看板
+      operationId: getAnalyticsDashboard
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: 分析审计看板
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+  /api/admin/analytics/audit-logs:
+    get:
+      tags: [Analytics]
+      summary: 获取审计日志列表
+      operationId: listAnalyticsAuditLogs
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - name: actor_id
+          in: query
+          schema:
+            type: string
+        - name: action
+          in: query
+          schema:
+            type: string
+        - name: resource_type
+          in: query
+          schema:
+            type: string
+        - name: resource_id
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 审计日志分页结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponseEnvelope'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
         '403':
