@@ -94,10 +94,6 @@
         "text": "首页"
       },
       {
-        "pagePath": "pages/message/index",
-        "text": "消息"
-      },
-      {
         "pagePath": "pages/my/index",
         "text": "我的"
       }

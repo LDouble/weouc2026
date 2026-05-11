@@ -11,12 +11,12 @@ Component({
         label: '发现',
         url: '/pages/home/index',
       },
-      {
-        icon: 'chat',
-        value: 'message',
-        label: '消息',
-        url: '/pages/message/index',
-      },
+      // {
+      //   icon: 'chat',
+      //   value: 'message',
+      //   label: '消息',
+      //   url: '/pages/message/index',
+      // },
       {
         icon: 'user',
         value: 'my',
