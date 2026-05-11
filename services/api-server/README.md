@@ -43,7 +43,7 @@ types -> config -> repo -> service -> runtime -> transport
 - `internal/modules/system`：`/healthz`、`/readyz`、`/api/v1/system/profile`，以及 `postgres/redis` 依赖就绪探测
 - `internal/modules/iam`：`/api/auth/wechat/login`、`/api/student`、`/api/edu/send-captcha`，并支持 `PostgreSQL + Redis` 持久化
 - `internal/modules/academic`：`/api/academic/semesters`、`/api/academic/schedule`、`/api/academic/exams`、`/api/academic/grades`
-- `internal/modules/portal`：`/api/portal/home`、公告列表/详情，以及管理端公告发布接口，支持 `memory / postgres` 双后端
+- `internal/modules/portal`：`/api/portal/home`、公告列表/详情、管理端轮播 CRUD、管理端公告发布/更新/删除接口，支持 `memory / postgres` 双后端
 - `internal/modules/notification`：站内通知列表、未读计数、已读回执，以及管理端通知发布接口，支持 `memory / postgres` 双后端
 - `internal/modules/analytics`：`/api/admin/analytics/dashboard`、`/api/admin/analytics/audit-logs`，以及统一审计日志读取能力，支持 `memory / postgres` 双后端
 - `internal/modules/campus_life`：`/api/feed/list`、二手/跑腿/资料/失物招领/拼车/组局列表与关键详情/交互接口，以及校园生活审核接口
@@ -57,7 +57,7 @@ types -> config -> repo -> service -> runtime -> transport
 - 微信小程序登录和 Bearer Token 会话
 - 当前用户资料获取、教务验证码发送、绑定与解绑
 - 当前已绑定学生的学期、课程表、考试安排、成绩单查询
-- 门户首页轮播、公告列表、公告详情、管理端公告发布
+- 门户首页轮播、公告列表、公告详情、管理端轮播 CRUD、管理端公告发布/更新/删除
 - 当前用户通知列表、未读数量、通知已读回执、管理端通知发布
 - 审计日志列表、基础运营看板
 - 首页动态流

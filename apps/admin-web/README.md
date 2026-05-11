@@ -61,7 +61,7 @@ src/
 | 模块 | 功能 |
 |------|------|
 | **IAM** | 用户管理、角色管理、权限管理、登录认证 |
-| **Portal** | 文章管理、轮播管理、公告管理 |
+| **Portal** | 文章入口预留、轮播管理、公告管理 |
 | **Campus Life** | 跑腿服务、组局活动、二手交易、资料共享、失物招领 |
 | **Moderation** | 待审核列表、审核历史 |
 | **Analytics** | 数据仪表盘、审计日志 |
@@ -90,7 +90,7 @@ npm run preview
 - `/users` - 用户管理
 - `/roles` - 角色管理
 - `/permissions` - 权限管理
-- `/portal/articles` - 文章管理
+- `/portal/articles` - 文章管理预留页
 - `/portal/banners` - 轮播管理
 - `/portal/notices` - 公告管理
 - `/campus-life/errands` - 跑腿服务
@@ -107,6 +107,13 @@ npm run preview
 - 使用 `meta.requiresAuth` 标记需要认证的路由
 - 登录状态通过 `localStorage` 存储 Token
 - 权限码通过 `stores/auth.ts` 的 `hasPermission()` 方法校验
+
+## 当前真实联调范围
+
+- 轮播管理：已接入后端真实列表、创建、更新、删除接口
+- 公告管理：已接入后端真实列表、详情、发布、更新、删除接口
+- 审核历史：已切换为真实审核结果查询
+- 文章管理：后端模型尚未实现，当前页面保留为预留入口，不再请求不存在的接口
 
 ## 架构约束
 

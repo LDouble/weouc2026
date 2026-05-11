@@ -20,6 +20,9 @@
         </template>
         <template v-else-if="column.key === 'actions'">
           <a-space>
+            <a-button size="small" @click="previewNotice(record)">
+              <component :is="icons.Eye" />
+            </a-button>
             <a-button size="small" @click="editNotice(record)">
               <component :is="icons.Edit" />
             </a-button>
@@ -67,7 +70,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { message } from 'ant-design-vue'
-import { PlusOutlined as Plus, EditOutlined as Edit, DeleteOutlined as Delete } from '@ant-design/icons-vue'
+import { PlusOutlined as Plus, EditOutlined as Edit, DeleteOutlined as Delete, EyeOutlined as Eye } from '@ant-design/icons-vue'
 import { portalApi } from '@/api'
 
 interface Notice {
@@ -82,7 +85,7 @@ interface Notice {
   created_at: string
 }
 
-const icons = { Plus, Edit, Delete }
+const icons = { Plus, Edit, Delete, Eye }
 const showModal = ref(false)
 const editingNotice = ref<Notice | null>(null)
 const currentPage = ref(1)
@@ -158,15 +161,34 @@ const handleTableChange = (pagination: any) => {
   fetchNotices()
 }
 
-function editNotice(notice: Notice) {
-  editingNotice.value = notice
-  form.title = notice.title
-  form.summary = notice.summary
-  form.content = notice.content
-  form.audience = notice.audience
-  form.tags = notice.tags.join(',')
-  form.pinned = notice.pinned
-  showModal.value = true
+async function previewNotice(notice: Notice) {
+  try {
+    const response = await portalApi.getNoticeDetail(notice.id)
+    const data = response.data || {}
+    message.info(`公告内容：${data.content || notice.summary || notice.title}`)
+  } catch (error) {
+    console.error('Failed to preview notice:', error)
+    message.error('获取公告详情失败')
+  }
+}
+
+async function editNotice(notice: Notice) {
+  try {
+    const response = await portalApi.getNoticeDetail(notice.id)
+    const data = response.data || {}
+
+    editingNotice.value = notice
+    form.title = data.title || notice.title
+    form.summary = data.summary || notice.summary
+    form.content = data.content || ''
+    form.audience = data.audience || notice.audience
+    form.tags = Array.isArray(data.tags) ? data.tags.join(',') : notice.tags.join(',')
+    form.pinned = Boolean(data.pinned ?? notice.pinned)
+    showModal.value = true
+  } catch (error) {
+    console.error('Failed to fetch notice detail:', error)
+    message.error('获取公告详情失败')
+  }
 }
 
 const deleteNotice = async (id: string) => {

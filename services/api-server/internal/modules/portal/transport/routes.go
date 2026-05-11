@@ -16,7 +16,14 @@ func RegisterRoutes(engine *gin.Engine, handler *Handler) {
 
 	admin := api.Group("/admin/portal")
 	admin.Use(auth.RequireAuthenticated(), auth.RequirePermission("portal:publish"))
+	admin.GET("/banners", handler.ListBanners)
+	admin.GET("/banners/:id", handler.GetBanner)
+	admin.POST("/banners", handler.CreateBanner)
+	admin.PUT("/banners/:id", handler.UpdateBanner)
+	admin.DELETE("/banners/:id", handler.DeleteBanner)
 	admin.POST("/notices/publish", handler.PublishNotice)
+	admin.PUT("/notices/:id", handler.UpdateNotice)
+	admin.DELETE("/notices/:id", handler.DeleteNotice)
 }
 
 func parsePositiveInt(raw string, defaultValue int) int {

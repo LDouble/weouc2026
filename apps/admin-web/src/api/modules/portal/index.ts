@@ -10,24 +10,11 @@ import type {
 export interface BannerInfo {
   id: string
   title: string
+  description: string
   image_url: string
-  link_url: string
-  position: number
-  status: string
+  action_url: string
+  sort: number
   created_at: string
-}
-
-export interface ArticleInfo {
-  id: string
-  title: string
-  summary: string
-  content: string
-  author: string
-  category: string
-  tags: string[]
-  status: string
-  created_at: string
-  updated_at: string
 }
 
 const portalApi = {
@@ -91,36 +78,6 @@ const portalApi = {
 
   deleteBanner: async (bannerId: string): Promise<GenericObjectResponseEnvelope> => {
     const response = await api.delete(`/admin/portal/banners/${bannerId}`)
-    return response.data
-  },
-
-  listArticles: async (params?: {
-    page?: number
-    pageSize?: number
-    keyword?: string
-    category?: string
-  }): Promise<ListResponseEnvelope> => {
-    const response = await api.get('/admin/portal/articles', { params })
-    return response.data
-  },
-
-  getArticleDetail: async (articleId: string): Promise<GenericObjectResponseEnvelope> => {
-    const response = await api.get(`/admin/portal/articles/${articleId}`)
-    return response.data
-  },
-
-  createArticle: async (data: Partial<ArticleInfo>): Promise<IDResponseEnvelope> => {
-    const response = await api.post('/admin/portal/articles', data)
-    return response.data
-  },
-
-  updateArticle: async (articleId: string, data: Partial<ArticleInfo>): Promise<GenericObjectResponseEnvelope> => {
-    const response = await api.put(`/admin/portal/articles/${articleId}`, data)
-    return response.data
-  },
-
-  deleteArticle: async (articleId: string): Promise<GenericObjectResponseEnvelope> => {
-    const response = await api.delete(`/admin/portal/articles/${articleId}`)
     return response.data
   }
 }

@@ -2,10 +2,24 @@ package types
 
 import "time"
 
+type BannerQuery struct {
+	Page     int
+	PageSize int
+	Keyword  string
+}
+
 type NoticeQuery struct {
 	Page     int
 	PageSize int
 	Keyword  string
+}
+
+type BannerSaveRequest struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	ImageURL    string `json:"image_url"`
+	ActionURL   string `json:"action_url"`
+	Sort        int    `json:"sort"`
 }
 
 type NoticePublishRequest struct {

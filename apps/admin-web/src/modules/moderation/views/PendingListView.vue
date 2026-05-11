@@ -49,7 +49,7 @@ interface PendingItem {
   content_type: string
   title: string
   content: string
-  publisher_id: string
+  publisher: string
   created_at: string
 }
 
@@ -72,7 +72,7 @@ const columns = [
   { title: '标题', dataIndex: 'title', key: 'title' },
   { title: '类型', key: 'contentType' },
   { title: '内容摘要', dataIndex: 'content', key: 'content' },
-  { title: '发布者', dataIndex: 'publisher_id', key: 'publisher_id' },
+  { title: '发布者', dataIndex: 'publisher', key: 'publisher' },
   { title: '提交时间', dataIndex: 'created_at', key: 'created_at' },
   { title: '操作', key: 'actions' }
 ]
@@ -120,7 +120,7 @@ const fetchPendingItems = async () => {
         content_type: item.content_type,
         title: item.title,
         content: item.desc,
-        publisher_id: item.publisher_id,
+        publisher: item.publisher || '-',
         created_at: item.created_at ? new Date(item.created_at).toLocaleString('zh-CN') : '-'
       }))
       total.value = response.data.total

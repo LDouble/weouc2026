@@ -66,6 +66,55 @@ func (r *PostgresRepository) ListBanners(ctx context.Context) ([]portaltypes.Ban
 	return items, nil
 }
 
+func (r *PostgresRepository) GetBanner(ctx context.Context, id string) (portaltypes.BannerItem, error) {
+	if r.db == nil {
+		return portaltypes.BannerItem{}, fmt.Errorf("postgres portal repository db is nil")
+	}
+
+	row := r.db.QueryRowContext(ctx, `SELECT `+bannerColumns+` FROM portal_banners WHERE id = $1 LIMIT 1`, id)
+	item, err := scanBanner(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return portaltypes.BannerItem{}, ErrNotFound
+	}
+	if err != nil {
+		return portaltypes.BannerItem{}, fmt.Errorf("get portal banner failed: %w", err)
+	}
+
+	return item, nil
+}
+
+func (r *PostgresRepository) SaveBanner(ctx context.Context, item portaltypes.BannerItem) (portaltypes.BannerItem, error) {
+	if r.db == nil {
+		return portaltypes.BannerItem{}, fmt.Errorf("postgres portal repository db is nil")
+	}
+
+	saved, err := saveBanner(ctx, r.db, item)
+	if err != nil {
+		return portaltypes.BannerItem{}, fmt.Errorf("save portal banner failed: %w", err)
+	}
+
+	return saved, nil
+}
+
+func (r *PostgresRepository) DeleteBanner(ctx context.Context, id string) error {
+	if r.db == nil {
+		return fmt.Errorf("postgres portal repository db is nil")
+	}
+
+	result, err := r.db.ExecContext(ctx, `DELETE FROM portal_banners WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("delete portal banner failed: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read portal banner rows affected failed: %w", err)
+	}
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (r *PostgresRepository) ListNotices(ctx context.Context) ([]portaltypes.NoticeItem, error) {
 	if r.db == nil {
 		return nil, fmt.Errorf("postgres portal repository db is nil")
@@ -122,6 +171,25 @@ func (r *PostgresRepository) SaveNotice(ctx context.Context, item portaltypes.No
 	return saved, nil
 }
 
+func (r *PostgresRepository) DeleteNotice(ctx context.Context, id string) error {
+	if r.db == nil {
+		return fmt.Errorf("postgres portal repository db is nil")
+	}
+
+	result, err := r.db.ExecContext(ctx, `DELETE FROM portal_notices WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("delete portal notice failed: %w", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read portal notice rows affected failed: %w", err)
+	}
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (r *PostgresRepository) NextID(ctx context.Context, prefix string) (string, error) {
 	if r.db == nil {
 		return "", fmt.Errorf("postgres portal repository db is nil")
@@ -159,6 +227,41 @@ func (r *PostgresRepository) NextID(ctx context.Context, prefix string) (string,
 
 type portalQueryRower interface {
 	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
+func saveBanner(ctx context.Context, querier portalQueryRower, item portaltypes.BannerItem) (portaltypes.BannerItem, error) {
+	row := querier.QueryRowContext(
+		ctx,
+		`INSERT INTO portal_banners (
+			id,
+			title,
+			description,
+			image_url,
+			action_url,
+			sort_order,
+			created_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (id) DO UPDATE SET
+			title = EXCLUDED.title,
+			description = EXCLUDED.description,
+			image_url = EXCLUDED.image_url,
+			action_url = EXCLUDED.action_url,
+			sort_order = EXCLUDED.sort_order
+		RETURNING `+bannerColumns,
+		item.ID,
+		item.Title,
+		item.Description,
+		item.ImageURL,
+		item.ActionURL,
+		item.Sort,
+		item.CreatedAt,
+	)
+
+	saved, err := scanBanner(row)
+	if err != nil {
+		return portaltypes.BannerItem{}, err
+	}
+	return saved, nil
 }
 
 func saveNotice(ctx context.Context, querier portalQueryRower, item portaltypes.NoticeItem) (portaltypes.NoticeItem, error) {

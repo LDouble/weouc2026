@@ -100,6 +100,136 @@ func TestPortalAndNotificationAPIs(t *testing.T) {
 		if !strings.Contains(recorder.Body.String(), "数据库迁移") {
 			t.Fatalf("expected portal detail content, got %s", recorder.Body.String())
 		}
+
+		recorder = performJSONRequestWithHeaders(t, router, http.MethodPut, "/api/admin/portal/notices/"+publishPayload.Data.ID, map[string]string{
+			"Content-Type":       "application/json",
+			"X-User-ID":          "admin-001",
+			"X-User-Permissions": "portal:publish",
+		}, map[string]any{
+			"title":    "明晚停机维护通知",
+			"summary":  "维护窗口调整为明晚 22:00 至 24:00。",
+			"content":  "维护窗口已调整为明晚 22:00 至 24:00，请提前保存草稿。",
+			"audience": "all",
+			"tags":     []string{"运维", "调整"},
+			"pinned":   false,
+		})
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected portal update 200, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+		if !strings.Contains(recorder.Body.String(), "明晚停机维护通知") {
+			t.Fatalf("expected updated portal notice payload, got %s", recorder.Body.String())
+		}
+
+		recorder = performJSONRequest(t, router, http.MethodGet, "/api/portal/notices/"+publishPayload.Data.ID, "", nil)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected portal detail after update 200, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+		if !strings.Contains(recorder.Body.String(), "维护窗口已调整") {
+			t.Fatalf("expected updated portal detail content, got %s", recorder.Body.String())
+		}
+
+		recorder = performJSONRequestWithHeaders(t, router, http.MethodDelete, "/api/admin/portal/notices/"+publishPayload.Data.ID, map[string]string{
+			"X-User-ID":          "admin-001",
+			"X-User-Permissions": "portal:publish",
+		}, nil)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected portal delete 200, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+
+		recorder = performJSONRequest(t, router, http.MethodGet, "/api/portal/notices/"+publishPayload.Data.ID, "", nil)
+		if recorder.Code != http.StatusNotFound {
+			t.Fatalf("expected portal detail 404 after delete, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+	})
+
+	t.Run("portal banner admin workflow is permission guarded", func(t *testing.T) {
+		recorder := performJSONRequest(t, router, http.MethodGet, "/api/admin/portal/banners", token, nil)
+		if recorder.Code != http.StatusForbidden {
+			t.Fatalf("expected banner list 403 without permission, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+
+		recorder = performJSONRequestWithHeaders(t, router, http.MethodPost, "/api/admin/portal/banners", map[string]string{
+			"Content-Type":       "application/json",
+			"X-User-ID":          "admin-001",
+			"X-User-Permissions": "portal:publish",
+		}, map[string]any{
+			"title":       "新首页活动入口",
+			"description": "用于验证轮播后台维护能力。",
+			"image_url":   "https://example.com/banner-test.png",
+			"action_url":  "/pages/home/index",
+			"sort":        9,
+		})
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected banner create 200, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+
+		var bannerPayload struct {
+			Data struct {
+				ID string `json:"id"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &bannerPayload); err != nil {
+			t.Fatalf("unmarshal banner create payload failed: %v", err)
+		}
+		if bannerPayload.Data.ID == "" {
+			t.Fatalf("expected banner id, got %s", recorder.Body.String())
+		}
+
+		recorder = performJSONRequestWithHeaders(t, router, http.MethodGet, "/api/admin/portal/banners", map[string]string{
+			"X-User-ID":          "admin-001",
+			"X-User-Permissions": "portal:publish",
+		}, nil)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected banner list 200, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+		if !strings.Contains(recorder.Body.String(), bannerPayload.Data.ID) {
+			t.Fatalf("expected banner list to contain new banner, got %s", recorder.Body.String())
+		}
+
+		recorder = performJSONRequestWithHeaders(t, router, http.MethodPut, "/api/admin/portal/banners/"+bannerPayload.Data.ID, map[string]string{
+			"Content-Type":       "application/json",
+			"X-User-ID":          "admin-001",
+			"X-User-Permissions": "portal:publish",
+		}, map[string]any{
+			"title":       "新首页活动入口（已更新）",
+			"description": "轮播描述已更新。",
+			"image_url":   "https://example.com/banner-test-updated.png",
+			"action_url":  "/pages/home/index",
+			"sort":        3,
+		})
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected banner update 200, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+		if !strings.Contains(recorder.Body.String(), "已更新") {
+			t.Fatalf("expected updated banner payload, got %s", recorder.Body.String())
+		}
+
+		recorder = performJSONRequestWithHeaders(t, router, http.MethodGet, "/api/admin/portal/banners/"+bannerPayload.Data.ID, map[string]string{
+			"X-User-ID":          "admin-001",
+			"X-User-Permissions": "portal:publish",
+		}, nil)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected banner detail 200, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+		if !strings.Contains(recorder.Body.String(), "banner-test-updated") {
+			t.Fatalf("expected updated banner detail payload, got %s", recorder.Body.String())
+		}
+
+		recorder = performJSONRequestWithHeaders(t, router, http.MethodDelete, "/api/admin/portal/banners/"+bannerPayload.Data.ID, map[string]string{
+			"X-User-ID":          "admin-001",
+			"X-User-Permissions": "portal:publish",
+		}, nil)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("expected banner delete 200, got %d: %s", recorder.Code, recorder.Body.String())
+		}
+
+		recorder = performJSONRequestWithHeaders(t, router, http.MethodGet, "/api/admin/portal/banners/"+bannerPayload.Data.ID, map[string]string{
+			"X-User-ID":          "admin-001",
+			"X-User-Permissions": "portal:publish",
+		}, nil)
+		if recorder.Code != http.StatusNotFound {
+			t.Fatalf("expected banner detail 404 after delete, got %d: %s", recorder.Code, recorder.Body.String())
+		}
 	})
 
 	t.Run("notification publish list and read workflow", func(t *testing.T) {

@@ -37,6 +37,36 @@ func (r *InMemoryRepository) ListBanners(context.Context) ([]portaltypes.BannerI
 	return items, nil
 }
 
+func (r *InMemoryRepository) GetBanner(_ context.Context, id string) (portaltypes.BannerItem, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	item, exists := r.banners[id]
+	if !exists {
+		return portaltypes.BannerItem{}, ErrNotFound
+	}
+	return item, nil
+}
+
+func (r *InMemoryRepository) SaveBanner(_ context.Context, item portaltypes.BannerItem) (portaltypes.BannerItem, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.banners[item.ID] = item
+	return item, nil
+}
+
+func (r *InMemoryRepository) DeleteBanner(_ context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, exists := r.banners[id]; !exists {
+		return ErrNotFound
+	}
+	delete(r.banners, id)
+	return nil
+}
+
 func (r *InMemoryRepository) ListNotices(context.Context) ([]portaltypes.NoticeItem, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -66,6 +96,17 @@ func (r *InMemoryRepository) SaveNotice(_ context.Context, item portaltypes.Noti
 	item = cloneNotice(item)
 	r.notices[item.ID] = item
 	return cloneNotice(item), nil
+}
+
+func (r *InMemoryRepository) DeleteNotice(_ context.Context, id string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if _, exists := r.notices[id]; !exists {
+		return ErrNotFound
+	}
+	delete(r.notices, id)
+	return nil
 }
 
 func (r *InMemoryRepository) NextID(_ context.Context, prefix string) (string, error) {
