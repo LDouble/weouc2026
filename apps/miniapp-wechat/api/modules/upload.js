@@ -1,7 +1,6 @@
 import { get, post } from '~/api/request';
 
 const COS = require('cos-wx-sdk-v5');
-const { md5 } = require('js-md5');
 
 function pickExt(name, filePath) {
   const n = name || (filePath && filePath.split('/').pop()) || '';
@@ -9,14 +8,11 @@ function pickExt(name, filePath) {
   return i > 0 ? n.slice(i).toLowerCase() : '';
 }
 
-function readFileArrayBuffer(filePath) {
-  return new Promise((resolve, reject) => {
-    wx.getFileSystemManager().readFile({
-      filePath,
-      success: (res) => resolve(res.data),
-      fail: reject,
-    });
-  });
+function generateObjectKey(pathPrefix, filePath) {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substr(2, 8);
+  const ext = pickExt('', filePath);
+  return `${pathPrefix}${timestamp}/${timestamp}${random}${ext}`;
 }
 
 function fetchCOSSTS(scene = '') {
@@ -56,7 +52,7 @@ export function getUploadResultPath(uploadResponse) {
 
 /**
  * 使用 STS 临时密钥直传 COS，成功后向后端申请 GET 预签名用于展示。
- * 依赖 npm：cos-wx-sdk-v5、js-md5，并在微信开发者工具中执行「构建 npm」。
+ * 依赖 npm：cos-wx-sdk-v5，并在微信开发者工具中执行「构建 npm」。
  */
 export function uploadFile(filePath, options = {}) {
   return new Promise((resolve, reject) => {
@@ -67,10 +63,7 @@ export function uploadFile(filePath, options = {}) {
 
     const run = async () => {
       const sts = await fetchCOSSTS(options.scene || '');
-      const buf = await readFileArrayBuffer(filePath);
-      const hash = md5(buf);
-      const ext = pickExt(options.name, filePath);
-      const objectKey = `${sts.path_prefix}${hash.slice(0, 2)}/${hash}${ext}`;
+      const objectKey = generateObjectKey(sts.path_prefix, filePath);
 
       const cos = new COS({
         getAuthorization(opts, callback) {
@@ -110,7 +103,6 @@ export function uploadFile(filePath, options = {}) {
           path: objectKey,
           url: presign.url,
           name,
-          md5: hash,
         },
       });
     };

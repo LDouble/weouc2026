@@ -227,6 +227,7 @@ Page({
       );
       return uploadResults.map(getUploadResultPath).filter(Boolean);
     } catch (error) {
+      console.log('上传图片失败:', error);
       const confirmed = await this.confirmPublishWithoutImages();
       if (!confirmed) return null;
       return [];

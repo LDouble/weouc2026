@@ -225,6 +225,7 @@ Page({
           );
           payload.images = uploadResults.map(getUploadResultPath).filter(Boolean);
         } catch (error) {
+          console.log('上传图片失败:', error);
           const confirmed = await confirmWithoutImages();
           if (!confirmed) return;
           payload.images = [];
