@@ -47,9 +47,12 @@ type DependenciesConfig struct {
 }
 
 type PersistenceConfig struct {
-	IAMBackend        string
-	CampusLifeBackend string
-	AutoMigrate       bool
+	IAMBackend          string
+	CampusLifeBackend   string
+	PortalBackend       string
+	NotificationBackend string
+	AnalyticsBackend    string
+	AutoMigrate         bool
 }
 
 type PostgresConfig struct {
@@ -139,9 +142,12 @@ func Load() (AppConfig, error) {
 			},
 		},
 		Persistence: PersistenceConfig{
-			IAMBackend:        getenv("API_SERVER_IAM_BACKEND", "memory"),
-			CampusLifeBackend: getenv("API_SERVER_CAMPUS_LIFE_BACKEND", "memory"),
-			AutoMigrate:       getenvBool("API_SERVER_AUTO_MIGRATE", false),
+			IAMBackend:          getenv("API_SERVER_IAM_BACKEND", "memory"),
+			CampusLifeBackend:   getenv("API_SERVER_CAMPUS_LIFE_BACKEND", "memory"),
+			PortalBackend:       getenv("API_SERVER_PORTAL_BACKEND", "memory"),
+			NotificationBackend: getenv("API_SERVER_NOTIFICATION_BACKEND", "memory"),
+			AnalyticsBackend:    getenv("API_SERVER_ANALYTICS_BACKEND", "memory"),
+			AutoMigrate:         getenvBool("API_SERVER_AUTO_MIGRATE", false),
 		},
 	}
 
@@ -326,6 +332,30 @@ func (c PersistenceConfig) CampusLifeBackendOrDefault() string {
 	return c.CampusLifeBackend
 }
 
+func (c PersistenceConfig) PortalBackendOrDefault() string {
+	if c.PortalBackend == "" {
+		return "memory"
+	}
+
+	return c.PortalBackend
+}
+
+func (c PersistenceConfig) NotificationBackendOrDefault() string {
+	if c.NotificationBackend == "" {
+		return "memory"
+	}
+
+	return c.NotificationBackend
+}
+
+func (c PersistenceConfig) AnalyticsBackendOrDefault() string {
+	if c.AnalyticsBackend == "" {
+		return "memory"
+	}
+
+	return c.AnalyticsBackend
+}
+
 func (c PersistenceConfig) Validate(dependencies DependenciesConfig) error {
 	switch c.IAMBackendOrDefault() {
 	case "memory":
@@ -348,6 +378,36 @@ func (c PersistenceConfig) Validate(dependencies DependenciesConfig) error {
 		}
 	default:
 		return fmt.Errorf("campus_life backend %q is invalid", c.CampusLifeBackend)
+	}
+
+	switch c.PortalBackendOrDefault() {
+	case "memory":
+	case "postgres":
+		if !dependencies.Postgres.Enabled {
+			return errors.New("postgres must be enabled when portal backend is postgres")
+		}
+	default:
+		return fmt.Errorf("portal backend %q is invalid", c.PortalBackend)
+	}
+
+	switch c.NotificationBackendOrDefault() {
+	case "memory":
+	case "postgres":
+		if !dependencies.Postgres.Enabled {
+			return errors.New("postgres must be enabled when notification backend is postgres")
+		}
+	default:
+		return fmt.Errorf("notification backend %q is invalid", c.NotificationBackend)
+	}
+
+	switch c.AnalyticsBackendOrDefault() {
+	case "memory":
+	case "postgres":
+		if !dependencies.Postgres.Enabled {
+			return errors.New("postgres must be enabled when analytics backend is postgres")
+		}
+	default:
+		return fmt.Errorf("analytics backend %q is invalid", c.AnalyticsBackend)
 	}
 
 	return nil

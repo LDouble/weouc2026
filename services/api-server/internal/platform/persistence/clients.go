@@ -46,6 +46,9 @@ func Open(cfg appconfig.AppConfig) (*Clients, error) {
 func (c *Clients) EnsureRuntimeBackendsReady(ctx context.Context, cfg appconfig.AppConfig) error {
 	requiresPostgres := cfg.Persistence.IAMBackendOrDefault() == "postgres_redis" ||
 		cfg.Persistence.CampusLifeBackendOrDefault() == "postgres" ||
+		cfg.Persistence.PortalBackendOrDefault() == "postgres" ||
+		cfg.Persistence.NotificationBackendOrDefault() == "postgres" ||
+		cfg.Persistence.AnalyticsBackendOrDefault() == "postgres" ||
 		cfg.Persistence.AutoMigrate
 	requiresRedis := cfg.Persistence.IAMBackendOrDefault() == "postgres_redis"
 

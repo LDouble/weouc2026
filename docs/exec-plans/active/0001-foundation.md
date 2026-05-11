@@ -62,6 +62,12 @@
 - 教务查询当前统一经 `academic_provider` mock 实现，便于在无真实校园系统条件下联调。
 - 教务读取成功后已接入统一审计记录，后续再演进真实连接器、同步任务与本地快照。
 
+当前进展（`2026-05-11`）：
+
+- 已将 `portal`、`notification`、`analytics` 补齐为可配置的 `memory / postgres` 双后端。
+- 已补迁移脚本、`PostgreSQL` 仓储与审计日志持久化实现，门户轮播/公告和通知均带最小种子数据。
+- `analytics` 在 `postgres` 模式下可跨重启保留审计日志，后续再补预计算统计与更完整观测。
+
 ### 工作流 E：Flutter App 外壳
 
 - 初始化 `Flutter`

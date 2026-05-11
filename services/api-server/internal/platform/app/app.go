@@ -101,9 +101,21 @@ func buildRouter(cfg appconfig.AppConfig, logger *slog.Logger) (*gin.Engine, []i
 		closeClosers(closers)
 		return nil, nil, err
 	}
-	portalRepository := portalrepo.NewInMemoryRepository()
-	notificationRepository := notificationrepo.NewInMemoryRepository()
-	auditStore := audit.NewInMemoryStore()
+	portalRepository, err := newPortalRepository(cfg, clients)
+	if err != nil {
+		closeClosers(closers)
+		return nil, nil, err
+	}
+	notificationRepository, err := newNotificationRepository(cfg, clients)
+	if err != nil {
+		closeClosers(closers)
+		return nil, nil, err
+	}
+	auditStore, err := newAuditStore(cfg, clients)
+	if err != nil {
+		closeClosers(closers)
+		return nil, nil, err
+	}
 
 	iamModule := iam.NewModule(cfg, iam.Dependencies{
 		UserRepository:    userRepository,
@@ -225,6 +237,51 @@ func newCampusLifeRepository(cfg appconfig.AppConfig, clients *persistence.Clien
 		return clrepo.NewPostgresRepository(clients.Postgres), nil
 	default:
 		return nil, fmt.Errorf("unsupported campus_life backend %q", cfg.Persistence.CampusLifeBackendOrDefault())
+	}
+}
+
+func newPortalRepository(cfg appconfig.AppConfig, clients *persistence.Clients) (portalrepo.Repository, error) {
+	switch cfg.Persistence.PortalBackendOrDefault() {
+	case "memory":
+		return portalrepo.NewInMemoryRepository(), nil
+	case "postgres":
+		if clients == nil || clients.Postgres == nil {
+			return nil, fmt.Errorf("postgres portal backend requires postgres client")
+		}
+		return portalrepo.NewPostgresRepository(clients.Postgres), nil
+	default:
+		return nil, fmt.Errorf("unsupported portal backend %q", cfg.Persistence.PortalBackendOrDefault())
+	}
+}
+
+func newNotificationRepository(
+	cfg appconfig.AppConfig,
+	clients *persistence.Clients,
+) (notificationrepo.Repository, error) {
+	switch cfg.Persistence.NotificationBackendOrDefault() {
+	case "memory":
+		return notificationrepo.NewInMemoryRepository(), nil
+	case "postgres":
+		if clients == nil || clients.Postgres == nil {
+			return nil, fmt.Errorf("postgres notification backend requires postgres client")
+		}
+		return notificationrepo.NewPostgresRepository(clients.Postgres), nil
+	default:
+		return nil, fmt.Errorf("unsupported notification backend %q", cfg.Persistence.NotificationBackendOrDefault())
+	}
+}
+
+func newAuditStore(cfg appconfig.AppConfig, clients *persistence.Clients) (audit.Store, error) {
+	switch cfg.Persistence.AnalyticsBackendOrDefault() {
+	case "memory":
+		return audit.NewInMemoryStore(), nil
+	case "postgres":
+		if clients == nil || clients.Postgres == nil {
+			return nil, fmt.Errorf("postgres analytics backend requires postgres client")
+		}
+		return audit.NewPostgresStore(clients.Postgres), nil
+	default:
+		return nil, fmt.Errorf("unsupported analytics backend %q", cfg.Persistence.AnalyticsBackendOrDefault())
 	}
 }
 

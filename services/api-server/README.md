@@ -43,13 +43,14 @@ types -> config -> repo -> service -> runtime -> transport
 - `internal/modules/system`：`/healthz`、`/readyz`、`/api/v1/system/profile`，以及 `postgres/redis` 依赖就绪探测
 - `internal/modules/iam`：`/api/auth/wechat/login`、`/api/student`、`/api/edu/send-captcha`，并支持 `PostgreSQL + Redis` 持久化
 - `internal/modules/academic`：`/api/academic/semesters`、`/api/academic/schedule`、`/api/academic/exams`、`/api/academic/grades`
-- `internal/modules/portal`：`/api/portal/home`、公告列表/详情，以及管理端公告发布接口
-- `internal/modules/notification`：站内通知列表、未读计数、已读回执，以及管理端通知发布接口
-- `internal/modules/analytics`：`/api/admin/analytics/dashboard`、`/api/admin/analytics/audit-logs`，以及统一审计日志读取能力
+- `internal/modules/portal`：`/api/portal/home`、公告列表/详情，以及管理端公告发布接口，支持 `memory / postgres` 双后端
+- `internal/modules/notification`：站内通知列表、未读计数、已读回执，以及管理端通知发布接口，支持 `memory / postgres` 双后端
+- `internal/modules/analytics`：`/api/admin/analytics/dashboard`、`/api/admin/analytics/audit-logs`，以及统一审计日志读取能力，支持 `memory / postgres` 双后端
 - `internal/modules/campus_life`：`/api/feed/list`、二手/跑腿/资料/失物招领/拼车/组局列表与关键详情/交互接口，以及校园生活审核接口
 - `internal/modules/file_center`：`/api/upload/cos-sts`、`/api/upload/presigned-get`
 - `internal/providers/*_provider`：微信与教务 mock provider
 - `packages/contracts/openapi/api-server.yaml`：当前统一契约源文件
+- `migrations/*.sql`：当前已覆盖 IAM、校园生活、门户、通知与审计日志的最小迁移
 
 ## 当前接口能力
 
@@ -72,12 +73,16 @@ types -> config -> repo -> service -> runtime -> transport
 说明：
 
 - 当前阶段 `IAM` 已支持 `PostgreSQL + Redis` 持久化；`campus_life` 已支持 `memory / postgres` 双后端
-- `portal` 与 `notification` 当前先以 `memory` 内置种子数据提供联调入口，后续再切换持久化后端
-- `analytics` 当前先以内存审计存储提供联调入口，重启服务后日志不会保留
+- `portal`、`notification`、`analytics` 当前也已支持 `memory / postgres` 双后端
+- `portal` 与 `notification` 在 `postgres` 模式下会自动写入最小种子数据；`memory` 模式仍保留内置联调数据
+- `analytics` 在 `postgres` 模式下会跨重启保留审计日志；`memory` 模式仍适合快速本地联调
 - 微信登录、教务绑定、教务课表/考试/成绩读取当前均通过 mock provider 模拟，不依赖真实外部系统
 - `/readyz` 已接入 `postgres`、`redis`、`object_storage` 健康探测；依赖未就绪时会返回 `503`
 - 当 `API_SERVER_IAM_BACKEND=postgres_redis` 时，登录会话与教务绑定资料会分别落到 `Redis` 和 `PostgreSQL`
 - 当 `API_SERVER_CAMPUS_LIFE_BACKEND=postgres` 时，二手、跑腿、资料、失物招领、拼车、组局会持久化到 `PostgreSQL`
+- 当 `API_SERVER_PORTAL_BACKEND=postgres` 时，门户轮播与公告会从 `PostgreSQL` 读取，公告发布结果也会持久化
+- 当 `API_SERVER_NOTIFICATION_BACKEND=postgres` 时，通知发布与已读状态会持久化到 `PostgreSQL`
+- 当 `API_SERVER_ANALYTICS_BACKEND=postgres` 时，统一审计日志会持久化到 `PostgreSQL`
 - 已支持腾讯 COS 直传；业务层只存对象路径，读取时由后端签发可访问 URL
 - 新发布的校园生活内容默认进入 `reviewing`；公开列表与详情只暴露 `published` 内容，发布者和具备 `campus_life:moderate` 权限的管理员可继续查看待审内容
 
@@ -111,6 +116,9 @@ docker compose -f ops/docker/api-server/compose.yaml up --build
 - `API_SERVER_AUTH_ACCESS_TOKEN_TTL`
 - `API_SERVER_IAM_BACKEND`
 - `API_SERVER_CAMPUS_LIFE_BACKEND`
+- `API_SERVER_PORTAL_BACKEND`
+- `API_SERVER_NOTIFICATION_BACKEND`
+- `API_SERVER_ANALYTICS_BACKEND`
 - `API_SERVER_AUTO_MIGRATE`
 - `API_SERVER_POSTGRES_ENABLED`
 - `API_SERVER_POSTGRES_HOST`
@@ -153,6 +161,9 @@ docker compose -f ops/docker/api-server/compose.yaml up -d postgres redis
 cd /Users/liangluo/code/weouc2026/services/api-server
 API_SERVER_IAM_BACKEND=postgres_redis \
 API_SERVER_CAMPUS_LIFE_BACKEND=postgres \
+API_SERVER_PORTAL_BACKEND=postgres \
+API_SERVER_NOTIFICATION_BACKEND=postgres \
+API_SERVER_ANALYTICS_BACKEND=postgres \
 API_SERVER_AUTO_MIGRATE=true \
 API_SERVER_POSTGRES_ENABLED=true \
 API_SERVER_POSTGRES_HOST=127.0.0.1 \
