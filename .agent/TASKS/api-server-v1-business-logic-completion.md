@@ -10,4 +10,4 @@
 **Updated:** 2026-05-10
 **PRD:** [api-server-v1-business-logic-completion.md](/Users/liangluo/code/weouc2026/.agent/PRDS/api-server-v1-business-logic-completion.md)
 
-**Progress:** 阶段 1 已开始推进，已完成 `campus_life` 的 `memory / postgres` 双后端切换和现有二手、跑腿、资料、失物招领读写持久化；`meetup/carpool`、统一审核状态和后台管理入口仍待后续轮次继续补齐。
+**Progress:** 阶段 1 已开始推进，已完成 `campus_life` 的 `memory / postgres` 双后端切换，以及二手、跑腿、资料、失物招领、拼车的基础持久化与主链路接口；剩余重点转为更通用的 `meetup/组局`、统一审核状态和后台管理入口。

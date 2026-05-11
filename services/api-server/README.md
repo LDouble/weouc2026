@@ -42,7 +42,7 @@ types -> config -> repo -> service -> runtime -> transport
 - `internal/platform`：配置、日志、请求 ID、统一错误响应、Bearer Token / 头部双通道鉴权上下文
 - `internal/modules/system`：`/healthz`、`/readyz`、`/api/v1/system/profile`，以及 `postgres/redis` 依赖就绪探测
 - `internal/modules/iam`：`/api/auth/wechat/login`、`/api/student`、`/api/edu/send-captcha`，并支持 `PostgreSQL + Redis` 持久化
-- `internal/modules/campus_life`：`/api/feed/list`、二手/跑腿/资料/失物招领列表与关键详情/交互接口
+- `internal/modules/campus_life`：`/api/feed/list`、二手/跑腿/资料/失物招领/拼车列表与关键详情/交互接口
 - `internal/modules/file_center`：`/api/upload/cos-sts`、`/api/upload/presigned-get`
 - `internal/providers/*_provider`：微信与教务 mock provider
 - `packages/contracts/openapi/api-server.yaml`：当前统一契约源文件
@@ -56,6 +56,7 @@ types -> config -> repo -> service -> runtime -> transport
 - 跑腿列表、详情、发布、接单、取消发布、取消接单
 - 资料列表、详情、发布
 - 失物招领列表、详情、发布
+- 拼车列表、详情、发布
 - COS 临时上传凭证与对象下载预签名
 
 说明：
@@ -64,7 +65,7 @@ types -> config -> repo -> service -> runtime -> transport
 - 微信登录、教务绑定通过 mock provider 模拟，不依赖真实外部系统
 - `/readyz` 已接入 `postgres`、`redis`、`object_storage` 健康探测；依赖未就绪时会返回 `503`
 - 当 `API_SERVER_IAM_BACKEND=postgres_redis` 时，登录会话与教务绑定资料会分别落到 `Redis` 和 `PostgreSQL`
-- 当 `API_SERVER_CAMPUS_LIFE_BACKEND=postgres` 时，二手、跑腿、资料、失物招领会持久化到 `PostgreSQL`
+- 当 `API_SERVER_CAMPUS_LIFE_BACKEND=postgres` 时，二手、跑腿、资料、失物招领、拼车会持久化到 `PostgreSQL`
 - 已支持腾讯 COS 直传；业务层只存对象路径，读取时由后端签发可访问 URL
 
 ## 本地运行
@@ -182,6 +183,7 @@ curl -X POST http://localhost:8080/api/auth/wechat/login \
 
 ```bash
 curl http://localhost:8080/api/market/list
+curl http://localhost:8080/api/carpool/list
 curl http://localhost:8080/api/market/detail/market-101
 curl http://localhost:8080/api/student -H "Authorization: Bearer <token>"
 curl -X POST http://localhost:8080/api/edu/send-captcha \

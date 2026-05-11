@@ -22,6 +22,8 @@ type Service struct {
 	storageProvider storage_provider.Provider
 }
 
+var chinaLocation = time.FixedZone("Asia/Shanghai", 8*3600)
+
 func New(repository clrepo.Repository, storageProvider storage_provider.Provider) *Service {
 	return &Service{
 		repository:      repository,
@@ -156,6 +158,46 @@ func (s *Service) ListFeed(ctx context.Context, principal auth.Principal, query 
 				"desc":            item.Desc,
 				"publisher":       item.Publisher,
 				"created_at":      item.CreatedAt.Format(time.RFC3339),
+			},
+		})
+	}
+	now := time.Now().In(chinaLocation)
+	carpools, err := s.repository.ListCarpools(ctx)
+	if err != nil {
+		return nil, httpx.Internal("读取拼车动态失败", err)
+	}
+	for _, item := range carpools {
+		if !matchUserRole(item.PublisherUserID, "", principal, query.UserRole) {
+			continue
+		}
+		if !matchFeedType(query.FeedTypes, "carpool") ||
+			!matchKeyword(query.Keyword, item.From, item.To, item.Note, item.Type) {
+			continue
+		}
+		rows = append(rows, row{
+			id:        item.ID,
+			feedType:  "carpool",
+			createdAt: item.CreatedAt,
+			payload: map[string]any{
+				"id":              item.ID,
+				"feed_type":       "carpool",
+				"feed_type_label": "校园拼车",
+				"title":           carpoolTitle(item),
+				"desc":            carpoolFeedDesc(item),
+				"publisher":       item.Publisher,
+				"created_at":      item.CreatedAt.Format(time.RFC3339),
+				"review_status":   item.ReviewStatus,
+				"extra": map[string]any{
+					"category":   normalizedCarpoolCategory(item, now),
+					"from":       item.From,
+					"to":         item.To,
+					"time":       formatCarpoolTravelText(item.TravelAt, now),
+					"type":       item.Type,
+					"seats_text": item.SeatsText,
+					"price":      item.Price,
+					"tags":       append([]string(nil), item.Tags...),
+					"comments":   0,
+				},
 			},
 		})
 	}
@@ -745,6 +787,97 @@ func (s *Service) PublishLostFound(ctx context.Context, principal auth.Principal
 	return map[string]any{"id": item.ID}, nil
 }
 
+func (s *Service) ListCarpools(ctx context.Context, principal auth.Principal, query cltypes.CarpoolQuery) (map[string]any, error) {
+	items, err := s.repository.ListCarpools(ctx)
+	if err != nil {
+		return nil, httpx.Internal("读取拼车列表失败", err)
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
+
+	now := time.Now().In(chinaLocation)
+	filtered := make([]map[string]any, 0)
+	for _, item := range items {
+		if query.Category != "" && query.Category != "all" && normalizedCarpoolCategory(item, now) != query.Category {
+			continue
+		}
+		if !matchKeyword(query.Keyword, item.From, item.To, item.Note, item.Publisher, item.Type) {
+			continue
+		}
+		canView := canViewContact(principal, item.PublisherUserID)
+		filtered = append(filtered, buildCarpoolPayload(item, canView, now))
+	}
+
+	return listEnvelope(paginateMaps(filtered, query.Pagination), len(filtered), query.Pagination), nil
+}
+
+func (s *Service) GetCarpoolDetail(ctx context.Context, principal auth.Principal, id string) (map[string]any, error) {
+	item, err := s.repository.GetCarpool(ctx, id)
+	if errors.Is(err, clrepo.ErrNotFound) {
+		return nil, httpx.NotFound("拼车行程不存在", nil)
+	}
+	if err != nil {
+		return nil, httpx.Internal("读取拼车详情失败", err)
+	}
+
+	canView := canViewContact(principal, item.PublisherUserID)
+	payload := buildCarpoolPayload(item, canView, time.Now().In(chinaLocation))
+	payload["can_view_contact"] = canView
+	return payload, nil
+}
+
+func (s *Service) PublishCarpool(ctx context.Context, principal auth.Principal, request cltypes.CarpoolPublishRequest) (map[string]any, error) {
+	if strings.TrimSpace(request.From) == "" || strings.TrimSpace(request.To) == "" {
+		return nil, httpx.BadRequest("出发地和目的地不能为空", nil)
+	}
+	if strings.TrimSpace(request.TravelDate) == "" || strings.TrimSpace(request.TravelTime) == "" {
+		return nil, httpx.BadRequest("travel_date 和 travel_time 不能为空", nil)
+	}
+	if strings.TrimSpace(request.Contact) == "" {
+		return nil, httpx.BadRequest("联系方式不能为空", nil)
+	}
+
+	travelAt, err := parseCarpoolTravelAt(request.TravelDate, request.TravelTime)
+	if err != nil {
+		return nil, httpx.BadRequest("travel_date/travel_time 格式错误", nil)
+	}
+	now := time.Now().In(chinaLocation)
+	category := firstNonEmpty(strings.TrimSpace(request.Category), normalizedCarpoolCategory(cltypes.CarpoolItem{
+		TravelAt: travelAt,
+	}, now))
+	if !isSupportedCarpoolCategory(category) {
+		category = normalizedCarpoolCategory(cltypes.CarpoolItem{TravelAt: travelAt}, now)
+	}
+	id, err := s.repository.NextID(ctx, "carpool")
+	if err != nil {
+		return nil, httpx.Internal("生成拼车 ID 失败", err)
+	}
+
+	item := cltypes.CarpoolItem{
+		ID:               id,
+		Category:         category,
+		From:             strings.TrimSpace(request.From),
+		To:               strings.TrimSpace(request.To),
+		TravelAt:         travelAt,
+		Type:             firstNonEmpty(strings.TrimSpace(request.Type), defaultCarpoolType(category)),
+		SeatsText:        strings.TrimSpace(request.SeatsText),
+		Price:            strings.TrimSpace(request.Price),
+		Note:             strings.TrimSpace(request.Note),
+		Tags:             sanitizeTags(request.Tags),
+		Contact:          strings.TrimSpace(request.Contact),
+		ReviewStatus:     "published",
+		PublisherUserID:  principal.UserID,
+		Publisher:        displayName(principal),
+		PublisherInitial: initialOf(displayName(principal)),
+		CreatedAt:        time.Now().UTC(),
+	}
+	item, err = s.repository.SaveCarpool(ctx, item)
+	if err != nil {
+		return nil, httpx.Internal("保存拼车信息失败", err)
+	}
+
+	return map[string]any{"id": item.ID}, nil
+}
+
 func errandUserRole(item cltypes.ErrandItem, principal auth.Principal) string {
 	if !principal.Authenticated {
 		return "viewer"
@@ -923,4 +1056,159 @@ func parsePage(value string, defaultValue int) int {
 func isAppError(err error) bool {
 	var appErr *httpx.AppError
 	return errors.As(err, &appErr)
+}
+
+func buildCarpoolPayload(item cltypes.CarpoolItem, canView bool, now time.Time) map[string]any {
+	category := normalizedCarpoolCategory(item, now)
+	timeText := formatCarpoolTravelText(item.TravelAt, now)
+	return map[string]any{
+		"id":                item.ID,
+		"category":          category,
+		"from":              item.From,
+		"to":                item.To,
+		"time":              timeText,
+		"type":              item.Type,
+		"seats_text":        item.SeatsText,
+		"price":             item.Price,
+		"note":              item.Note,
+		"tags":              append([]string(nil), item.Tags...),
+		"contact":           visibleValue(canView, item.Contact),
+		"review_status":     item.ReviewStatus,
+		"publisher":         item.Publisher,
+		"publisher_initial": item.PublisherInitial,
+		"created_at":        item.CreatedAt.Format(time.RFC3339),
+		"extra": map[string]any{
+			"category":      category,
+			"from":          item.From,
+			"to":            item.To,
+			"time":          timeText,
+			"type":          item.Type,
+			"seats_text":    item.SeatsText,
+			"price":         item.Price,
+			"note":          item.Note,
+			"tags":          append([]string(nil), item.Tags...),
+			"contact":       visibleValue(canView, item.Contact),
+			"travel_at":     item.TravelAt.In(chinaLocation).Format(time.RFC3339),
+			"review_status": item.ReviewStatus,
+		},
+	}
+}
+
+func parseCarpoolTravelAt(dateText, timeText string) (time.Time, error) {
+	return time.ParseInLocation(
+		"2006-01-02 15:04",
+		strings.TrimSpace(dateText)+" "+strings.TrimSpace(timeText),
+		chinaLocation,
+	)
+}
+
+func normalizedCarpoolCategory(item cltypes.CarpoolItem, now time.Time) string {
+	if item.TravelAt.IsZero() {
+		if isSupportedCarpoolCategory(item.Category) {
+			return item.Category
+		}
+		return "today"
+	}
+
+	travelDate := startOfDay(item.TravelAt.In(chinaLocation))
+	today := startOfDay(now.In(chinaLocation))
+	tomorrow := today.AddDate(0, 0, 1)
+	if travelDate.Equal(today) {
+		return "today"
+	}
+	if travelDate.Equal(tomorrow) {
+		return "tomorrow"
+	}
+	if !travelDate.After(endOfWeek(today)) {
+		return "week"
+	}
+	return "longterm"
+}
+
+func formatCarpoolTravelText(travelAt time.Time, now time.Time) string {
+	if travelAt.IsZero() {
+		return ""
+	}
+	travelLocal := travelAt.In(chinaLocation)
+	travelDate := startOfDay(travelLocal)
+	today := startOfDay(now.In(chinaLocation))
+	tomorrow := today.AddDate(0, 0, 1)
+
+	switch {
+	case travelDate.Equal(today):
+		return "今天 " + travelLocal.Format("15:04")
+	case travelDate.Equal(tomorrow):
+		return "明天 " + travelLocal.Format("15:04")
+	default:
+		return travelLocal.Format("1月2日 15:04")
+	}
+}
+
+func defaultCarpoolType(category string) string {
+	switch category {
+	case "tomorrow":
+		return "明日顺路"
+	case "week":
+		return "本周拼车"
+	case "longterm":
+		return "长期通勤"
+	default:
+		return "今日顺路"
+	}
+}
+
+func isSupportedCarpoolCategory(category string) bool {
+	switch category {
+	case "today", "tomorrow", "week", "longterm":
+		return true
+	default:
+		return false
+	}
+}
+
+func sanitizeTags(values []string) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		result = append(result, value)
+	}
+	return result
+}
+
+func startOfDay(value time.Time) time.Time {
+	local := value.In(chinaLocation)
+	return time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, chinaLocation)
+}
+
+func endOfWeek(value time.Time) time.Time {
+	local := startOfDay(value)
+	daysUntilSunday := (7 - int(local.Weekday())) % 7
+	return local.AddDate(0, 0, daysUntilSunday)
+}
+
+func carpoolTitle(item cltypes.CarpoolItem) string {
+	if item.From != "" || item.To != "" {
+		return strings.TrimSpace(item.From + " -> " + item.To)
+	}
+	return defaultCarpoolType(normalizedCarpoolCategory(item, time.Now().In(chinaLocation)))
+}
+
+func carpoolFeedDesc(item cltypes.CarpoolItem) string {
+	parts := make([]string, 0, 3)
+	if text := formatCarpoolTravelText(item.TravelAt, time.Now().In(chinaLocation)); text != "" {
+		parts = append(parts, text)
+	}
+	if item.SeatsText != "" {
+		parts = append(parts, item.SeatsText)
+	}
+	if item.Price != "" {
+		parts = append(parts, item.Price)
+	}
+	if len(parts) > 0 {
+		return strings.Join(parts, " · ")
+	}
+	return item.Note
 }

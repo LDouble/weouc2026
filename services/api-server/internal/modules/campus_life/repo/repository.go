@@ -28,5 +28,9 @@ type Repository interface {
 	GetLostFound(ctx context.Context, id string) (cltypes.LostFoundItem, error)
 	SaveLostFound(ctx context.Context, item cltypes.LostFoundItem) (cltypes.LostFoundItem, error)
 
+	ListCarpools(ctx context.Context) ([]cltypes.CarpoolItem, error)
+	GetCarpool(ctx context.Context, id string) (cltypes.CarpoolItem, error)
+	SaveCarpool(ctx context.Context, item cltypes.CarpoolItem) (cltypes.CarpoolItem, error)
+
 	NextID(ctx context.Context, prefix string) (string, error)
 }

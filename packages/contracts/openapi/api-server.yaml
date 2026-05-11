@@ -576,6 +576,67 @@ paths:
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
+  /api/carpool/list:
+    get:
+      tags: [CampusLife]
+      summary: 获取拼车列表
+      operationId: listCarpools
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+        - $ref: '#/components/parameters/Keyword'
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [today, tomorrow, week, longterm]
+      responses:
+        '200':
+          description: 拼车分页结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListResponseEnvelope'
+  /api/carpool/detail/{id}:
+    get:
+      tags: [CampusLife]
+      summary: 获取拼车详情
+      operationId: getCarpoolDetail
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: 拼车详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+  /api/carpool/publish:
+    post:
+      tags: [CampusLife]
+      summary: 发布拼车信息
+      operationId: publishCarpool
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CarpoolPublishRequest'
+      responses:
+        '200':
+          description: 发布成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IDResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
 components:
   securitySchemes:
     bearerAuth:
@@ -1115,4 +1176,38 @@ components:
         contact:
           type: string
         reward:
+          type: string
+    CarpoolPublishRequest:
+      type: object
+      required: [from, to, travel_date, travel_time, contact]
+      properties:
+        category:
+          type: string
+          enum: [today, tomorrow, week, longterm]
+        from:
+          type: string
+        to:
+          type: string
+        travel_date:
+          type: string
+          format: date
+        travel_time:
+          type: string
+          description: "HH:mm 格式的本地时间"
+        time:
+          type: string
+          description: 兼容旧客户端的展示时间文本，服务端可忽略
+        type:
+          type: string
+        seats_text:
+          type: string
+        price:
+          type: string
+        note:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        contact:
           type: string

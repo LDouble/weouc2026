@@ -123,3 +123,50 @@ func TestPostgresRepositoryNextID(t *testing.T) {
 		t.Fatalf("unmet sql expectations: %v", err)
 	}
 }
+
+func TestPostgresRepositoryGetCarpool(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("new sqlmock failed: %v", err)
+	}
+	defer db.Close()
+
+	rows := sqlmock.NewRows([]string{
+		"id", "category", "route_from", "route_to", "travel_at", "type_label", "seats_text",
+		"price_text", "note", "tags", "contact", "review_status", "publisher_user_id",
+		"publisher", "publisher_initial", "created_at",
+	}).AddRow(
+		"carpool-201",
+		"tomorrow",
+		"海大北门",
+		"福州南站",
+		time.Date(2026, 5, 12, 18, 30, 0, 0, time.FixedZone("CST", 8*3600)),
+		"明日顺路",
+		"余座 2",
+		"人均 20 元",
+		"可带 1 个行李箱",
+		`["明天出发","顺路可拼"]`,
+		"wx-carpool-201",
+		"published",
+		"user-201",
+		"返校同学",
+		"返",
+		time.Date(2026, 5, 11, 9, 0, 0, 0, time.UTC),
+	)
+
+	mock.ExpectQuery(regexp.QuoteMeta(`SELECT ` + carpoolColumns + ` FROM campus_carpools WHERE id = $1 LIMIT 1`)).
+		WithArgs("carpool-201").
+		WillReturnRows(rows)
+
+	repository := NewPostgresRepository(db)
+	item, err := repository.GetCarpool(context.Background(), "carpool-201")
+	if err != nil {
+		t.Fatalf("GetCarpool returned error: %v", err)
+	}
+	if item.Category != "tomorrow" || item.From != "海大北门" || len(item.Tags) != 2 {
+		t.Fatalf("unexpected carpool payload: %+v", item)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet sql expectations: %v", err)
+	}
+}

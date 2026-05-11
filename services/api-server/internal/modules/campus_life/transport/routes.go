@@ -21,6 +21,8 @@ func RegisterRoutes(engine *gin.Engine, handler *Handler) {
 	api.GET("/resource/detail/:id", handler.GetResourceDetail)
 	api.GET("/lostFound/list", handler.ListLostFound)
 	api.GET("/lostFound/detail/:id", handler.GetLostFoundDetail)
+	api.GET("/carpool/list", handler.ListCarpools)
+	api.GET("/carpool/detail/:id", handler.GetCarpoolDetail)
 
 	protected := api.Group("")
 	protected.Use(auth.RequireAuthenticated())
@@ -32,6 +34,7 @@ func RegisterRoutes(engine *gin.Engine, handler *Handler) {
 	protected.POST("/errand/cancel-accept", handler.CancelErrandAccept)
 	protected.POST("/resource/publish", handler.PublishResource)
 	protected.POST("/lostFound/publish", handler.PublishLostFound)
+	protected.POST("/carpool/publish", handler.PublishCarpool)
 }
 
 func paginationFromContext(c *gin.Context) cltypes.Pagination {

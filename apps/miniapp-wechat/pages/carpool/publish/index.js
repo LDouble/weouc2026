@@ -44,11 +44,19 @@ function inferCategory(dateText) {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const weekEnd = new Date(today.getTime());
+  weekEnd.setDate(today.getDate() + ((7 - today.getDay()) % 7));
 
-  if (targetDate.getTime() === today.getTime() || targetDate.getTime() === tomorrow.getTime()) {
+  if (targetDate.getTime() === today.getTime()) {
     return 'today';
   }
-  return 'return';
+  if (targetDate.getTime() === tomorrow.getTime()) {
+    return 'tomorrow';
+  }
+  if (targetDate.getTime() <= weekEnd.getTime()) {
+    return 'week';
+  }
+  return 'longterm';
 }
 
 Page({
@@ -175,16 +183,18 @@ Page({
     }
 
     const category = inferCategory(form.date);
-    const typeMap = { today: '今日顺路', return: '返校专线', leave: '出校拼车', longterm: '长期通勤' };
+    const typeMap = { today: '今日顺路', tomorrow: '明日顺路', week: '本周拼车', longterm: '长期通勤' };
     const tagsMap = {
+      tomorrow: ['明天出发', '刚刚发布'],
+      week: ['本周可拼', '提前约车'],
       longterm: ['固定路线', '支持长期沟通'],
-      return: ['返校优先', '刚刚发布'],
-      leave: ['周末可约', '刚刚发布'],
       today: ['今日可拼', '刚刚发布'],
     };
 
     const payload = {
       category,
+      travel_date: form.date,
+      travel_time: form.time,
       from: form.from.trim(),
       to: form.to.trim(),
       time: `${formatDisplayDate(form.date)} ${form.time}`,

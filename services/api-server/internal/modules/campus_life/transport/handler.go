@@ -222,6 +222,43 @@ func (h *Handler) GetLostFoundDetail(c *gin.Context) {
 	httpx.JSON(c, http.StatusOK, response)
 }
 
+func (h *Handler) ListCarpools(c *gin.Context) {
+	query := cltypes.CarpoolQuery{
+		Pagination: paginationFromContext(c),
+		Category:   strings.TrimSpace(c.Query("category")),
+		Keyword:    strings.TrimSpace(c.Query("keyword")),
+	}
+	response, err := h.service.ListCarpools(c.Request.Context(), auth.PrincipalFromContext(c), query)
+	if err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, response)
+}
+
+func (h *Handler) GetCarpoolDetail(c *gin.Context) {
+	response, err := h.service.GetCarpoolDetail(c.Request.Context(), auth.PrincipalFromContext(c), c.Param("id"))
+	if err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, response)
+}
+
+func (h *Handler) PublishCarpool(c *gin.Context) {
+	var request cltypes.CarpoolPublishRequest
+	if err := c.ShouldBindJSON(&request); err != nil {
+		httpx.AbortWithError(c, httpx.BadRequest("拼车发布参数格式错误", nil))
+		return
+	}
+	response, err := h.service.PublishCarpool(c.Request.Context(), auth.PrincipalFromContext(c), request)
+	if err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, response)
+}
+
 func (h *Handler) PublishLostFound(c *gin.Context) {
 	var request cltypes.LostFoundPublishRequest
 	if err := c.ShouldBindJSON(&request); err != nil {

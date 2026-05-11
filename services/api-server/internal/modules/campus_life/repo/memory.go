@@ -15,6 +15,7 @@ type InMemoryRepository struct {
 	errands    map[string]cltypes.ErrandItem
 	resources  map[string]cltypes.ResourceItem
 	lostFounds map[string]cltypes.LostFoundItem
+	carpools   map[string]cltypes.CarpoolItem
 	seq        int64
 }
 
@@ -25,6 +26,7 @@ func NewInMemoryRepository() *InMemoryRepository {
 		errands:    make(map[string]cltypes.ErrandItem),
 		resources:  make(map[string]cltypes.ResourceItem),
 		lostFounds: make(map[string]cltypes.LostFoundItem),
+		carpools:   make(map[string]cltypes.CarpoolItem),
 		seq:        100,
 	}
 
@@ -164,6 +166,43 @@ func NewInMemoryRepository() *InMemoryRepository {
 		},
 	}
 
+	repository.carpools["carpool-101"] = cltypes.CarpoolItem{
+		ID:               "carpool-101",
+		Category:         "today",
+		From:             "海大南门",
+		To:               "高铁北站",
+		TravelAt:         now.Add(2 * time.Hour),
+		Type:             "今日顺路",
+		SeatsText:        "余座 2",
+		Price:            "人均 18 元",
+		Note:             "可放 2 个行李箱，校内拼满即走。",
+		Tags:             []string{"今日可拼", "校内出发"},
+		Contact:          "wx-carpool-18",
+		ReviewStatus:     "published",
+		PublisherUserID:  "seed-u5",
+		Publisher:        "车主学长",
+		PublisherInitial: "车",
+		CreatedAt:        now.Add(-40 * time.Minute),
+	}
+	repository.carpools["carpool-102"] = cltypes.CarpoolItem{
+		ID:               "carpool-102",
+		Category:         "longterm",
+		From:             "学校东门",
+		To:               "软件园二期",
+		TravelAt:         now.Add(10 * 24 * time.Hour),
+		Type:             "长期通勤",
+		SeatsText:        "固定 3/4",
+		Price:            "月结 AA",
+		Note:             "工作日早八晚六，适合长期通勤同学。",
+		Tags:             []string{"长期路线", "工作日"},
+		Contact:          "站内私信",
+		ReviewStatus:     "published",
+		PublisherUserID:  "seed-u6",
+		Publisher:        "通勤搭子",
+		PublisherInitial: "通",
+		CreatedAt:        now.Add(-6 * time.Hour),
+	}
+
 	return repository
 }
 
@@ -290,6 +329,29 @@ func (r *InMemoryRepository) SaveLostFound(_ context.Context, item cltypes.LostF
 	return item, nil
 }
 
+func (r *InMemoryRepository) ListCarpools(context.Context) ([]cltypes.CarpoolItem, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return cloneCarpoolSlice(r.carpools), nil
+}
+
+func (r *InMemoryRepository) GetCarpool(_ context.Context, id string) (cltypes.CarpoolItem, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	item, exists := r.carpools[id]
+	if !exists {
+		return cltypes.CarpoolItem{}, ErrNotFound
+	}
+	return item, nil
+}
+
+func (r *InMemoryRepository) SaveCarpool(_ context.Context, item cltypes.CarpoolItem) (cltypes.CarpoolItem, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.carpools[item.ID] = item
+	return item, nil
+}
+
 func (r *InMemoryRepository) NextID(_ context.Context, prefix string) (string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -345,6 +407,16 @@ func cloneLostFoundSlice(items map[string]cltypes.LostFoundItem) []cltypes.LostF
 	result := make([]cltypes.LostFoundItem, 0, len(items))
 	for _, item := range items {
 		result = append(result, item)
+	}
+	return result
+}
+
+func cloneCarpoolSlice(items map[string]cltypes.CarpoolItem) []cltypes.CarpoolItem {
+	result := make([]cltypes.CarpoolItem, 0, len(items))
+	for _, item := range items {
+		cloned := item
+		cloned.Tags = append([]string(nil), item.Tags...)
+		result = append(result, cloned)
 	}
 	return result
 }

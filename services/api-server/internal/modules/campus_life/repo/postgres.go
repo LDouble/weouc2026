@@ -62,6 +62,24 @@ publisher_initial,
 created_at,
 extra`
 
+const carpoolColumns = `
+id,
+category,
+route_from,
+route_to,
+travel_at,
+type_label,
+seats_text,
+price_text,
+note,
+tags,
+contact,
+review_status,
+publisher_user_id,
+publisher,
+publisher_initial,
+created_at`
+
 type PostgresRepository struct {
 	db *sql.DB
 }
@@ -363,6 +381,62 @@ func (r *PostgresRepository) SaveLostFound(ctx context.Context, item cltypes.Los
 	saved, err := saveLostFound(ctx, r.db, item)
 	if err != nil {
 		return cltypes.LostFoundItem{}, fmt.Errorf("save lost_found failed: %w", err)
+	}
+
+	return saved, nil
+}
+
+func (r *PostgresRepository) ListCarpools(ctx context.Context) ([]cltypes.CarpoolItem, error) {
+	if r.db == nil {
+		return nil, fmt.Errorf("postgres campus_life repository db is nil")
+	}
+
+	rows, err := r.db.QueryContext(ctx, `SELECT `+carpoolColumns+` FROM campus_carpools`)
+	if err != nil {
+		return nil, fmt.Errorf("list carpools failed: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]cltypes.CarpoolItem, 0)
+	for rows.Next() {
+		item, scanErr := scanCarpool(rows)
+		if scanErr != nil {
+			return nil, fmt.Errorf("scan carpool failed: %w", scanErr)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate carpools failed: %w", err)
+	}
+
+	return items, nil
+}
+
+func (r *PostgresRepository) GetCarpool(ctx context.Context, id string) (cltypes.CarpoolItem, error) {
+	if r.db == nil {
+		return cltypes.CarpoolItem{}, fmt.Errorf("postgres campus_life repository db is nil")
+	}
+
+	row := r.db.QueryRowContext(ctx, `SELECT `+carpoolColumns+` FROM campus_carpools WHERE id = $1 LIMIT 1`, id)
+	item, err := scanCarpool(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return cltypes.CarpoolItem{}, ErrNotFound
+	}
+	if err != nil {
+		return cltypes.CarpoolItem{}, fmt.Errorf("get carpool failed: %w", err)
+	}
+
+	return item, nil
+}
+
+func (r *PostgresRepository) SaveCarpool(ctx context.Context, item cltypes.CarpoolItem) (cltypes.CarpoolItem, error) {
+	if r.db == nil {
+		return cltypes.CarpoolItem{}, fmt.Errorf("postgres campus_life repository db is nil")
+	}
+
+	saved, err := saveCarpool(ctx, r.db, item)
+	if err != nil {
+		return cltypes.CarpoolItem{}, fmt.Errorf("save carpool failed: %w", err)
 	}
 
 	return saved, nil
@@ -703,6 +777,70 @@ func saveLostFound(ctx context.Context, querier queryRower, item cltypes.LostFou
 	return scanLostFound(row)
 }
 
+func saveCarpool(ctx context.Context, querier queryRower, item cltypes.CarpoolItem) (cltypes.CarpoolItem, error) {
+	tagsRaw, err := json.Marshal(item.Tags)
+	if err != nil {
+		return cltypes.CarpoolItem{}, fmt.Errorf("marshal carpool tags failed: %w", err)
+	}
+
+	row := querier.QueryRowContext(
+		ctx,
+		`INSERT INTO campus_carpools (
+			id,
+			category,
+			route_from,
+			route_to,
+			travel_at,
+			type_label,
+			seats_text,
+			price_text,
+			note,
+			tags,
+			contact,
+			review_status,
+			publisher_user_id,
+			publisher,
+			publisher_initial,
+			created_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13, $14, $15, $16)
+		ON CONFLICT (id) DO UPDATE SET
+			category = EXCLUDED.category,
+			route_from = EXCLUDED.route_from,
+			route_to = EXCLUDED.route_to,
+			travel_at = EXCLUDED.travel_at,
+			type_label = EXCLUDED.type_label,
+			seats_text = EXCLUDED.seats_text,
+			price_text = EXCLUDED.price_text,
+			note = EXCLUDED.note,
+			tags = EXCLUDED.tags,
+			contact = EXCLUDED.contact,
+			review_status = EXCLUDED.review_status,
+			publisher_user_id = EXCLUDED.publisher_user_id,
+			publisher = EXCLUDED.publisher,
+			publisher_initial = EXCLUDED.publisher_initial,
+			created_at = EXCLUDED.created_at
+		RETURNING `+carpoolColumns,
+		item.ID,
+		item.Category,
+		item.From,
+		item.To,
+		item.TravelAt,
+		item.Type,
+		item.SeatsText,
+		item.Price,
+		item.Note,
+		string(tagsRaw),
+		item.Contact,
+		item.ReviewStatus,
+		item.PublisherUserID,
+		item.Publisher,
+		item.PublisherInitial,
+		item.CreatedAt,
+	)
+
+	return scanCarpool(row)
+}
+
 func scanLostFound(scanner rowScanner) (cltypes.LostFoundItem, error) {
 	var item cltypes.LostFoundItem
 	var extraRaw []byte
@@ -721,6 +859,38 @@ func scanLostFound(scanner rowScanner) (cltypes.LostFoundItem, error) {
 	if len(extraRaw) > 0 {
 		if err := json.Unmarshal(extraRaw, &item.Extra); err != nil {
 			return cltypes.LostFoundItem{}, fmt.Errorf("unmarshal lost_found extra failed: %w", err)
+		}
+	}
+
+	return item, nil
+}
+
+func scanCarpool(scanner rowScanner) (cltypes.CarpoolItem, error) {
+	var item cltypes.CarpoolItem
+	var tagsRaw []byte
+	if err := scanner.Scan(
+		&item.ID,
+		&item.Category,
+		&item.From,
+		&item.To,
+		&item.TravelAt,
+		&item.Type,
+		&item.SeatsText,
+		&item.Price,
+		&item.Note,
+		&tagsRaw,
+		&item.Contact,
+		&item.ReviewStatus,
+		&item.PublisherUserID,
+		&item.Publisher,
+		&item.PublisherInitial,
+		&item.CreatedAt,
+	); err != nil {
+		return cltypes.CarpoolItem{}, err
+	}
+	if len(tagsRaw) > 0 {
+		if err := json.Unmarshal(tagsRaw, &item.Tags); err != nil {
+			return cltypes.CarpoolItem{}, fmt.Errorf("unmarshal carpool tags failed: %w", err)
 		}
 	}
 

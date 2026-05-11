@@ -4,7 +4,7 @@
 
 `services/api-server` 已完成基础工程、`IAM` 持久化，以及小程序主链路的第一批校园生活接口，但距离 V1 产品范围仍有明显缺口：
 
-- `campus_life` 虽已切到可配置的 `memory / postgres` 双后端，但 `meetup/carpool` 与统一审核闭环仍未落地
+- `campus_life` 虽已切到可配置的 `memory / postgres` 双后端，并补上了 `carpool` 拼车主链路，但更通用的 `meetup` 与统一审核闭环仍未落地
 - `meetup` 组局能力尚未落地
 - `portal`、`notification`、`file_center`、`analytics` 仍是预留模块
 - 管理端所需的审核、运营、统计与权限闭环尚未形成
@@ -42,13 +42,13 @@
 
 - `system`：健康检查、就绪检查、会话画像
 - `iam`：微信登录、资料绑定、`PostgreSQL + Redis` 持久化
-- `campus_life`：二手、跑腿、资料、失物招领的基础读写接口、关键交互，以及 `memory / postgres` 双后端
+- `campus_life`：二手、跑腿、资料、失物招领、拼车的基础读写接口、关键交互，以及 `memory / postgres` 双后端
 - `file_center`：腾讯 COS 临时上传凭证、下载预签名与文件路径引用
 
 ### 主要缺口
 
 - `campus_life`：
-  - 缺少 `meetup` 组局能力
+  - 缺少更通用的 `meetup` 组局能力
   - 缺少统一审核状态与后台管理入口
 - `portal`：未落地
 - `notification`：未落地
@@ -155,4 +155,4 @@
 - 已完成阶段 1 的第一步：`campus_life` 从纯内存仓储扩展为 `memory / postgres` 双后端
 - 已为二手、跑腿、资料、失物招领补齐 `PostgreSQL` 表结构、迁移与仓储实现
 - 已把 compose 默认后端切到 `PostgreSQL`，现有四类数据可在服务重启后保留
-- 阶段 1 剩余重点仍是 `meetup/carpool`、统一审核状态和管理端入口
+- 阶段 1 已补上 `carpool` 拼车，剩余重点转为更通用的 `meetup`、统一审核状态和管理端入口

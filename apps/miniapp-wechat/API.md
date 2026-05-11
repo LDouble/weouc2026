@@ -468,9 +468,77 @@
 
 - 方法：`POST /lostFound/publish`
 
-## 8. 文件上传
+## 8. 校园拼车
 
-### 8.1 获取 COS 临时凭证
+### 8.1 获取列表
+
+- 方法：`GET /carpool/list`
+- 使用位置：拼车列表页
+
+查询参数：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `category` | `string` | `today` / `tomorrow` / `week` / `longterm` |
+| `keyword` | `string` | 搜索出发地、目的地或发起人 |
+| `page` | `number` | 页码 |
+| `pageSize` | `number` | 每页条数 |
+
+列表项建议字段：
+
+- `id`
+- `category`
+- `from`
+- `to`
+- `time`
+- `type`
+- `seats_text`
+- `price`
+- `note`
+- `tags`
+- `contact`
+- `review_status`
+- `publisher`
+- `publisher_initial`
+- `created_at`
+
+说明：
+
+- `contact` 必须继续由后端按教务绑定状态裁剪
+- `time` 由后端基于稳定出发时间动态格式化为“今天 18:30 / 明天 09:00 / 5月18日 14:00”
+
+### 8.2 获取详情
+
+- 方法：`GET /carpool/detail/{id}`
+- 使用位置：拼车列表页插顶回流场景
+
+### 8.3 发布
+
+- 方法：`POST /carpool/publish`
+- 使用位置：拼车发布页
+
+请求体字段：
+
+- `category`
+- `travel_date`
+- `travel_time`
+- `from`
+- `to`
+- `type`
+- `seats_text`
+- `price`
+- `note`
+- `tags`
+- `contact`
+
+说明：
+
+- 小程序现在会传稳定的 `travel_date + travel_time`，不再只传中文展示时间
+- 后端会据此统一计算 `today / tomorrow / week / longterm` 的筛选结果与展示文案
+
+## 9. 文件上传
+
+### 9.1 获取 COS 临时凭证
 
 - 方法：`GET /upload/cos-sts`
 - 使用位置：闲置发布页图片上传、跑腿图片上传、资料文件上传
@@ -497,7 +565,7 @@
 - 前端会用 `path_prefix + hash/...` 生成实际对象键
 - `path_prefix` 已包含业务场景、用户隔离和日期维度
 
-### 8.2 获取预签名访问地址
+### 9.2 获取预签名访问地址
 
 - 方法：`POST /upload/presigned-get`
 - 使用位置：文件直传完成后回显
@@ -522,7 +590,7 @@
 }
 ```
 
-## 9. 后续契约收敛建议
+## 10. 后续契约收敛建议
 
 - 统一把列表接口收敛为同一分页包结构，避免小程序为每个业务单独兼容
 - `POST /student` 当前承担“教务绑定”语义，建议后续在 `packages/contracts` 中拆出更明确的绑定接口

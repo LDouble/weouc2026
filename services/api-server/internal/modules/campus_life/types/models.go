@@ -40,6 +40,12 @@ type LostFoundQuery struct {
 	Type     string
 }
 
+type CarpoolQuery struct {
+	Pagination
+	Category string
+	Keyword  string
+}
+
 type MarketPublishRequest struct {
 	Title         string   `json:"title"`
 	Desc          string   `json:"desc"`
@@ -93,6 +99,21 @@ type LostFoundPublishRequest struct {
 	ItemFeature string `json:"item_feature"`
 	Contact     string `json:"contact"`
 	Reward      string `json:"reward"`
+}
+
+type CarpoolPublishRequest struct {
+	Category   string   `json:"category"`
+	From       string   `json:"from"`
+	To         string   `json:"to"`
+	TravelDate string   `json:"travel_date"`
+	TravelTime string   `json:"travel_time"`
+	Time       string   `json:"time"`
+	Type       string   `json:"type"`
+	SeatsText  string   `json:"seats_text"`
+	Price      string   `json:"price"`
+	Note       string   `json:"note"`
+	Tags       []string `json:"tags"`
+	Contact    string   `json:"contact"`
 }
 
 type ResourceFile struct {
@@ -188,4 +209,23 @@ type LostFoundExtra struct {
 	EventTime   string
 	ItemFeature string
 	Contact     string
+}
+
+type CarpoolItem struct {
+	ID               string
+	Category         string
+	From             string
+	To               string
+	TravelAt         time.Time
+	Type             string
+	SeatsText        string
+	Price            string
+	Note             string
+	Tags             []string
+	Contact          string
+	ReviewStatus     string
+	PublisherUserID  string
+	Publisher        string
+	PublisherInitial string
+	CreatedAt        time.Time
 }

@@ -37,6 +37,8 @@ func TestCanonicalOpenAPIContainsCoreRoutes(t *testing.T) {
 		"/api/errand/accept",
 		"/api/resource/list",
 		"/api/lostFound/detail/{id}",
+		"/api/carpool/list",
+		"/api/carpool/publish",
 	}
 	for _, path := range expectedPaths {
 		if _, exists := document.Paths[path]; !exists {
