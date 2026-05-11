@@ -25,10 +25,14 @@ type Service struct {
 var chinaLocation = time.FixedZone("Asia/Shanghai", 8*3600)
 
 const (
-	reviewStatusReviewing = "reviewing"
-	reviewStatusPublished = "published"
-	reviewStatusRejected  = "rejected"
-	reviewStatusOffline   = "offline"
+	statusReviewing = "reviewing"
+	statusPublished = "published"
+	statusRejected  = "rejected"
+	statusOffline   = "offline"
+	statusCancelled = "cancelled"
+	statusFull      = "full"
+	statusAccepted  = "accepted"
+	statusOpen      = "open"
 
 	campusLifeModeratePermission = "campus_life:moderate"
 )
@@ -80,7 +84,7 @@ func (s *Service) ListFeed(ctx context.Context, principal auth.Principal, query 
 				"desc":            item.Desc,
 				"publisher":       item.Publisher,
 				"created_at":      item.CreatedAt.Format(time.RFC3339),
-				"review_status":   normalizeReviewStatus(item.ReviewStatus),
+				"status":          normalizeReviewStatus(item.ReviewStatus),
 				"image":           resolvedImage,
 				"extra": map[string]any{
 					"images":   resolvedImages,
@@ -117,7 +121,7 @@ func (s *Service) ListFeed(ctx context.Context, principal auth.Principal, query 
 				"desc":            item.Desc,
 				"publisher":       item.Publisher,
 				"created_at":      item.CreatedAt.Format(time.RFC3339),
-				"review_status":   normalizeReviewStatus(item.ReviewStatus),
+				"status":          mergeErrandStatus(item.Status, item.ReviewStatus),
 				"extra": map[string]any{
 					"likes":     0,
 					"comments":  0,
@@ -152,7 +156,7 @@ func (s *Service) ListFeed(ctx context.Context, principal auth.Principal, query 
 				"desc":            item.Desc,
 				"publisher":       item.Publisher,
 				"created_at":      item.CreatedAt.Format(time.RFC3339),
-				"review_status":   normalizeReviewStatus(item.ReviewStatus),
+				"status":          normalizeReviewStatus(item.ReviewStatus),
 			},
 		})
 	}
@@ -182,7 +186,7 @@ func (s *Service) ListFeed(ctx context.Context, principal auth.Principal, query 
 				"desc":            item.Desc,
 				"publisher":       item.Publisher,
 				"created_at":      item.CreatedAt.Format(time.RFC3339),
-				"review_status":   normalizeReviewStatus(item.ReviewStatus),
+				"status":          normalizeReviewStatus(item.ReviewStatus),
 			},
 		})
 	}
@@ -214,7 +218,7 @@ func (s *Service) ListFeed(ctx context.Context, principal auth.Principal, query 
 				"desc":            carpoolFeedDesc(item),
 				"publisher":       item.Publisher,
 				"created_at":      item.CreatedAt.Format(time.RFC3339),
-				"review_status":   normalizeReviewStatus(item.ReviewStatus),
+				"status":          normalizeReviewStatus(item.ReviewStatus),
 				"extra": map[string]any{
 					"category":   normalizedCarpoolCategory(item, now),
 					"from":       item.From,
@@ -258,7 +262,7 @@ func (s *Service) ListFeed(ctx context.Context, principal auth.Principal, query 
 				"desc":            meetupFeedDesc(item),
 				"publisher":       item.Publisher,
 				"created_at":      item.CreatedAt.Format(time.RFC3339),
-				"review_status":   normalizeReviewStatus(item.ReviewStatus),
+				"status":          mergeMeetupStatus(item.Status, item.ReviewStatus),
 				"extra": map[string]any{
 					"category":        item.Category,
 					"location":        item.Location,
@@ -322,7 +326,7 @@ func (s *Service) ListMarket(ctx context.Context, principal auth.Principal, quer
 			"likes":             item.Likes,
 			"liked":             item.LikedByUserIDs[principal.UserID],
 			"created_at":        item.CreatedAt.Format(time.RFC3339),
-			"review_status":     normalizeReviewStatus(item.ReviewStatus),
+			"status":            normalizeReviewStatus(item.ReviewStatus),
 			"extra": map[string]any{
 				"category":       item.Extra.Category,
 				"price":          item.Extra.Price,
@@ -368,7 +372,7 @@ func (s *Service) GetMarketDetail(ctx context.Context, principal auth.Principal,
 		"likes":             item.Likes,
 		"liked":             item.LikedByUserIDs[principal.UserID],
 		"created_at":        item.CreatedAt.Format(time.RFC3339),
-		"review_status":     normalizeReviewStatus(item.ReviewStatus),
+		"status":            normalizeReviewStatus(item.ReviewStatus),
 		"can_view_contact":  canView,
 		"extra": map[string]any{
 			"category":       item.Extra.Category,
@@ -396,7 +400,7 @@ func (s *Service) PublishMarket(ctx context.Context, principal auth.Principal, r
 		ID:               id,
 		Title:            strings.TrimSpace(request.Title),
 		Desc:             strings.TrimSpace(request.Desc),
-		ReviewStatus:     reviewStatusReviewing,
+		ReviewStatus:     statusReviewing,
 		PublisherUserID:  principal.UserID,
 		Publisher:        displayName(principal),
 		PublisherInitial: initialOf(displayName(principal)),
@@ -482,7 +486,7 @@ func (s *Service) ListErrands(ctx context.Context, principal auth.Principal, que
 		if query.UserRole != "" && role != query.UserRole {
 			continue
 		}
-		accepted := item.Status == "accepted"
+		status := mergeErrandStatus(item.Status, item.ReviewStatus)
 		filtered = append(filtered, map[string]any{
 			"id":                item.ID,
 			"category":          item.Category,
@@ -492,14 +496,13 @@ func (s *Service) ListErrands(ctx context.Context, principal auth.Principal, que
 			"route_end":         item.RouteEnd,
 			"deadline":          item.Deadline.Format(time.RFC3339),
 			"reward":            item.Reward,
-			"status":            item.Status,
+			"status":            status,
 			"user_role":         role,
-			"is_accepted":       accepted,
+			"is_accepted":       status == statusAccepted,
 			"views":             0,
 			"publisher":         item.Publisher,
 			"publisher_initial": item.PublisherInitial,
 			"created_at":        item.CreatedAt.Format(time.RFC3339),
-			"review_status":     normalizeReviewStatus(item.ReviewStatus),
 		})
 	}
 
@@ -519,6 +522,7 @@ func (s *Service) GetErrandDetail(ctx context.Context, principal auth.Principal,
 	}
 	role := errandUserRole(item, principal)
 	canView := canViewContact(principal, item.PublisherUserID)
+	status := mergeErrandStatus(item.Status, item.ReviewStatus)
 	resolvedImages := resolveManagedURLs(ctx, s.storageProvider, item.Images)
 	return map[string]any{
 		"item": map[string]any{
@@ -531,24 +535,22 @@ func (s *Service) GetErrandDetail(ctx context.Context, principal auth.Principal,
 			"deadline":          item.Deadline.Format(time.RFC3339),
 			"reward":            item.Reward,
 			"contact":           visibleValue(canView, item.Contact),
-			"status":            item.Status,
-			"is_accepted":       item.Status == "accepted",
+			"status":            status,
+			"is_accepted":       status == statusAccepted,
 			"images":            resolvedImages,
 			"publisher":         item.Publisher,
 			"publisher_initial": item.PublisherInitial,
 			"created_at":        item.CreatedAt.Format(time.RFC3339),
-			"review_status":     normalizeReviewStatus(item.ReviewStatus),
 			"extra": map[string]any{
-				"category":      item.Category,
-				"route_start":   item.RouteStart,
-				"route_end":     item.RouteEnd,
-				"deadline":      item.Deadline.Format(time.RFC3339),
-				"reward":        item.Reward,
-				"contact":       visibleValue(canView, item.Contact),
-				"images":        resolvedImages,
-				"status":        item.Status,
-				"review_status": normalizeReviewStatus(item.ReviewStatus),
-				"urgent":        item.Urgent,
+				"category":    item.Category,
+				"route_start": item.RouteStart,
+				"route_end":   item.RouteEnd,
+				"deadline":    item.Deadline.Format(time.RFC3339),
+				"reward":      item.Reward,
+				"contact":     visibleValue(canView, item.Contact),
+				"images":      resolvedImages,
+				"status":      status,
+				"urgent":      item.Urgent,
 			},
 		},
 		"user_role":        role,
@@ -572,7 +574,7 @@ func (s *Service) PublishErrand(ctx context.Context, principal auth.Principal, r
 		ID:               id,
 		Title:            strings.TrimSpace(request.Title),
 		Desc:             strings.TrimSpace(request.Desc),
-		ReviewStatus:     reviewStatusReviewing,
+		ReviewStatus:     statusReviewing,
 		Category:         strings.TrimSpace(request.Category),
 		RouteStart:       strings.TrimSpace(request.RouteStart),
 		RouteEnd:         strings.TrimSpace(request.RouteEnd),
@@ -599,16 +601,22 @@ func (s *Service) AcceptErrand(ctx context.Context, principal auth.Principal, ta
 		if item.PublisherUserID == principal.UserID {
 			return httpx.BadRequest("不能接自己发布的任务", nil)
 		}
-		if normalizeReviewStatus(item.ReviewStatus) != reviewStatusPublished {
-			return httpx.BadRequest("该任务仍在审核中，暂不可接单", nil)
+		status := mergeErrandStatus(item.Status, item.ReviewStatus)
+		if status != statusPublished {
+			switch status {
+			case statusReviewing:
+				return httpx.BadRequest("该任务仍在审核中，暂不可接单", nil)
+			case statusRejected:
+				return httpx.BadRequest("该任务审核未通过，无法接单", nil)
+			case statusOffline:
+				return httpx.BadRequest("该任务已下线，无法接单", nil)
+			case statusCancelled:
+				return httpx.BadRequest("该任务已取消", nil)
+			case statusAccepted:
+				return httpx.BadRequest("该任务已被接单", nil)
+			}
 		}
-		if item.Status == "accepted" {
-			return httpx.BadRequest("该任务已被接单", nil)
-		}
-		if item.Status == "cancelled" {
-			return httpx.BadRequest("该任务已取消", nil)
-		}
-		item.Status = "accepted"
+		item.Status = statusAccepted
 		item.AcceptorUserID = principal.UserID
 		return nil
 	})
@@ -676,7 +684,7 @@ func (s *Service) ListResources(ctx context.Context, query cltypes.ResourceQuery
 	sort.Slice(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
 	filtered := make([]map[string]any, 0)
 	for _, item := range items {
-		if normalizeReviewStatus(item.ReviewStatus) != reviewStatusPublished {
+		if normalizeReviewStatus(item.ReviewStatus) != statusPublished {
 			continue
 		}
 		if query.Category != "" && query.Category != item.Extra.Category {
@@ -693,7 +701,7 @@ func (s *Service) ListResources(ctx context.Context, query cltypes.ResourceQuery
 			"publisher":         item.Publisher,
 			"publisher_initial": item.PublisherInitial,
 			"created_at":        item.CreatedAt.Format(time.RFC3339),
-			"review_status":     normalizeReviewStatus(item.ReviewStatus),
+			"status":            normalizeReviewStatus(item.ReviewStatus),
 			"extra": map[string]any{
 				"category":     item.Extra.Category,
 				"course_name":  item.Extra.CourseName,
@@ -729,7 +737,7 @@ func (s *Service) GetResourceDetail(ctx context.Context, principal auth.Principa
 		"publisher":         item.Publisher,
 		"publisher_initial": item.PublisherInitial,
 		"created_at":        item.CreatedAt.Format(time.RFC3339),
-		"review_status":     normalizeReviewStatus(item.ReviewStatus),
+		"status":            normalizeReviewStatus(item.ReviewStatus),
 		"extra": map[string]any{
 			"category":     item.Extra.Category,
 			"course_name":  item.Extra.CourseName,
@@ -769,7 +777,7 @@ func (s *Service) PublishResource(ctx context.Context, principal auth.Principal,
 		ID:               id,
 		Title:            strings.TrimSpace(request.Title),
 		Desc:             firstNonEmpty(strings.TrimSpace(request.Desc), strings.TrimSpace(request.Title)),
-		ReviewStatus:     reviewStatusReviewing,
+		ReviewStatus:     statusReviewing,
 		PublisherUserID:  principal.UserID,
 		Publisher:        displayName(principal),
 		PublisherInitial: initialOf(displayName(principal)),
@@ -820,7 +828,7 @@ func (s *Service) ListLostFound(ctx context.Context, principal auth.Principal, q
 			"publisher":         item.Publisher,
 			"publisher_initial": item.PublisherInitial,
 			"created_at":        item.CreatedAt.Format(time.RFC3339),
-			"review_status":     normalizeReviewStatus(item.ReviewStatus),
+			"status":            normalizeReviewStatus(item.ReviewStatus),
 			"extra": map[string]any{
 				"type":         item.Extra.Type,
 				"category":     item.Extra.Category,
@@ -853,7 +861,7 @@ func (s *Service) GetLostFoundDetail(ctx context.Context, principal auth.Princip
 		"publisher":         item.Publisher,
 		"publisher_initial": item.PublisherInitial,
 		"created_at":        item.CreatedAt.Format(time.RFC3339),
-		"review_status":     normalizeReviewStatus(item.ReviewStatus),
+		"status":            normalizeReviewStatus(item.ReviewStatus),
 		"extra": map[string]any{
 			"type":         item.Extra.Type,
 			"category":     item.Extra.Category,
@@ -877,7 +885,7 @@ func (s *Service) PublishLostFound(ctx context.Context, principal auth.Principal
 		ID:               id,
 		Title:            strings.TrimSpace(request.Title),
 		Desc:             strings.TrimSpace(request.Desc),
-		ReviewStatus:     reviewStatusReviewing,
+		ReviewStatus:     statusReviewing,
 		PublisherUserID:  principal.UserID,
 		Publisher:        displayName(principal),
 		PublisherInitial: initialOf(displayName(principal)),
@@ -908,7 +916,7 @@ func (s *Service) ListCarpools(ctx context.Context, principal auth.Principal, qu
 	now := time.Now().In(chinaLocation)
 	filtered := make([]map[string]any, 0)
 	for _, item := range items {
-		if normalizeReviewStatus(item.ReviewStatus) != reviewStatusPublished {
+		if normalizeReviewStatus(item.ReviewStatus) != statusPublished {
 			continue
 		}
 		if query.Category != "" && query.Category != "all" && normalizedCarpoolCategory(item, now) != query.Category {
@@ -981,7 +989,7 @@ func (s *Service) PublishCarpool(ctx context.Context, principal auth.Principal, 
 		Note:             strings.TrimSpace(request.Note),
 		Tags:             sanitizeTags(request.Tags),
 		Contact:          strings.TrimSpace(request.Contact),
-		ReviewStatus:     reviewStatusReviewing,
+		ReviewStatus:     statusReviewing,
 		PublisherUserID:  principal.UserID,
 		Publisher:        displayName(principal),
 		PublisherInitial: initialOf(displayName(principal)),
@@ -1087,7 +1095,7 @@ func (s *Service) PublishMeetup(ctx context.Context, principal auth.Principal, r
 		Tags:             sanitizeTags(request.Tags),
 		Contact:          strings.TrimSpace(request.Contact),
 		Status:           "open",
-		ReviewStatus:     reviewStatusReviewing,
+		ReviewStatus:     statusReviewing,
 		PublisherUserID:  principal.UserID,
 		Publisher:        displayName(principal),
 		PublisherInitial: initialOf(displayName(principal)),
@@ -1107,15 +1115,20 @@ func (s *Service) JoinMeetup(ctx context.Context, principal auth.Principal, meet
 		if item.PublisherUserID == principal.UserID {
 			return httpx.BadRequest("不能报名自己发起的组局", nil)
 		}
-		if normalizeReviewStatus(item.ReviewStatus) != reviewStatusPublished {
-			return httpx.BadRequest("该组局仍在审核中，暂不可报名", nil)
-		}
-		*item = refreshMeetupStatus(*item)
-		if item.Status == "cancelled" {
-			return httpx.BadRequest("该组局已取消", nil)
-		}
-		if item.Status == "full" {
-			return httpx.BadRequest("该组局人数已满", nil)
+		status := mergeMeetupStatus(item.Status, item.ReviewStatus)
+		if status != statusOpen {
+			switch status {
+			case statusReviewing:
+				return httpx.BadRequest("该组局仍在审核中，暂不可报名", nil)
+			case statusRejected:
+				return httpx.BadRequest("该组局审核未通过，无法报名", nil)
+			case statusOffline:
+				return httpx.BadRequest("该组局已下线，无法报名", nil)
+			case statusCancelled:
+				return httpx.BadRequest("该组局已取消", nil)
+			case statusFull:
+				return httpx.BadRequest("该组局人数已满", nil)
+			}
 		}
 		now := time.Now().UTC()
 		if !item.DeadlineAt.IsZero() && item.DeadlineAt.Before(now) {
@@ -1570,7 +1583,7 @@ func isAppError(err error) bool {
 func buildCarpoolPayload(item cltypes.CarpoolItem, canView bool, now time.Time) map[string]any {
 	category := normalizedCarpoolCategory(item, now)
 	timeText := formatCarpoolTravelText(item.TravelAt, now)
-	reviewStatus := normalizeReviewStatus(item.ReviewStatus)
+	status := normalizeReviewStatus(item.ReviewStatus)
 	return map[string]any{
 		"id":                item.ID,
 		"category":          category,
@@ -1583,23 +1596,23 @@ func buildCarpoolPayload(item cltypes.CarpoolItem, canView bool, now time.Time) 
 		"note":              item.Note,
 		"tags":              append([]string(nil), item.Tags...),
 		"contact":           visibleValue(canView, item.Contact),
-		"review_status":     reviewStatus,
+		"status":            status,
 		"publisher":         item.Publisher,
 		"publisher_initial": item.PublisherInitial,
 		"created_at":        item.CreatedAt.Format(time.RFC3339),
 		"extra": map[string]any{
-			"category":      category,
-			"from":          item.From,
-			"to":            item.To,
-			"time":          timeText,
-			"type":          item.Type,
-			"seats_text":    item.SeatsText,
-			"price":         item.Price,
-			"note":          item.Note,
-			"tags":          append([]string(nil), item.Tags...),
-			"contact":       visibleValue(canView, item.Contact),
-			"travel_at":     item.TravelAt.In(chinaLocation).Format(time.RFC3339),
-			"review_status": reviewStatus,
+			"category":  category,
+			"from":      item.From,
+			"to":        item.To,
+			"time":      timeText,
+			"type":      item.Type,
+			"seats_text": item.SeatsText,
+			"price":     item.Price,
+			"note":      item.Note,
+			"tags":      append([]string(nil), item.Tags...),
+			"contact":   visibleValue(canView, item.Contact),
+			"travel_at": item.TravelAt.In(chinaLocation).Format(time.RFC3339),
+			"status":    status,
 		},
 	}
 }
@@ -1607,13 +1620,12 @@ func buildCarpoolPayload(item cltypes.CarpoolItem, canView bool, now time.Time) 
 func buildMeetupPayload(item cltypes.MeetupItem, principal auth.Principal, now time.Time) map[string]any {
 	canView := canViewContact(principal, item.PublisherUserID)
 	userRole := meetupUserRole(item, principal)
-	status := normalizeMeetupStatus(item.Status)
+	status := mergeMeetupStatus(item.Status, item.ReviewStatus)
 	joinedCount := meetupJoinedCount(item)
 	remainingSeats := meetupRemainingSeats(item)
 	canJoin := principal.Authenticated &&
 		userRole == "viewer" &&
-		normalizeReviewStatus(item.ReviewStatus) == reviewStatusPublished &&
-		status == "open" &&
+		status == statusOpen &&
 		remainingSeats > 0 &&
 		(item.DeadlineAt.IsZero() || item.DeadlineAt.After(now.UTC())) &&
 		(item.StartAt.IsZero() || item.StartAt.After(now.UTC()))
@@ -1633,15 +1645,14 @@ func buildMeetupPayload(item cltypes.MeetupItem, principal auth.Principal, now t
 		"tags":               append([]string(nil), item.Tags...),
 		"contact":            visibleValue(canView, item.Contact),
 		"status":             status,
-		"review_status":      normalizeReviewStatus(item.ReviewStatus),
 		"publisher":          item.Publisher,
 		"publisher_initial":  item.PublisherInitial,
 		"created_at":         item.CreatedAt.Format(time.RFC3339),
 		"user_role":          userRole,
 		"joined":             userRole == "participant",
 		"can_join":           canJoin,
-		"can_cancel_join":    userRole == "participant" && status != "cancelled",
-		"can_cancel_publish": userRole == "publisher" && status != "cancelled",
+		"can_cancel_join":    userRole == "participant" && status != statusCancelled,
+		"can_cancel_publish": userRole == "publisher" && status != statusCancelled,
 		"extra": map[string]any{
 			"category":         item.Category,
 			"location":         item.Location,
@@ -1654,13 +1665,12 @@ func buildMeetupPayload(item cltypes.MeetupItem, principal auth.Principal, now t
 			"tags":             append([]string(nil), item.Tags...),
 			"contact":          visibleValue(canView, item.Contact),
 			"status":           status,
-			"review_status":    normalizeReviewStatus(item.ReviewStatus),
 		},
 	}
 }
 
 func shouldExposeContent(principal auth.Principal, ownerUserID, reviewStatus, userRole string) bool {
-	if normalizeReviewStatus(reviewStatus) == reviewStatusPublished {
+	if normalizeReviewStatus(reviewStatus) == statusPublished {
 		return true
 	}
 	return canAccessPendingContent(principal, ownerUserID, userRole)
@@ -1707,12 +1717,57 @@ func shouldExposeMeetupState(principal auth.Principal, item cltypes.MeetupItem, 
 
 func normalizeMeetupStatus(status string) string {
 	switch strings.TrimSpace(strings.ToLower(status)) {
-	case "cancelled":
-		return "cancelled"
-	case "full":
-		return "full"
+	case statusCancelled:
+		return statusCancelled
+	case statusFull:
+		return statusFull
 	default:
-		return "open"
+		return statusOpen
+	}
+}
+
+func normalizeReviewStatus(status string) string {
+	switch strings.TrimSpace(strings.ToLower(status)) {
+	case statusReviewing:
+		return statusReviewing
+	case statusRejected:
+		return statusRejected
+	case statusOffline:
+		return statusOffline
+	default:
+		return statusPublished
+	}
+}
+
+func isSupportedReviewStatus(status string) bool {
+	switch strings.TrimSpace(strings.ToLower(status)) {
+	case statusReviewing, statusPublished, statusRejected, statusOffline:
+		return true
+	default:
+		return false
+	}
+}
+
+func mergeMeetupStatus(businessStatus, reviewStatus string) string {
+	normalizedReviewStatus := normalizeReviewStatus(reviewStatus)
+	if normalizedReviewStatus != statusPublished {
+		return normalizedReviewStatus
+	}
+	return normalizeMeetupStatus(businessStatus)
+}
+
+func mergeErrandStatus(businessStatus, reviewStatus string) string {
+	normalizedReviewStatus := normalizeReviewStatus(reviewStatus)
+	if normalizedReviewStatus != statusPublished {
+		return normalizedReviewStatus
+	}
+	switch strings.TrimSpace(strings.ToLower(businessStatus)) {
+	case statusCancelled:
+		return statusCancelled
+	case statusAccepted:
+		return statusAccepted
+	default:
+		return statusPublished
 	}
 }
 
@@ -1743,28 +1798,6 @@ func refreshMeetupStatus(item cltypes.MeetupItem) cltypes.MeetupItem {
 
 func canModerateCampusLife(principal auth.Principal) bool {
 	return principal.HasPermission(campusLifeModeratePermission)
-}
-
-func normalizeReviewStatus(status string) string {
-	switch strings.TrimSpace(strings.ToLower(status)) {
-	case reviewStatusReviewing:
-		return reviewStatusReviewing
-	case reviewStatusRejected:
-		return reviewStatusRejected
-	case reviewStatusOffline:
-		return reviewStatusOffline
-	default:
-		return reviewStatusPublished
-	}
-}
-
-func isSupportedReviewStatus(status string) bool {
-	switch strings.TrimSpace(strings.ToLower(status)) {
-	case reviewStatusReviewing, reviewStatusPublished, reviewStatusRejected, reviewStatusOffline:
-		return true
-	default:
-		return false
-	}
 }
 
 func matchReviewQuery(query cltypes.ReviewQuery, contentType, reviewStatus string, values ...string) bool {

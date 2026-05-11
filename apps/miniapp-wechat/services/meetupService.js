@@ -13,18 +13,15 @@ const CATEGORY_LABEL_MAP = MEETUP_CATEGORIES.reduce((map, item) => {
 const STATUS_META = {
   reviewing: { text: '审核中', tone: 'amber' },
   published: { text: '报名中', tone: 'green' },
-  rejected: { text: '已下架', tone: 'red' },
+  open: { text: '报名中', tone: 'green' },
+  rejected: { text: '审核未通过', tone: 'red' },
   offline: { text: '已下架', tone: 'red' },
   full: { text: '人数已满', tone: 'purple' },
   cancelled: { text: '已取消', tone: 'red' },
 };
 
-function resolveStatusMeta(status, reviewStatus) {
-  if (reviewStatus === 'reviewing') return STATUS_META.reviewing;
-  if (reviewStatus === 'rejected' || reviewStatus === 'offline') return STATUS_META[reviewStatus];
-  if (status === 'full') return STATUS_META.full;
-  if (status === 'cancelled') return STATUS_META.cancelled;
-  return STATUS_META.published;
+function resolveStatusMeta(status) {
+  return STATUS_META[status] || STATUS_META.published;
 }
 
 function getActionText(item) {
@@ -32,7 +29,7 @@ function getActionText(item) {
   if (item.canCancelJoin) return '取消报名';
   if (item.canJoin) return '立即报名';
   if (item.userRole === 'participant') return '已报名';
-  if (item.reviewStatus === 'reviewing') return '等待审核';
+  if (item.status === 'reviewing') return '等待审核';
   if (item.status === 'full') return '人数已满';
   if (item.status === 'cancelled') return '组局已取消';
   return '查看详情';
@@ -42,8 +39,7 @@ function mapMeetupItem(item = {}) {
   const extra = item.extra || {};
   const category = item.category || extra.category || 'other';
   const status = item.status || extra.status || 'open';
-  const reviewStatus = item.review_status || extra.review_status || 'published';
-  const statusMeta = resolveStatusMeta(status, reviewStatus);
+  const statusMeta = resolveStatusMeta(status);
   const joinedCount = Number(item.joined_count || extra.joined_count || 1);
   const remainingSeats = Number(item.remaining_seats || extra.remaining_seats || 0);
   const startAt = item.start_at || extra.start_at || '';
@@ -67,7 +63,6 @@ function mapMeetupItem(item = {}) {
     tags: item.tags || extra.tags || [],
     contact: item.contact || extra.contact || '',
     status,
-    reviewStatus,
     statusText: statusMeta.text,
     statusTone: statusMeta.tone,
     publisher: item.publisher || '',
@@ -85,7 +80,6 @@ function mapMeetupItem(item = {}) {
       canCancelJoin: Boolean(item.can_cancel_join),
       canJoin: Boolean(item.can_join),
       userRole: item.user_role || 'viewer',
-      reviewStatus,
       status,
     }),
   };

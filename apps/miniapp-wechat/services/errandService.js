@@ -30,6 +30,10 @@ function mapErrandItem(item = {}) {
   if (isPublisher) actionText = '我的发布';
   else if (isAcceptor) actionText = '已接单';
   else if (isAccepted) actionText = '已被接';
+  else if (status === 'reviewing') actionText = '审核中';
+  else if (status === 'rejected') actionText = '审核未通过';
+  else if (status === 'offline') actionText = '已下线';
+  else if (status === 'cancelled') actionText = '已取消';
 
   return {
     id: item.id,
@@ -53,7 +57,7 @@ function mapErrandItem(item = {}) {
     status,
     userRole,
     accepted: isAccepted,
-    canAccept: !isPublisher && !isAccepted && status !== 'cancelled',
+    canAccept: !isPublisher && !isAccepted && status === 'published',
     actionText,
   };
 }

@@ -196,13 +196,13 @@ func TestMiniappCoreAPIs(t *testing.T) {
 
 		var ownerDetail struct {
 			Data struct {
-				ReviewStatus string `json:"review_status"`
+				Status string `json:"status"`
 			} `json:"data"`
 		}
 		if err := json.Unmarshal(recorder.Body.Bytes(), &ownerDetail); err != nil {
 			t.Fatalf("unmarshal owner carpool detail failed: %v", err)
 		}
-		if ownerDetail.Data.ReviewStatus != "reviewing" {
+		if ownerDetail.Data.Status != "reviewing" {
 			t.Fatalf("expected reviewing status, got %s", recorder.Body.String())
 		}
 
