@@ -195,16 +195,14 @@ Page({
         fileList.map((file) => uploadFile(file.url, { name: file.name, scene: 'resource' })),
       );
     } catch (error) {
-      if (error && error.statusCode === 404) {
-        throw new Error('当前服务端未部署文件上传接口，暂时无法发布资料');
-      }
-      throw new Error(error.message || '文件上传失败，请稍后重试');
+      console.log('上传资料文件失败:', error);
+      throw new Error('文件上传失败，请检查网络后重试');
     }
 
     const filePaths = results.map(getUploadResultPath).filter(Boolean);
 
     if (filePaths.length !== fileList.length) {
-      throw new Error('部分文件上传失败');
+      throw new Error('文件上传失败，请检查网络后重试');
     }
 
     return filePaths;

@@ -53,6 +53,14 @@
 
 - [API.md](/Users/liangluo/code/weouc2026/apps/miniapp-wechat/API.md)：微信小程序当前依赖的后端接口说明
 
+## 提测前 COS 检查项
+
+- `uploadFile` 合法域名：微信公众平台需配置后端 API 域名，以及腾讯 COS 上传域名（例如 `https://<bucket>.cos.<region>.myqcloud.com`）。
+- `downloadFile` 合法域名：微信公众平台需配置预签名 URL 所属 COS 下载域名，确保资料、图片回显和下载可访问。
+- COS bucket CORS：允许小程序直传所需的 `PUT` / `OPTIONS` 请求、必要请求头和业务侧访问来源。
+- STS 权限范围：临时凭证只允许写入后端返回的 `path_prefix` 范围，场景、用户与日期前缀需要和后端配置一致。
+- 预签名 URL 有效期：确认 `/upload/presigned-get` 返回的下载地址有效期覆盖页面预览、详情查看和资料下载的提测场景。
+
 ## 本地校验
 
 ```bash
