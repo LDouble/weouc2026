@@ -61,6 +61,27 @@
 - 详情接口推荐显式返回 `can_view_contact`，列表接口推荐在无权场景直接返回空联系方式
 - 校园生活新发布内容默认进入 `reviewing`，公开列表只显示 `published`；“我的发布”依赖 `review_status` 展示待审/已发布/已下架
 
+
+### 1.5 客户端网络失败重试约定
+
+小程序请求层只对 `wx.request.fail` 这类网络失败做自动重试，业务错误、`4xx/5xx` HTTP 响应和服务端返回的 `error` 对象不自动重试。
+
+- `GET`：默认允许自动重试一次；调用方如需关闭，可传 `options.retryOnNetworkFail === false`。
+- `POST` / `PUT` / `DELETE`：默认禁止自动重试；只有调用方显式传 `options.retryOnNetworkFail === true` 时，才允许自动重试一次。
+- 非幂等接口不得开启 `retryOnNetworkFail`，页面必须按“结果未知”处理网络失败，提示用户：`网络异常，请到我的发布/消息列表确认结果`。
+- 消息已读回执网络失败时不得自动重试，消息中心页面提示：`网络异常，请到消息列表确认结果`。
+
+必须视为非幂等、不得自动重试的接口：
+
+| 场景 | 接口 | 页面处理 |
+| --- | --- | --- |
+| 校园生活发布 | `POST /market/publish`、`POST /errand/publish`、`POST /resource/publish`、`POST /lostFound/publish`、`POST /carpool/publish`、`POST /meetup/publish` | 网络失败提示到“我的发布/消息列表”确认结果 |
+| 跑腿接单 | `POST /errand/accept` | 网络失败提示到“我的发布/消息列表”确认结果 |
+| 组局报名/取消/撤销 | `POST /meetup/join`、`POST /meetup/cancel-join`、`POST /meetup/cancel-publish` | 网络失败提示到“我的发布/消息列表”确认结果 |
+| 消息已读回执 | `POST /notification/read` | 网络失败提示到消息列表确认结果 |
+| 收藏状态切换 | `POST /market/favorite`、`POST /resource/favorite` | 默认不自动重试；页面可保持原状态或重新拉取列表 |
+| 教务绑定与解绑 | `POST /student`、`PUT /student`、`POST /edu/send-captcha` | 默认不自动重试；页面提示用户重新确认绑定状态 |
+
 ## 2. 会话与身份
 
 ### 2.1 微信登录
@@ -288,6 +309,7 @@
 
 - 方法：`POST /market/publish`
 - 使用位置：统一发布页
+- 重试约定：非幂等，网络失败不得自动重试
 
 请求体字段：
 
@@ -347,6 +369,7 @@
 ### 5.3 接单
 
 - 方法：`POST /errand/accept`
+- 重试约定：非幂等，网络失败不得自动重试
 
 请求体：
 
@@ -359,6 +382,7 @@
 ### 5.4 发布
 
 - 方法：`POST /errand/publish`
+- 重试约定：非幂等，网络失败不得自动重试
 
 说明：
 
@@ -410,6 +434,7 @@
 ### 6.4 发布
 
 - 方法：`POST /resource/publish`
+- 重试约定：非幂等，网络失败不得自动重试
 
 请求体字段：
 
@@ -469,6 +494,7 @@
 ### 7.3 发布
 
 - 方法：`POST /lostFound/publish`
+- 重试约定：非幂等，网络失败不得自动重试
 
 ## 8. 校园拼车
 
@@ -519,6 +545,7 @@
 
 - 方法：`POST /carpool/publish`
 - 使用位置：拼车发布页
+- 重试约定：非幂等，网络失败不得自动重试
 
 请求体字段：
 
@@ -601,6 +628,7 @@
 
 - 方法：`POST /meetup/publish`
 - 使用位置：组局发布页
+- 重试约定：非幂等，网络失败不得自动重试
 
 请求体字段：
 
@@ -625,6 +653,7 @@
 
 - 方法：`POST /meetup/join`
 - 使用位置：组局详情页
+- 重试约定：非幂等，网络失败不得自动重试
 
 请求体：
 
@@ -715,6 +744,7 @@
 
 - 方法：`POST /notification/read`
 - 使用位置：消息中心点击通知后回执
+- 重试约定：非幂等，网络失败不得自动重试
 
 请求体：
 

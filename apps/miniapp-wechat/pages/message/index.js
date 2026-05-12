@@ -2,6 +2,7 @@ import {
   loadNotificationList,
   readNotification,
 } from '../../services/notificationService';
+import { NETWORK_MESSAGE_CONFIRM_MESSAGE, isNetworkFail } from '../../utils/networkError';
 
 Page({
   data: {
@@ -91,7 +92,11 @@ Page({
         return { ...item, read: true };
       });
       this.setData({ messageList: nextList });
-    } catch (_) {}
+    } catch (error) {
+      if (isNetworkFail(error)) {
+        wx.showToast({ title: NETWORK_MESSAGE_CONFIRM_MESSAGE, icon: 'none' });
+      }
+    }
   },
 
   onOpenMessage(event) {
