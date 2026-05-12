@@ -52,3 +52,14 @@
 ## 接口文档
 
 - [API.md](/Users/liangluo/code/weouc2026/apps/miniapp-wechat/API.md)：微信小程序当前依赖的后端接口说明
+
+## 本地校验
+
+```bash
+cd /Users/liangluo/code/weouc2026/apps/miniapp-wechat
+npm run check:syntax
+```
+
+说明：
+
+- 该校验会递归检查 `api/`、`services/`、`stores/`、`pages/`、`components/` 等目录下的 `.js` 语法正确性。

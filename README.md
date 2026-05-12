@@ -52,3 +52,12 @@
 3. 建立 `OpenAPI -> JS SDK / Dart SDK` 的生成链路
 4. 再分别启动管理员后台、小程序、Flutter App 的外壳工程
 
+## 最小校验入口
+
+```bash
+# 使用本地依赖执行最小校验
+make check
+
+# 使用与 CI 一致的安装+校验流程
+make ci-check
+```

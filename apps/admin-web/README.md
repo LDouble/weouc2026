@@ -78,6 +78,9 @@ npm run dev
 # 构建生产版本
 npm run build
 
+# 类型检查（不产出构建物）
+npm run typecheck
+
 # 预览生产版本
 npm run preview
 ```

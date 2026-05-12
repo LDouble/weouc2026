@@ -1,0 +1,62 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-test:
+    name: backend / go test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/api-server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: services/api-server/go.mod
+      - name: go test
+        run: go test ./...
+
+  admin-web-build:
+    name: admin-web / typecheck + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/admin-web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/admin-web/package-lock.json
+      - name: npm ci
+        run: npm ci
+      - name: npm run build
+        run: npm run build
+
+  miniapp-check:
+    name: miniapp / syntax check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/miniapp-wechat
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/miniapp-wechat/package-lock.json
+      - name: npm ci
+        run: npm ci
+      - name: npm run check:syntax
+        run: npm run check:syntax
