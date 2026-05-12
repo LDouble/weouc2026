@@ -26,6 +26,7 @@ App({
 
   globalData: {
     userInfo: null,
+    unreadNum: 0,
   },
 
   eventBus: createBus(),

@@ -32,7 +32,7 @@
           bindchange="onHeroChange"
         >
           <swiper-item wx:for="{{heroCards}}" wx:key="id">
-            <view class="hero-card hero-card--{{item.theme}}" hover-class="tap-card">
+            <view class="hero-card hero-card--{{item.theme}}" hover-class="tap-card" data-item="{{item}}" bindtap="goHero">
               <view class="hero-card__shine"></view>
               <view class="hero-card__orb hero-card__orb--right"></view>
               <view class="hero-card__orb hero-card__orb--left"></view>
@@ -84,6 +84,25 @@
             <t-icon name="{{item.icon}}" size="30rpx" />
           </view>
           <view class="quick-link__label">{{item.label}}</view>
+        </view>
+      </view>
+
+      <view wx:if="{{noticeCards.length}}" class="section-head section-head--course">
+        <view class="section-head__left">
+          <t-icon name="notification" size="28rpx" />
+          <text>最新公告</text>
+        </view>
+        <view class="week-pill" bindtap="goNotify">{{unreadNum > 0 ? unreadNum + ' 未读' : '全部已读'}}</view>
+      </view>
+
+      <view wx:if="{{noticeCards.length}}" class="notice-strip">
+        <view wx:for="{{noticeCards}}" wx:key="id" class="notice-strip__item" data-item="{{item}}" hover-class="tap-card" bindtap="goHero">
+          <view class="notice-strip__tag">{{item.tag}}</view>
+          <view class="notice-strip__body">
+            <view class="notice-strip__title">{{item.title}}</view>
+            <view class="notice-strip__desc">{{item.desc}}</view>
+          </view>
+          <t-icon name="chevron-right" size="22rpx" />
         </view>
       </view>
 

@@ -721,3 +721,102 @@
 - `lostFound` 路径建议后续统一命名风格，例如与业务域命名对齐为 `lost-found`
 - 所有受限联系方式接口建议统一返回显式可见性字段，而不是让前端依赖“有值/没值”猜测权限
 - 当前已改为“业务仅持久化对象路径、后端读取时签 URL”，后续若引入文件元数据中心，应继续保持这一约束
+
+## 12. 门户首页与公告
+
+### 12.1 获取门户首页
+
+- 方法：`GET /portal/home`
+- 使用位置：首页轮播、首页最新公告
+
+成功响应建议字段：
+
+- `banners[].id`
+- `banners[].title`
+- `banners[].description`
+- `banners[].image_url`
+- `banners[].action_url`
+- `notices[].id`
+- `notices[].title`
+- `notices[].summary`
+- `notices[].tags`
+- `notices[].pinned`
+- `notices[].publisher`
+- `notices[].published_at`
+
+### 12.2 获取公告列表
+
+- 方法：`GET /portal/notices`
+- 使用位置：消息中心「校园公告」页签
+
+查询参数：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `page` | `number` | 页码 |
+| `pageSize` | `number` | 每页条数 |
+| `keyword` | `string` | 搜索关键词，当前小程序暂未暴露搜索框 |
+
+### 12.3 获取公告详情
+
+- 方法：`GET /portal/notices/{id}`
+- 使用位置：消息中心公告详情弹层/正文页
+
+详情额外字段建议：
+
+- `content`
+
+## 13. 站内通知
+
+### 13.1 获取通知列表
+
+- 方法：`GET /notification/list`
+- 使用位置：消息中心「站内通知」页签
+
+查询参数：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `page` | `number` | 页码 |
+| `pageSize` | `number` | 每页条数 |
+| `category` | `string` | 通知分类 |
+| `unread_only` | `boolean` | 是否只看未读 |
+
+列表项建议字段：
+
+- `id`
+- `title`
+- `content`
+- `category`
+- `action_url`
+- `publisher`
+- `created_at`
+- `read`
+- `read_at`
+
+说明：
+
+- `action_url` 当前仅允许跳转小程序内部 `/pages/` 路径。
+- 用户打开未读通知时，小程序会先本地置为已读，再调用已读回执接口；若回执失败会静默刷新列表。
+
+### 13.2 获取未读数量
+
+- 方法：`GET /notification/unread-count`
+- 使用位置：首页通知红点、自定义 TabBar 消息角标、消息中心刷新
+
+成功响应建议字段：
+
+- `count`
+
+### 13.3 标记通知已读
+
+- 方法：`POST /notification/read`
+- 使用位置：用户打开站内通知
+
+请求体：
+
+```json
+{
+  "message_id": "notification-101"
+}
+```
