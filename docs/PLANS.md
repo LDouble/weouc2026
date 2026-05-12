@@ -13,6 +13,7 @@
 
 ## 最近更新
 
+- `2026-05-12`：已补齐 `contracts -> SDK` 最小闭环入口：新增 `make generate-sdk` 与 `packages/contracts/scripts/generate-sdks.sh`，明确 JS/Dart SDK 生成目录和步骤。
 - `2026-05-12`：管理员后台 IAM 用户/角色/权限页已收口为真实会话快照视图，不再维护前端可编辑样例数据，并移除未落地后端接口的误导性调用。
 - `2026-05-12`：已补齐仓库级最小 CI（后端 `go test`、后台 `typecheck+build`、小程序语法校验）并新增统一本地校验入口 `make check` / `make ci-check`。
 - `2026-05-12`：微信小程序已收口门户与通知主线：首页接入门户公告卡片与通知未读角标，消息中心接入真实通知列表与已读回执，`dataCenter` 教务读取路径切到 `/academic/*` 契约。

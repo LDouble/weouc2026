@@ -61,3 +61,10 @@ make check
 # 使用与 CI 一致的安装+校验流程
 make ci-check
 ```
+
+## 契约生成入口
+
+```bash
+# 基于 OpenAPI 生成 JS / Dart SDK
+make generate-sdk
+```
