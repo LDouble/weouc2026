@@ -1,7 +1,7 @@
 import { fetchMeetupDetail, fetchMeetupList } from '~/api/modules/meetup';
 import { MEETUP_CATEGORIES } from '~/constants/campus';
 import { formatDateTime, formatRelativeTime } from '~/utils/date';
-import { dedupeById, unwrapPayload } from './shared';
+import { dedupeById, getReviewStatus, unwrapPayload } from './shared';
 
 const CATEGORY_LABEL_MAP = MEETUP_CATEGORIES.reduce((map, item) => {
   if (item.value && item.value !== 'all') {
@@ -11,10 +11,11 @@ const CATEGORY_LABEL_MAP = MEETUP_CATEGORIES.reduce((map, item) => {
 }, {});
 
 const STATUS_META = {
+  pending: { text: '审核中', tone: 'amber' },
   reviewing: { text: '审核中', tone: 'amber' },
   published: { text: '报名中', tone: 'green' },
   open: { text: '报名中', tone: 'green' },
-  rejected: { text: '审核未通过', tone: 'red' },
+  rejected: { text: '已下架', tone: 'red' },
   offline: { text: '已下架', tone: 'red' },
   full: { text: '人数已满', tone: 'purple' },
   cancelled: { text: '已取消', tone: 'red' },
@@ -29,7 +30,7 @@ function getActionText(item) {
   if (item.canCancelJoin) return '取消报名';
   if (item.canJoin) return '立即报名';
   if (item.userRole === 'participant') return '已报名';
-  if (item.status === 'reviewing') return '等待审核';
+  if (item.status === 'pending' || item.status === 'reviewing') return '等待审核';
   if (item.status === 'full') return '人数已满';
   if (item.status === 'cancelled') return '组局已取消';
   return '查看详情';
@@ -38,7 +39,7 @@ function getActionText(item) {
 function mapMeetupItem(item = {}) {
   const extra = item.extra || {};
   const category = item.category || extra.category || 'other';
-  const status = item.status || extra.status || 'open';
+  const status = getReviewStatus(item) || 'open';
   const statusMeta = resolveStatusMeta(status);
   const joinedCount = Number(item.joined_count || extra.joined_count || 1);
   const remainingSeats = Number(item.remaining_seats || extra.remaining_seats || 0);

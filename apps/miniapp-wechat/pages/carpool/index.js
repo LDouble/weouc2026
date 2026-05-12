@@ -1,17 +1,23 @@
 import { CARPOOL_TIME_FILTERS } from './data';
 import { fetchCarpoolDetail, fetchCarpoolList } from '../../api/modules/carpool';
+import { getReviewStatus } from '../../services/shared';
+
+function resolveCarpoolStatusMeta(reviewStatus) {
+  if (reviewStatus === 'pending' || reviewStatus === 'reviewing') {
+    return { text: '审核中', tone: 'amber' };
+  }
+  if (reviewStatus === 'cancelled') {
+    return { text: '已取消', tone: 'red' };
+  }
+  if (reviewStatus === 'rejected' || reviewStatus === 'offline') {
+    return { text: '已下架', tone: 'red' };
+  }
+  return { text: '可拼', tone: 'green' };
+}
 
 function mapCarpoolItem(item) {
   const extra = item.extra || {};
-  let status = '可拼';
-  let statusTone = 'green';
-  if (item.review_status === 'pending' || item.review_status === 'reviewing') {
-    status = '审核中';
-    statusTone = 'amber';
-  } else if (item.review_status === 'rejected') {
-    status = '已下架';
-    statusTone = 'red';
-  }
+  const statusMeta = resolveCarpoolStatusMeta(getReviewStatus(item));
   return {
     id: item.id,
     category: item.category || extra.category || '',
@@ -21,8 +27,8 @@ function mapCarpoolItem(item) {
     type: item.type || extra.type || '',
     seatsText: item.seats_text || extra.seats_text || '',
     price: item.price || extra.price || '',
-    status,
-    statusTone,
+    status: statusMeta.text,
+    statusTone: statusMeta.tone,
     sponsor: item.publisher || '',
     sponsorInitial: item.publisher_initial || '',
     sponsorTag: item.created_at || '',

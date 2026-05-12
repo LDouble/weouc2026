@@ -1,4 +1,5 @@
 import { fetchFeedList } from '~/api/modules/feed';
+import { getReviewStatus } from '../../../services/shared';
 
 const TYPE_MAP = {
   market: '跳蚤市场',
@@ -22,13 +23,16 @@ const STATUS_MAP = {
   pending: '审核中',
   reviewing: '审核中',
   published: '已发布',
+  open: '已发布',
   rejected: '已下架',
   offline: '已下架',
+  cancelled: '已取消',
 };
 
 function normalizeStatus(status) {
-  if (status === 'pending') return 'reviewing';
-  if (status === 'rejected') return 'offline';
+  if (status === 'pending' || status === 'reviewing') return 'reviewing';
+  if (status === 'published' || status === 'open') return 'published';
+  if (status === 'rejected' || status === 'offline' || status === 'cancelled') return 'offline';
   return status || 'published';
 }
 
@@ -76,14 +80,15 @@ Page({
       const data = res.data || res;
       const list = data.list || [];
       const allRecords = list.map((item) => {
-        const status = normalizeStatus(item.review_status);
+        const reviewStatus = getReviewStatus(item);
+        const status = normalizeStatus(reviewStatus);
         return {
           id: item.id,
           title: item.title || '',
           type: item.feed_type || '',
           typeName: TYPE_MAP[item.feed_type] || item.feed_type_label || '',
           status,
-          statusText: STATUS_MAP[item.review_status] || STATUS_MAP[status] || '已发布',
+          statusText: STATUS_MAP[reviewStatus] || STATUS_MAP[status] || '已发布',
           time: item.created_at || '',
           url: buildRecordUrl(item.feed_type, item.id),
         };

@@ -59,7 +59,15 @@
 - 联系方式、教务状态等受限信息必须由后端裁剪后再返回
 - 前端不允许根据本地状态自行推断联系方式是否可见
 - 详情接口推荐显式返回 `can_view_contact`，列表接口推荐在无权场景直接返回空联系方式
-- 校园生活新发布内容默认进入 `reviewing`，公开列表只显示 `published`；“我的发布”依赖 `review_status` 展示待审/已发布/已下架
+- 校园生活新发布内容默认进入 `reviewing`，公开列表只显示 `published`；小程序统一按 `review_status || status || extra.review_status || extra.status` 读取审核/可见状态，兼容 feed/list/detail 的新旧字段
+
+当前状态字段消费矩阵：
+
+| 场景 | 当前优先消费字段 | 兼容兜底 | 页面展示语义 |
+| --- | --- | --- | --- |
+| `GET /feed/list`（首页/我的发布） | `review_status` | `status`、`extra.review_status`、`extra.status` | `pending/reviewing` 为审核中，`published/open` 为已发布，`rejected/offline/cancelled` 归入下架/取消 |
+| `GET /carpool/list` / `GET /carpool/detail/{id}` | `review_status` | `status`、`extra.review_status`、`extra.status` | `pending/reviewing` 为审核中，`published/open` 为可拼，`rejected/offline` 为已下架，`cancelled` 为已取消 |
+| `GET /meetup/list` / `GET /meetup/detail/{id}` | `review_status` | `status`、`extra.review_status`、`extra.status` | `pending/reviewing` 为审核中，`published/open` 为报名中，`rejected/offline` 为已下架，`cancelled` 为已取消 |
 
 ## 2. 会话与身份
 
@@ -217,7 +225,8 @@
 | `desc` | `string` | 摘要 |
 | `publisher` | `string` | 发布人 |
 | `created_at` | `string` | 创建时间 |
-| `review_status` | `string` | `reviewing` / `published` / `rejected` / `offline` |
+| `review_status` | `string` | 当前 `feed/list` 优先消费的审核字段：`reviewing` / `published` / `rejected` / `offline`；若缺失则兼容读取 `status` / `extra.review_status` / `extra.status` |
+| `status` | `string` | 兼容字段；当前“我的发布”仅在 `review_status` 缺失时消费 |
 | `image` | `string` | 封面图 |
 | `extra.images` | `string[]` | 备用图片列表 |
 
@@ -500,6 +509,7 @@
 - `tags`
 - `contact`
 - `review_status`
+- `status`（兼容字段；当前列表页仅在 `review_status` 缺失时消费）
 - `publisher`
 - `publisher_initial`
 - `created_at`
@@ -509,6 +519,7 @@
 - `contact` 必须继续由后端按教务绑定状态裁剪
 - `time` 由后端基于稳定出发时间动态格式化为“今天 18:30 / 明天 09:00 / 5月18日 14:00”
 - 新发布拼车默认进入 `reviewing`；小程序发布成功后会带 `insertId` 回列表页，依赖详情接口插顶展示自己的待审记录
+- 列表与详情展示统一按 `review_status || status || extra.review_status || extra.status` 取值：`pending/reviewing` 显示“审核中”，`published/open` 显示“可拼”，`rejected/offline` 显示“已下架”，`cancelled` 显示“已取消”
 
 ### 8.2 获取详情
 
@@ -584,7 +595,9 @@
 说明：
 
 - 公开列表只展示 `published` 的组局；发起人和审核员可继续查看待审内容
-- `status` 会综合 `review_status` 与人数、截止时间、开始时间，常见值包括 `open` / `full` / `cancelled` / `reviewing`
+- 当前组局列表与详情展示统一按 `review_status || status || extra.review_status || extra.status` 取值；服务端同时返回两者时，小程序优先消费 `review_status`，缺失时才消费 `status`
+- `status` 可继续承载组局业务状态，常见值包括 `open` / `full` / `cancelled` / `reviewing`；若需要在已发布内容中展示 `full`，后端需避免同时返回会覆盖它的 `review_status: published`
+- `pending/reviewing` 显示“审核中”，`published/open` 显示“报名中”，`rejected/offline` 显示“已下架”，`cancelled` 显示“已取消”
 - `contact` 必须继续由后端按教务绑定状态裁剪
 
 ### 9.2 获取详情

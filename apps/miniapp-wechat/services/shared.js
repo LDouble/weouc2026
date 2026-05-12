@@ -26,3 +26,8 @@ export function dedupeById(items = []) {
     return true;
   });
 }
+
+export function getReviewStatus(item = {}) {
+  const extra = item.extra || {};
+  return item.review_status || item.status || extra.review_status || extra.status || '';
+}
