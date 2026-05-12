@@ -1,4 +1,5 @@
 import { cancelMeetupJoin, cancelMeetupPublish, joinMeetup } from '../../../api/modules/meetup';
+import { getNetworkConfirmMessage } from '../../../utils/networkError';
 import { loadMeetupDetail } from '../../../services/meetupService';
 
 Page({
@@ -24,7 +25,7 @@ Page({
       this.setData({ detail, loading: false });
     } catch (error) {
       this.setData({ loading: false });
-      wx.showToast({ title: error.message || '加载失败，请重试', icon: 'none' });
+      wx.showToast({ title: (error && error.message) || '加载失败，请重试', icon: 'none' });
     }
   },
 
@@ -76,7 +77,7 @@ Page({
       await this.loadDetail(detail.id);
       wx.showToast({ title: '报名成功', icon: 'success' });
     } catch (error) {
-      wx.showToast({ title: error.message || '报名失败，请重试', icon: 'none' });
+      wx.showToast({ title: getNetworkConfirmMessage(error, (error && error.message) || '报名失败，请重试'), icon: 'none' });
     }
   },
 
@@ -89,7 +90,7 @@ Page({
       await this.loadDetail(detail.id);
       wx.showToast({ title: '已取消报名', icon: 'success' });
     } catch (error) {
-      wx.showToast({ title: error.message || '取消失败，请重试', icon: 'none' });
+      wx.showToast({ title: getNetworkConfirmMessage(error, (error && error.message) || '取消失败，请重试'), icon: 'none' });
     }
   },
 
@@ -109,7 +110,7 @@ Page({
           await this.loadDetail(detail.id);
           wx.showToast({ title: '已取消组局', icon: 'success' });
         } catch (error) {
-          wx.showToast({ title: error.message || '取消失败，请重试', icon: 'none' });
+          wx.showToast({ title: getNetworkConfirmMessage(error, (error && error.message) || '取消失败，请重试'), icon: 'none' });
         }
       },
     });

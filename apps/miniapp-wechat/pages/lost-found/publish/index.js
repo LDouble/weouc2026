@@ -2,6 +2,7 @@ import { getMenuButtonSafeArea } from '../../../utils/navigation';
 import { LOST_FOUND_CATEGORIES, LOST_FOUND_TYPES } from '../data';
 import { publishLostFound } from '../../../api/modules/lostFound';
 import { saveHistoryAddress } from '../../../utils/addressStore';
+import { getNetworkConfirmMessage } from '../../../utils/networkError';
 
 const PUBLISH_CATEGORIES = LOST_FOUND_CATEGORIES.filter((item) => item.value !== 'all');
 
@@ -198,7 +199,7 @@ Page({
         wx.redirectTo({ url: '/pages/lost-found/index' });
       }, 360);
     } catch (error) {
-      wx.showToast({ title: error.message || '发布失败，请重试', icon: 'none' });
+      wx.showToast({ title: getNetworkConfirmMessage(error, (error && error.message) || '发布失败，请重试'), icon: 'none' });
     }
   },
 });

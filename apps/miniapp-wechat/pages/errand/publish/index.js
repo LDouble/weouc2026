@@ -2,6 +2,7 @@ import { getMenuButtonSafeArea } from '../../../utils/navigation';
 import { publishErrand } from '../../../api/modules/errand';
 import { getUploadResultPath, uploadFile } from '../../../api/modules/upload';
 import { saveHistoryAddress } from '../../../utils/addressStore';
+import { getNetworkConfirmMessage } from '../../../utils/networkError';
 import { PUBLISH_CATEGORIES } from '../data';
 
 const DEADLINE_OPTIONS = [
@@ -242,7 +243,7 @@ Page({
         wx.redirectTo({ url: `/pages/errand/detail/index?id=${id}` });
       }, 1500);
     } catch (err) {
-      wx.showToast({ title: err.message || '发布失败，请重试', icon: 'none' });
+      wx.showToast({ title: getNetworkConfirmMessage(err, (err && err.message) || '发布失败，请重试'), icon: 'none' });
     } finally {
       this.setData({ submitting: false });
     }
