@@ -1,4 +1,4 @@
-import { fetchLostFoundDetail } from '../../../api/modules/lostFound';
+import { fetchLostFoundDetail, deleteLostFound, resolveLostFound } from '../../../api/modules/lostFound';
 import { LOST_FOUND_CATEGORIES } from '../data';
 import { normalizeContactFields } from '../../../services/shared';
 
@@ -52,7 +52,9 @@ function mapLostFoundDetail(raw = {}) {
     id: raw.id || '',
     type,
     typeLabel: type === 'lost' ? '失物登记' : '招领登记',
-    status: type === 'lost' ? '寻找中' : '待认领',
+    reviewStatus: raw.status || 'published',
+    statusLabel: type === 'lost' ? '寻找中' : '待认领',
+    status: raw.status || 'published',
     title: raw.title || '',
     desc: raw.desc || '',
     category,
@@ -67,6 +69,10 @@ function mapLostFoundDetail(raw = {}) {
     publisherInitial: raw.publisher_initial || (raw.publisher || '匿').charAt(0),
     publisherMeta: formatRelativeTime(raw.created_at),
     avatarColor: AVATAR_COLORS[stableIndex(raw.id, AVATAR_COLORS.length)],
+    isOwner: Boolean(raw.is_owner),
+    canEdit: Boolean(raw.can_edit),
+    canDelete: Boolean(raw.can_delete),
+    canMarkResolved: Boolean(raw.can_mark_resolved),
   };
 }
 
@@ -136,6 +142,54 @@ Page({
       data: contact,
       success: () => {
         wx.showToast({ title: '联系方式已复制', icon: 'success' });
+      },
+    });
+  },
+
+  onDelete() {
+    const { detail } = this.data;
+    if (!detail.canDelete) return;
+    wx.showModal({
+      title: '下架信息',
+      content: '下架后该信息将不再展示，确认下架？',
+      confirmText: '确认下架',
+      confirmColor: '#dc2626',
+      success: async (res) => {
+        if (!res.confirm) return;
+        try {
+          await deleteLostFound(detail.id);
+          wx.showToast({ title: '已下架', icon: 'success' });
+          setTimeout(() => {
+            if (getCurrentPages().length > 1) {
+              wx.navigateBack({ delta: 1 });
+              return;
+            }
+            wx.redirectTo({ url: '/pages/lost-found/index' });
+          }, 500);
+        } catch (error) {
+          wx.showToast({ title: (error && error.message) || '下架失败，请重试', icon: 'none' });
+        }
+      },
+    });
+  },
+
+  onMarkResolved() {
+    const { detail } = this.data;
+    if (!detail.canMarkResolved) return;
+    const label = detail.type === 'lost' ? '已找到' : '已认领';
+    wx.showModal({
+      title: `标记${label}`,
+      content: `确认标记为${label}？标记后信息将不再展示。`,
+      confirmText: `确认${label}`,
+      success: async (res) => {
+        if (!res.confirm) return;
+        try {
+          await resolveLostFound(detail.id);
+          wx.showToast({ title: `已标记${label}`, icon: 'success' });
+          await this.loadDetail(detail.id);
+        } catch (error) {
+          wx.showToast({ title: (error && error.message) || '操作失败，请重试', icon: 'none' });
+        }
       },
     });
   },

@@ -791,7 +791,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+                $ref: '#/components/schemas/MarketDetailResponseEnvelope'
         '404':
           $ref: '#/components/responses/NotFoundResponse'
   /api/market/publish:
@@ -844,6 +844,30 @@ paths:
           $ref: '#/components/responses/UnauthorizedResponse'
         '404':
           $ref: '#/components/responses/NotFoundResponse'
+  /api/market/delete/{id}:
+    post:
+      tags: [CampusLife]
+      summary: 下架二手商品
+      operationId: deleteMarket
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: 下架成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
   /api/errand/list:
     get:
       tags: [CampusLife]
@@ -875,7 +899,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+                $ref: '#/components/schemas/ErrandDetailResponseEnvelope'
         '404':
           $ref: '#/components/responses/NotFoundResponse'
   /api/errand/publish:
@@ -1010,7 +1034,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+                $ref: '#/components/schemas/ResourceDetailResponseEnvelope'
         '404':
           $ref: '#/components/responses/NotFoundResponse'
   /api/resource/publish:
@@ -1037,6 +1061,30 @@ paths:
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
+  /api/resource/delete/{id}:
+    post:
+      tags: [CampusLife]
+      summary: 下架资料
+      operationId: deleteResource
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: 下架成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
   /api/lostFound/list:
     get:
       tags: [CampusLife]
@@ -1068,7 +1116,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+                $ref: '#/components/schemas/LostFoundDetailResponseEnvelope'
         '404':
           $ref: '#/components/responses/NotFoundResponse'
   /api/lostFound/publish:
@@ -1095,6 +1143,54 @@ paths:
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
+  /api/lostFound/delete/{id}:
+    post:
+      tags: [CampusLife]
+      summary: 下架失物招领
+      operationId: deleteLostFound
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: 下架成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
+  /api/lostFound/resolve/{id}:
+    post:
+      tags: [CampusLife]
+      summary: 标记失物招领已找到/已认领
+      operationId: resolveLostFound
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: 标记成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
   /api/carpool/list:
     get:
       tags: [CampusLife]
@@ -1129,7 +1225,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+                $ref: '#/components/schemas/CarpoolDetailResponseEnvelope'
         '404':
           $ref: '#/components/responses/NotFoundResponse'
   /api/carpool/publish:
@@ -1156,6 +1252,30 @@ paths:
           $ref: '#/components/responses/BadRequestResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedResponse'
+  /api/carpool/delete/{id}:
+    post:
+      tags: [CampusLife]
+      summary: 取消拼车发布
+      operationId: deleteCarpool
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/ID'
+      responses:
+        '200':
+          description: 取消成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequestResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundResponse'
   /api/meetup/list:
     get:
       tags: [CampusLife]
@@ -1195,7 +1315,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenericObjectResponseEnvelope'
+                $ref: '#/components/schemas/MeetupDetailResponseEnvelope'
         '404':
           $ref: '#/components/responses/NotFoundResponse'
   /api/meetup/publish:
@@ -2269,3 +2389,459 @@ components:
         review_status:
           type: string
           enum: [reviewing, published, rejected, offline]
+    CampusLifeOwnerContext:
+      type: object
+      description: 校园生活内容详情中的主态/客态上下文字段，所有类型通用
+      properties:
+        user_role:
+          type: string
+          enum: [publisher, acceptor, participant, viewer]
+          description: 当前用户相对于该内容的角色
+        is_owner:
+          type: boolean
+          description: 是否为内容发布者（user_role == publisher 的便捷布尔值）
+        can_view_contact:
+          type: boolean
+          description: 是否可查看联系方式（已绑定教务 或 是发布者本人）
+        can_edit:
+          type: boolean
+          description: 是否可编辑（仅发布者且状态允许编辑时）
+        can_delete:
+          type: boolean
+          description: 是否可下架/删除（仅发布者且状态允许下架时）
+    MarketDetail:
+      type: object
+      required: [id, title, status, user_role, is_owner, can_view_contact, can_edit, can_delete, can_favorite]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        desc:
+          type: string
+        publisher:
+          type: string
+        publisher_initial:
+          type: string
+        image:
+          type: string
+        likes:
+          type: integer
+        liked:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [reviewing, published, rejected, offline]
+        user_role:
+          type: string
+          enum: [publisher, viewer]
+        is_owner:
+          type: boolean
+        can_view_contact:
+          type: boolean
+        can_edit:
+          type: boolean
+        can_delete:
+          type: boolean
+        can_favorite:
+          type: boolean
+          description: 是否可收藏（非发布者且已登录）
+        extra:
+          type: object
+          properties:
+            category:
+              type: string
+            price:
+              type: string
+            original_price:
+              type: string
+            condition:
+              type: string
+            trade_mode:
+              type: string
+            contact:
+              type: string
+              description: 联系方式，can_view_contact 为 false 时为空
+            images:
+              type: array
+              items:
+                type: string
+            likes:
+              type: integer
+            is_favorited:
+              type: boolean
+    MarketDetailResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/MarketDetail'
+    ErrandDetailItem:
+      type: object
+      properties:
+        id:
+          type: string
+        category:
+          type: string
+        title:
+          type: string
+        desc:
+          type: string
+        route_start:
+          type: string
+        route_end:
+          type: string
+        deadline:
+          type: string
+          format: date-time
+        reward:
+          type: string
+        contact:
+          type: string
+          description: 联系方式，can_view_contact 为 false 时为空
+        status:
+          type: string
+          enum: [published, accepted, cancelled]
+        is_accepted:
+          type: boolean
+        images:
+          type: array
+          items:
+            type: string
+        publisher:
+          type: string
+        publisher_initial:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        extra:
+          type: object
+          properties:
+            category:
+              type: string
+            route_start:
+              type: string
+            route_end:
+              type: string
+            deadline:
+              type: string
+              format: date-time
+            reward:
+              type: string
+            contact:
+              type: string
+            images:
+              type: array
+              items:
+                type: string
+            status:
+              type: string
+            urgent:
+              type: boolean
+    ErrandDetail:
+      type: object
+      required: [item, user_role, is_owner, can_view_contact, can_edit, can_delete, can_accept, can_cancel_accept]
+      properties:
+        item:
+          $ref: '#/components/schemas/ErrandDetailItem'
+        user_role:
+          type: string
+          enum: [publisher, acceptor, viewer]
+        is_owner:
+          type: boolean
+        can_view_contact:
+          type: boolean
+        can_edit:
+          type: boolean
+        can_delete:
+          type: boolean
+          description: 发布者可取消发布
+        can_accept:
+          type: boolean
+          description: 客态可接单
+        can_cancel_accept:
+          type: boolean
+          description: 接单者可取消接单
+    ErrandDetailResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/ErrandDetail'
+    ResourceDetail:
+      type: object
+      required: [id, title, status, user_role, is_owner, can_view_contact, can_edit, can_delete, can_download]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        desc:
+          type: string
+        publisher:
+          type: string
+        publisher_initial:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [reviewing, published, rejected, offline]
+        user_role:
+          type: string
+          enum: [publisher, viewer]
+        is_owner:
+          type: boolean
+        can_view_contact:
+          type: boolean
+        can_edit:
+          type: boolean
+        can_delete:
+          type: boolean
+        can_download:
+          type: boolean
+          description: 是否可下载（已登录且可查看联系方式）
+        extra:
+          type: object
+          properties:
+            category:
+              type: string
+            course_name:
+              type: string
+            contact:
+              type: string
+              description: 联系方式，can_view_contact 为 false 时为空
+            files:
+              type: array
+              items:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  url:
+                    type: string
+                  file_type:
+                    type: string
+                  file_size:
+                    type: string
+            file_size:
+              type: string
+            file_type:
+              type: string
+            download_url:
+              type: string
+            likes:
+              type: integer
+            views:
+              type: integer
+    ResourceDetailResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/ResourceDetail'
+    LostFoundDetail:
+      type: object
+      required: [id, title, status, user_role, is_owner, can_view_contact, can_edit, can_delete, can_mark_resolved]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        desc:
+          type: string
+        publisher:
+          type: string
+        publisher_initial:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [reviewing, published, rejected, offline, resolved]
+        user_role:
+          type: string
+          enum: [publisher, viewer]
+        is_owner:
+          type: boolean
+        can_view_contact:
+          type: boolean
+        can_edit:
+          type: boolean
+        can_delete:
+          type: boolean
+        can_mark_resolved:
+          type: boolean
+          description: 发布者可标记已找到/已认领（仅 published 状态）
+        extra:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [lost, found]
+            category:
+              type: string
+            location:
+              type: string
+            event_time:
+              type: string
+            item_feature:
+              type: string
+            contact:
+              type: string
+              description: 联系方式，can_view_contact 为 false 时为空
+    LostFoundDetailResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/LostFoundDetail'
+    CarpoolDetail:
+      type: object
+      required: [id, status, user_role, is_owner, can_view_contact, can_edit, can_delete, can_join_carpool]
+      properties:
+        id:
+          type: string
+        category:
+          type: string
+        from:
+          type: string
+        to:
+          type: string
+        travel_at:
+          type: string
+          format: date-time
+        type:
+          type: string
+        seats_text:
+          type: string
+        price:
+          type: string
+        note:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        contact:
+          type: string
+          description: 联系方式，can_view_contact 为 false 时为空
+        status:
+          type: string
+          enum: [reviewing, published, rejected, offline]
+        publisher:
+          type: string
+        publisher_initial:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        user_role:
+          type: string
+          enum: [publisher, viewer]
+        is_owner:
+          type: boolean
+        can_view_contact:
+          type: boolean
+        can_edit:
+          type: boolean
+          description: 仅发布者且出发前可编辑
+        can_delete:
+          type: boolean
+        can_join_carpool:
+          type: boolean
+          description: 客态可加入拼车
+    CarpoolDetailResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/CarpoolDetail'
+    MeetupDetail:
+      type: object
+      required: [id, title, status, user_role, is_owner, can_view_contact, can_edit, can_delete, can_join, can_cancel_join]
+      properties:
+        id:
+          type: string
+        category:
+          type: string
+        title:
+          type: string
+        desc:
+          type: string
+        location:
+          type: string
+        start_at:
+          type: string
+          format: date-time
+        deadline_at:
+          type: string
+          format: date-time
+        max_participants:
+          type: integer
+        fee_text:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        contact:
+          type: string
+          description: 联系方式，can_view_contact 为 false 时为空
+        status:
+          type: string
+          enum: [open, full, cancelled]
+        publisher:
+          type: string
+        publisher_initial:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        user_role:
+          type: string
+          enum: [publisher, participant, viewer]
+        is_owner:
+          type: boolean
+        joined:
+          type: boolean
+        can_view_contact:
+          type: boolean
+        can_edit:
+          type: boolean
+        can_delete:
+          type: boolean
+          description: 发布者可取消发布（等同于 can_cancel_publish）
+        can_join:
+          type: boolean
+          description: 客态可报名
+        can_cancel_join:
+          type: boolean
+          description: 参与者可取消报名
+        can_cancel_publish:
+          type: boolean
+          description: 兼容旧客户端，等同于 can_delete
+    MeetupDetailResponseEnvelope:
+      allOf:
+        - $ref: '#/components/schemas/RequestEnvelope'
+        - type: object
+          required: [data]
+          properties:
+            data:
+              $ref: '#/components/schemas/MeetupDetail'

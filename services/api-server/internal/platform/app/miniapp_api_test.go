@@ -237,13 +237,16 @@ func TestMiniappCoreAPIs(t *testing.T) {
 	})
 
 	t.Run("meetup review and join workflow", func(t *testing.T) {
+		tomorrow := time.Now().In(time.FixedZone("Asia/Shanghai", 8*3600)).AddDate(0, 0, 1)
+		startAt := tomorrow.Format("2006-01-02") + "T19:00:00+08:00"
+		deadlineAt := tomorrow.Format("2006-01-02") + "T17:30:00+08:00"
 		recorder := performJSONRequest(t, router, http.MethodPost, "/api/meetup/publish", token, map[string]any{
 			"category":         "study",
 			"title":            "高数晚自习组队",
 			"desc":             "想找 2 位同学一起在图书馆刷题。",
 			"location":         "图书馆五楼北区",
-			"start_at":         "2026-05-12T19:00:00+08:00",
-			"deadline_at":      "2026-05-12T17:30:00+08:00",
+			"start_at":         startAt,
+			"deadline_at":      deadlineAt,
 			"max_participants": 3,
 			"fee_text":         "免费",
 			"tags":             []string{"期末复习", "刷题"},

@@ -74,10 +74,13 @@ function mapMeetupItem(item = {}) {
     publisherMeta: formatRelativeTime(item.created_at),
     createdAt: item.created_at || '',
     userRole: item.user_role || 'viewer',
+    isOwner: Boolean(item.is_owner),
     joined: Boolean(item.joined),
     canJoin: Boolean(item.can_join),
     canCancelJoin: Boolean(item.can_cancel_join),
     canCancelPublish: Boolean(item.can_cancel_publish),
+    canEdit: Boolean(item.can_edit),
+    canDelete: Boolean(item.can_delete),
     actionText: getActionText({
       canCancelPublish: Boolean(item.can_cancel_publish),
       canCancelJoin: Boolean(item.can_cancel_join),

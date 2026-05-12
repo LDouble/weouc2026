@@ -15,3 +15,7 @@ export function fetchCarpoolDetail(id) {
 export function publishCarpool(data) {
   return post('/carpool/publish', data);
 }
+
+export function deleteCarpool(id) {
+  return post(`/carpool/delete/${id}`);
+}

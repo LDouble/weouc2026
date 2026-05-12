@@ -13,6 +13,31 @@ page {
   background: #f8f9fa;
 }
 
+.detail-status-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  padding: 16rpx 0;
+  font-size: 26rpx;
+  font-weight: 700;
+}
+
+.detail-status-banner--offline {
+  color: #6b7280;
+  background: #f3f4f6;
+}
+
+.detail-status-banner--rejected {
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+.detail-status-banner--reviewing {
+  color: #d97706;
+  background: #fffbeb;
+}
+
 .market-detail__bg {
   position: fixed;
   top: 0;
@@ -554,4 +579,30 @@ page {
   font-weight: 900;
   background: linear-gradient(90deg, #00d5be, #00bba7);
   box-shadow: 0 8rpx 16rpx rgba(20, 184, 166, 0.3);
+}
+
+.detail-owner-actions {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  gap: 16rpx;
+}
+
+.detail-owner-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+  height: 96rpx;
+  padding: 0 32rpx;
+  border-radius: 32rpx;
+  font-size: 28rpx;
+  font-weight: 800;
+  box-sizing: border-box;
+}
+
+.detail-owner-btn--danger {
+  color: #dc2626;
+  background: #fef2f2;
+  border: 1rpx solid #fecaca;
 }

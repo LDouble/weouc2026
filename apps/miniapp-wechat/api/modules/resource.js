@@ -16,6 +16,10 @@ export function publishResource(data) {
   return post('/resource/publish', data);
 }
 
+export function deleteResource(id) {
+  return post(`/resource/delete/${id}`);
+}
+
 export function favoriteResource(resourceId, action) {
   return post('/resource/favorite', { resource_id: resourceId, action });
 }

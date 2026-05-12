@@ -16,3 +16,11 @@ export function fetchLostFoundDetail(id) {
 export function publishLostFound(data) {
   return post('/lostFound/publish', data);
 }
+
+export function deleteLostFound(id) {
+  return post(`/lostFound/delete/${id}`);
+}
+
+export function resolveLostFound(id) {
+  return post(`/lostFound/resolve/${id}`);
+}

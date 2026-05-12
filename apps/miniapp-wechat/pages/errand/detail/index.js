@@ -43,7 +43,7 @@ const TONE_MAP = {
   other: 'gray',
 };
 
-function mapErrandDetail(item, userRole = 'viewer', canViewContact = false) {
+function mapErrandDetail(item, userRole, canViewContact, canEdit, canDelete, canAccept, canCancelAccept) {
   const extra = item.extra || {};
   const status = item.status || extra.status || '';
   const isAccepted = !!item.is_accepted || status === 'accepted';
@@ -84,10 +84,13 @@ function mapErrandDetail(item, userRole = 'viewer', canViewContact = false) {
     userRole,
     isPublisher,
     isAcceptor,
+    isOwner: isPublisher,
     accepted: isAccepted,
-    canAccept: !isPublisher && !isAccepted && status !== 'cancelled',
-    canCancelPublish: isPublisher && !isAccepted && status !== 'cancelled',
-    canCancelAccept: isAcceptor && isAccepted && status !== 'cancelled',
+    canEdit: Boolean(canEdit),
+    canDelete: Boolean(canDelete),
+    canAccept: Boolean(canAccept),
+    canCancelPublish: Boolean(canDelete),
+    canCancelAccept: Boolean(canCancelAccept),
     canCopyContact: canViewContact && hasContact,
     canViewContact,
     primaryActionText,
@@ -120,8 +123,15 @@ Page({
       const res = await fetchErrandDetail(id);
       const data = res.data || {};
       const item = data.item || data;
-      const canViewContact = data.can_view_contact || false;
-      const task = mapErrandDetail(item, data.user_role || 'viewer', canViewContact);
+      const task = mapErrandDetail(
+        item,
+        data.user_role || 'viewer',
+        data.can_view_contact || false,
+        data.can_edit || false,
+        data.can_delete || false,
+        data.can_accept || false,
+        data.can_cancel_accept || false,
+      );
       this.setData({ task, accepted: task.accepted, loading: false });
     } catch (e) {
       this.setData({ loading: false });
