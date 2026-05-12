@@ -1,6 +1,6 @@
 import { fetchLostFoundList } from '~/api/modules/lostFound';
 import { LOST_FOUND_CATEGORIES } from '~/constants/campus';
-import { unwrapPayload } from './shared';
+import { normalizeContactFields, unwrapPayload } from './shared';
 
 const CATEGORY_LABEL_MAP = LOST_FOUND_CATEGORIES.reduce((map, item) => {
   if (item.value && item.value !== 'all') {
@@ -29,6 +29,7 @@ function mapLostFoundItem(raw = {}) {
   const isLost = type === 'lost';
   const category = extra.category || '';
   const categoryLabel = CATEGORY_LABEL_MAP[category] || category || '其他';
+  const contactFields = normalizeContactFields(raw);
 
   return {
     id: raw.id,
@@ -39,7 +40,9 @@ function mapLostFoundItem(raw = {}) {
     categoryLabel,
     location: extra.location || '',
     time: extra.event_time || '',
-    contact: extra.contact || '',
+    contact: contactFields.contact,
+    canViewContact: contactFields.canViewContact,
+    contactHiddenReason: contactFields.contactHiddenReason,
     status: isLost ? '寻找中' : '待认领',
     statusTone: isLost ? 'amber' : 'green',
     sponsor: raw.publisher || '',
