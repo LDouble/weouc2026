@@ -11,12 +11,12 @@ Component({
         label: '发现',
         url: '/pages/home/index',
       },
-      // {
-      //   icon: 'chat',
-      //   value: 'message',
-      //   label: '消息',
-      //   url: '/pages/message/index',
-      // },
+      {
+        icon: 'chat',
+        value: 'message',
+        label: '消息',
+        url: '/pages/message/index',
+      },
       {
         icon: 'user',
         value: 'my',
@@ -31,7 +31,7 @@ Component({
       const pages = getCurrentPages();
       const curPage = pages[pages.length - 1];
       if (curPage) {
-        const nameRe = /pages\/(\w+)\/index/.exec(curPage.route);
+        const nameRe = /pages\/([^/]+)\/index/.exec(curPage.route);
         if (nameRe && nameRe[1]) {
           this.setData({ value: nameRe[1] });
         }

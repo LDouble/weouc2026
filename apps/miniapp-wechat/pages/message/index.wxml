@@ -1,7 +1,84 @@
-<nav nav-type="title" title-text="全部消息"></nav>
-<view class="message-empty">
-  <view class="message-empty__icon">
-    <t-icon name="chat" size="96rpx" color="#dcdfe6" />
+<nav nav-type="title" title-text="消息中心"></nav>
+<view class="message-page">
+  <view class="message-tabs">
+    <view class="message-tab {{activeTab === 'notifications' ? 'message-tab--active' : ''}}" data-tab="notifications" bindtap="switchTab">站内通知</view>
+    <view class="message-tab {{activeTab === 'notices' ? 'message-tab--active' : ''}}" data-tab="notices" bindtap="switchTab">校园公告</view>
   </view>
-  <view class="message-empty__text">{{ emptyText }}</view>
+
+  <view wx:if="{{activeTab === 'notifications'}}" class="message-panel">
+    <view class="message-toolbar">
+      <view class="message-toolbar__title">{{unreadOnly ? '未读通知' : '全部通知'}}</view>
+      <view class="message-toolbar__filter {{unreadOnly ? 'message-toolbar__filter--active' : ''}}" bindtap="toggleUnreadOnly">
+        <t-icon name="filter" size="24rpx" />
+        <text>{{unreadOnly ? '查看全部' : '只看未读'}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{messageList.length}}" class="message-list-card">
+      <view
+        wx:for="{{messageList}}"
+        wx:key="id"
+        class="message-item {{item.read ? '' : 'message-item--unread'}}"
+        data-id="{{item.id}}"
+        hover-class="tap-card"
+        bindtap="openMessage"
+      >
+        <view class="message-item__icon message-item__icon--{{item.tone}}">
+          <t-icon name="{{item.icon}}" size="32rpx" />
+        </view>
+        <view class="message-item__body">
+          <view class="message-item__head">
+            <view class="message-item__title">{{item.title}}</view>
+            <view wx:if="{{!item.read}}" class="message-item__dot"></view>
+          </view>
+          <view class="message-item__content">{{item.content}}</view>
+          <view class="message-item__meta">
+            <text>{{item.categoryLabel}}</text>
+            <text>{{item.publisher}}</text>
+            <text>{{item.timeLabel}}</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view wx:else class="message-empty">
+      <view class="message-empty__icon"><t-icon name="chat" size="96rpx" color="#dcdfe6" /></view>
+      <view class="message-empty__text">{{ emptyText }}</view>
+    </view>
+
+    <view wx:if="{{messageList.length}}" class="message-load-more">
+      <text wx:if="{{loading}}">正在加载...</text>
+      <text wx:elif="{{hasMore}}" bindtap="loadMoreMessages">加载更多</text>
+      <text wx:else>已加载全部通知</text>
+    </view>
+  </view>
+
+  <view wx:if="{{activeTab === 'notices'}}" class="message-panel">
+    <view wx:if="{{noticeDetail}}" class="notice-detail">
+      <view class="notice-detail__back" bindtap="closeNotice">
+        <t-icon name="chevron-left" size="24rpx" />
+        <text>返回公告列表</text>
+      </view>
+      <view class="notice-detail__tag">{{noticeDetail.tag}}</view>
+      <view class="notice-detail__title">{{noticeDetail.title}}</view>
+      <view class="notice-detail__meta">{{noticeDetail.publisher}} · {{noticeDetail.timeLabel}}</view>
+      <view class="notice-detail__content">{{noticeDetail.content}}</view>
+    </view>
+
+    <view wx:elif="{{noticeList.length}}" class="notice-list">
+      <view wx:for="{{noticeList}}" wx:key="id" class="notice-item" data-id="{{item.id}}" hover-class="tap-card" bindtap="openNotice">
+        <view class="notice-item__top">
+          <view class="notice-item__tag">{{item.tag}}</view>
+          <view class="notice-item__time">{{item.timeLabel}}</view>
+        </view>
+        <view class="notice-item__title">{{item.title}}</view>
+        <view class="notice-item__summary">{{item.desc}}</view>
+      </view>
+    </view>
+
+    <view wx:else class="message-empty">
+      <view class="message-empty__icon"><t-icon name="notification" size="96rpx" color="#dcdfe6" /></view>
+      <view class="message-empty__text">{{noticeLoading ? '公告加载中' : '暂无公告'}}</view>
+    </view>
+  </view>
 </view>

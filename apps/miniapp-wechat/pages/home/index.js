@@ -1,5 +1,7 @@
 import Message from 'tdesign-miniprogram/message/index';
 import { loadHomeFeeds } from '../../services/homeService';
+import { loadPortalHome } from '../../services/portalService';
+import { loadUnreadNotificationCount, publishUnreadCount } from '../../services/notificationService';
 import { getMenuButtonSafeArea } from '../../utils/navigation';
 
 Page({
@@ -21,10 +23,10 @@ Page({
     heroCurrent: 1,
     weekText: '第 8 周',
     heroCards: [
-      { id: 'cet', tag: '重要通知', title: '四六级考试报名进行中', desc: '请于本周五前完成报名缴费', theme: 'rose' },
-      { id: 'job', tag: '职业发展', title: '春季校园招聘会', desc: '300+ 企业现场招聘', theme: 'indigo' },
-      { id: 'seat', tag: '学习资源', title: '图书馆新增自习座位', desc: '支持线上预约，先到先得', theme: 'mint' },
+      { id: 'notice-default', type: 'notice', tag: '校园公告', title: '校园服务运行中', desc: '跑腿、组局、二手、资料、失物招领均可浏览与发布', theme: 'rose' },
     ],
+    noticeCards: [],
+    unreadNum: 0,
     quickLinks: [
       { label: '资料', icon: 'book', tone: 'amber', url: '/pages/resource/index' },
       { label: '闲置', icon: 'shop', tone: 'cyan', url: '/pages/market/index' },
@@ -56,12 +58,40 @@ Page({
       const content = option.oper === 'release' ? '发布成功' : '保存成功';
       this.showOperMsg(content);
     }
+    this.loadPortal();
+    this.refreshUnreadCount();
     this.loadFeed();
+  },
+
+  onShow() {
+    this.refreshUnreadCount();
   },
 
   applyNavigationSafeArea() {
     const { right } = getMenuButtonSafeArea();
     this.setData({ menuSafeRight: right });
+  },
+
+
+  loadPortal() {
+    loadPortalHome()
+      .then((result) => {
+        const heroCards = result.banners.length ? result.banners : result.notices.slice(0, 3);
+        this.setData({
+          heroCards: heroCards.length ? heroCards : this.data.heroCards,
+          noticeCards: result.notices.slice(0, 3),
+        });
+      })
+      .catch(() => {});
+  },
+
+  refreshUnreadCount() {
+    loadUnreadNotificationCount()
+      .then((count) => {
+        publishUnreadCount(count);
+        this.setData({ unreadNum: count });
+      })
+      .catch(() => {});
   },
 
   loadFeed() {
@@ -133,9 +163,27 @@ Page({
     if (url) { wx.navigateTo({ url }); }
   },
 
-  goNotify() { this.showInfo('通知中心正在接入中'); },
-  goExploreMore() { this.showInfo('更多服务正在接入中'); },
-  goFeedMore() { this.showInfo('更多校园动态正在接入中'); },
+  goNotify() { wx.switchTab({ url: '/pages/message/index' }); },
+  goExploreMore() { this.showInfo('更多服务可从热门探索进入'); },
+  goFeedMore() { this.loadFeed(); },
+  goHero(e) {
+    const { item } = e.currentTarget.dataset;
+    if (!item) return;
+    if (item.actionUrl) {
+      if (item.actionUrl.startsWith('/pages/message/index')) {
+        wx.switchTab({ url: '/pages/message/index' });
+        return;
+      }
+      if (item.actionUrl.startsWith('/pages/')) {
+        wx.navigateTo({ url: item.actionUrl });
+        return;
+      }
+    }
+    if (item.type === 'notice' && item.id) {
+      wx.switchTab({ url: '/pages/message/index' });
+    }
+  },
+
   goPost(e) {
     const { item } = e.currentTarget.dataset;
     if (item && item.targetUrl) {
