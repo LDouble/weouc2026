@@ -660,9 +660,141 @@
 }
 ```
 
-## 10. 文件上传
+## 10. 门户与通知
 
-### 10.1 获取 COS 临时凭证
+### 10.1 门户首页聚合
+
+- 方法：`GET /portal/home`
+- 使用位置：首页轮播卡片（校园公告）
+
+成功响应建议字段：
+
+- `banners`：轮播数组（预留）
+- `notices`：公告数组，至少包含：
+  - `id`
+  - `title`
+  - `summary`
+  - `publisher`
+  - `published_at`
+  - `pinned`
+
+### 10.2 通知列表
+
+- 方法：`GET /notification/list`
+- 使用位置：消息中心列表页
+
+查询参数：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `page` | `number` | 否 | 页码，默认 `1` |
+| `pageSize` | `number` | 否 | 每页条数，默认 `20` |
+| `category` | `string` | 否 | 通知分类 |
+| `unread_only` | `boolean` | 否 | 是否只返回未读 |
+
+列表项建议字段：
+
+- `id`
+- `title`
+- `content`
+- `category`
+- `action_url`
+- `created_at`
+- `read`
+
+### 10.3 通知未读数
+
+- 方法：`GET /notification/unread-count`
+- 使用位置：首页右上角通知角标、我的页消息中心角标
+
+成功响应建议字段：
+
+- `count`：未读数量
+
+### 10.4 标记通知已读
+
+- 方法：`POST /notification/read`
+- 使用位置：消息中心点击通知后回执
+
+请求体：
+
+```json
+{
+  "message_id": "notification-101"
+}
+```
+
+## 11. 教务读取
+
+### 11.1 学期列表
+
+- 方法：`GET /academic/semesters`
+- 使用位置：教务数据页（学期上下文）
+
+成功响应建议字段：
+
+- `current_semester_id`
+- `list`（学期数组）
+
+### 11.2 课程表
+
+- 方法：`GET /academic/schedule`
+- 使用位置：教务数据页
+
+查询参数：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `semester_id` | `string` | 否 | 为空时返回当前学期 |
+
+成功响应建议字段：
+
+- `semester`
+- `list`
+- `summary.course_count`
+- `summary.teaching_days`
+
+### 11.3 考试安排
+
+- 方法：`GET /academic/exams`
+- 使用位置：教务数据页
+
+查询参数：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `semester_id` | `string` | 否 | 为空时返回当前学期 |
+
+成功响应建议字段：
+
+- `semester`
+- `list`
+- `summary.count`
+- `summary.upcoming_count`
+
+### 11.4 成绩单
+
+- 方法：`GET /academic/grades`
+- 使用位置：教务数据页
+
+查询参数：
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `semester_id` | `string` | 否 | 为空时返回当前学期 |
+
+成功响应建议字段：
+
+- `semester`
+- `list`
+- `summary.course_count`
+- `summary.passed_count`
+- `summary.average_score`
+- `summary.average_grade_point`
+
+## 12. 文件上传
+
+### 12.1 获取 COS 临时凭证
 
 - 方法：`GET /upload/cos-sts`
 - 使用位置：闲置发布页图片上传、跑腿图片上传、资料文件上传
@@ -689,7 +821,7 @@
 - 前端会用 `path_prefix + hash/...` 生成实际对象键
 - `path_prefix` 已包含业务场景、用户隔离和日期维度
 
-### 10.2 获取预签名访问地址
+### 12.2 获取预签名访问地址
 
 - 方法：`POST /upload/presigned-get`
 - 使用位置：文件直传完成后回显
@@ -714,7 +846,7 @@
 }
 ```
 
-## 11. 后续契约收敛建议
+## 13. 后续契约收敛建议
 
 - 统一把列表接口收敛为同一分页包结构，避免小程序为每个业务单独兼容
 - `POST /student` 当前承担“教务绑定”语义，建议后续在 `packages/contracts` 中拆出更明确的绑定接口

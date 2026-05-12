@@ -1,4 +1,5 @@
 import useToastBehavior from '~/behaviors/useToast';
+import { loadNotificationUnreadCount } from '~/services/notificationService';
 import { loadMyPageModel } from '~/services/profileService';
 import { getSessionState, subscribeSession } from '~/stores/session';
 
@@ -10,10 +11,11 @@ function createStats(values = {}) {
   ];
 }
 
-function createSettingList(isBound = false) {
+function createSettingList(isBound = false, unreadCount = 0) {
+  const badge = Math.max(0, Number(unreadCount || 0));
   return [
     { name: isBound ? '教务已绑定' : '教务绑定', icon: 'education', type: 'eduBind', url: '/pages/edu-bind/index' },
-    { name: '消息中心', icon: 'notification', type: 'message', url: '', badge: 2 },
+    { name: '消息中心', icon: 'notification', type: 'message', url: '/pages/message/index', badge },
     { name: '联系客服', icon: 'service', type: 'service', url: '' },
     { name: '设置', icon: 'setting', type: 'setting', url: '/pages/setting/index' },
   ];
@@ -83,7 +85,7 @@ Page({
       isLoad: false,
       personalInfo: {},
       stats: createStats(),
-      settingList: createSettingList(false),
+      settingList: createSettingList(false, 0),
     });
   },
 
@@ -93,7 +95,7 @@ Page({
       isLoad: true,
       personalInfo: model.personalInfo,
       stats: createStats(model.stats),
-      settingList: createSettingList(Boolean(model.personalInfo.isBound)),
+      settingList: createSettingList(Boolean(model.personalInfo.isBound), model.unreadCount),
     });
   },
 
@@ -104,6 +106,8 @@ Page({
       return;
     }
 
+    const unreadPromise = loadNotificationUnreadCount().catch(() => 0);
+
     this.applyAuthenticatedState({
       personalInfo: buildSessionFallbackInfo(sessionState),
       stats: {
@@ -111,12 +115,18 @@ Page({
         accepted: 0,
         favorite: 0,
       },
+      unreadCount: 0,
     });
 
     try {
       const pageModel = await loadMyPageModel();
-      this.applyAuthenticatedState(pageModel);
+      const unreadCount = await unreadPromise;
+      this.applyAuthenticatedState({ ...pageModel, unreadCount });
     } catch (e) {
+      const unreadCount = await unreadPromise;
+      this.setData({
+        settingList: createSettingList(Boolean(this.data.personalInfo.isBound), unreadCount),
+      });
       this.onShowToast('#t-toast', '个人页加载失败');
     }
   },

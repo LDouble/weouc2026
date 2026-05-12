@@ -5,7 +5,9 @@
     <view class="home-topbar__title">发现</view>
     <view class="home-topbar__notify" style="right: {{menuSafeRight}}px;" hover-class="tap-button" bindtap="goNotify">
       <t-icon name="notification" size="36rpx" />
-      <view class="home-topbar__dot"></view>
+      <view wx:if="{{notifyUnreadCount > 0}}" class="home-topbar__dot">
+        {{notifyUnreadCount > 99 ? '99+' : notifyUnreadCount}}
+      </view>
     </view>
   </view>
 

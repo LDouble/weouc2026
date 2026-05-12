@@ -1,5 +1,8 @@
 import Message from 'tdesign-miniprogram/message/index';
 import { loadHomeFeeds } from '../../services/homeService';
+import { loadNotificationUnreadCount } from '../../services/notificationService';
+import { DEFAULT_HERO_CARDS, loadPortalHeroCards } from '../../services/portalService';
+import { getSessionState } from '../../stores/session';
 import { getMenuButtonSafeArea } from '../../utils/navigation';
 
 Page({
@@ -17,14 +20,11 @@ Page({
     feedPage: 1,
     feedPageSize: 10,
     feedTotal: 0,
+    notifyUnreadCount: 0,
     loadingFeed: false,
     heroCurrent: 1,
     weekText: '第 8 周',
-    heroCards: [
-      { id: 'cet', tag: '重要通知', title: '四六级考试报名进行中', desc: '请于本周五前完成报名缴费', theme: 'rose' },
-      { id: 'job', tag: '职业发展', title: '春季校园招聘会', desc: '300+ 企业现场招聘', theme: 'indigo' },
-      { id: 'seat', tag: '学习资源', title: '图书馆新增自习座位', desc: '支持线上预约，先到先得', theme: 'mint' },
-    ],
+    heroCards: DEFAULT_HERO_CARDS,
     quickLinks: [
       { label: '资料', icon: 'book', tone: 'amber', url: '/pages/resource/index' },
       { label: '闲置', icon: 'shop', tone: 'cyan', url: '/pages/market/index' },
@@ -56,7 +56,13 @@ Page({
       const content = option.oper === 'release' ? '发布成功' : '保存成功';
       this.showOperMsg(content);
     }
+    this.loadHeroCards();
+    this.refreshNotificationBadge();
     this.loadFeed();
+  },
+
+  onShow() {
+    this.refreshNotificationBadge();
   },
 
   applyNavigationSafeArea() {
@@ -79,6 +85,31 @@ Page({
       })
       .catch(() => {
         this.setData({ loadingFeed: false });
+      });
+  },
+
+  loadHeroCards() {
+    loadPortalHeroCards()
+      .then((heroCards) => {
+        if (Array.isArray(heroCards) && heroCards.length) {
+          this.setData({ heroCards });
+        }
+      })
+      .catch(() => {});
+  },
+
+  refreshNotificationBadge() {
+    if (!getSessionState().authenticated) {
+      this.setData({ notifyUnreadCount: 0 });
+      return;
+    }
+
+    loadNotificationUnreadCount()
+      .then((count) => {
+        this.setData({ notifyUnreadCount: Math.max(0, Number(count || 0)) });
+      })
+      .catch(() => {
+        this.setData({ notifyUnreadCount: 0 });
       });
   },
 
@@ -133,7 +164,13 @@ Page({
     if (url) { wx.navigateTo({ url }); }
   },
 
-  goNotify() { this.showInfo('通知中心正在接入中'); },
+  goNotify() {
+    if (!getSessionState().authenticated) {
+      wx.navigateTo({ url: '/pages/login/login' });
+      return;
+    }
+    wx.navigateTo({ url: '/pages/message/index' });
+  },
   goExploreMore() { this.showInfo('更多服务正在接入中'); },
   goFeedMore() { this.showInfo('更多校园动态正在接入中'); },
   goPost(e) {

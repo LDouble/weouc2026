@@ -2,7 +2,7 @@
 <view class="data-center">
   <block wx:if="{{placeholder}}">
     <view style="padding: 120rpx 0;">
-      <t-empty icon="info-circle-filled" description="功能开发中" />
+      <t-empty icon="info-circle-filled" description="{{loading ? '正在读取教务数据' : '暂无可用教务数据'}}" />
     </view>
   </block>
   <block wx:else>

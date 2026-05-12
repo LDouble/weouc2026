@@ -1,7 +1,48 @@
 <nav nav-type="title" title-text="全部消息"></nav>
-<view class="message-empty">
-  <view class="message-empty__icon">
-    <t-icon name="chat" size="96rpx" color="#dcdfe6" />
-  </view>
-  <view class="message-empty__text">{{ emptyText }}</view>
-</view>
+<scroll-view
+  class="message-list"
+  scroll-y
+  enhanced="{{true}}"
+  show-scrollbar="{{false}}"
+  lower-threshold="120"
+  bindscrolltolower="onLoadMore"
+>
+  <block wx:if="{{loading}}">
+    <view class="message-state">正在加载消息...</view>
+  </block>
+
+  <block wx:elif="{{messageList.length > 0}}">
+    <view
+      wx:for="{{messageList}}"
+      wx:key="id"
+      class="message-card {{item.read ? '' : 'message-card--unread'}}"
+      data-item="{{item}}"
+      hover-class="tap-button"
+      bindtap="onOpenMessage"
+    >
+      <view class="message-card__head">
+        <view class="message-card__title">{{item.title}}</view>
+        <view class="message-card__time">{{item.timeLabel || '刚刚'}}</view>
+      </view>
+      <view class="message-card__meta">
+        <view class="message-card__tag">{{item.categoryLabel}}</view>
+        <view wx:if="{{!item.read}}" class="message-card__dot"></view>
+      </view>
+      <view class="message-card__content">{{item.content}}</view>
+    </view>
+    <view class="message-footer">
+      <view wx:if="{{loadingMore}}" class="message-footer__text">正在加载更多...</view>
+      <view wx:elif="{{hasMore}}" class="message-footer__text">继续上滑加载更多消息</view>
+      <view wx:else class="message-footer__text message-footer__text--done">没有更多消息了</view>
+    </view>
+  </block>
+
+  <block wx:else>
+    <view class="message-empty">
+      <view class="message-empty__icon">
+        <t-icon name="chat" size="96rpx" color="#dcdfe6" />
+      </view>
+      <view class="message-empty__text">{{ emptyText }}</view>
+    </view>
+  </block>
+</scroll-view>
