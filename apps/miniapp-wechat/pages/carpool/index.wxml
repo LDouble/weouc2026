@@ -86,7 +86,12 @@
             <view wx:for="{{item.tags}}" wx:key="*this" class="carpool-tag">{{item}}</view>
           </view>
           <view class="carpool-card__actions">
-            <view class="carpool-card__action" data-contact="{{item.contact}}" catchtap="onCopyContact">获取联系方式</view>
+            <view
+              class="carpool-card__action"
+              data-contact="{{item.contact}}"
+              data-can-view-contact="{{item.canViewContact}}"
+              catchtap="onCopyContact"
+            >{{item.canViewContact === false ? '绑定后查看' : (item.contact ? '获取联系方式' : '暂无联系方式')}}</view>
           </view>
         </view>
       </view>

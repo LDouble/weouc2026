@@ -1,6 +1,6 @@
 import { fetchMarketList, favoriteMarket } from '~/api/modules/market';
 import { getMarketCategories } from '~/stores/config';
-import { splitAlternateColumns, unwrapPayload } from './shared';
+import { normalizeContactFields, splitAlternateColumns, unwrapPayload } from './shared';
 
 function buildCategoryLabelMap() {
   const categories = getMarketCategories();
@@ -17,6 +17,7 @@ function mapMarketItem(item, categoryLabelMap) {
   const extra = item.extra || {};
   const isWanted = extra.category === 'wanted';
   const imageUrls = extra.images && extra.images.length ? extra.images.slice() : [];
+  const contactFields = normalizeContactFields(item);
 
   if (!imageUrls.length && item.image) {
     imageUrls.push(item.image);
@@ -47,7 +48,9 @@ function mapMarketItem(item, categoryLabelMap) {
     imageHeight: images.length ? 342 : 354,
     cardBg: 'blue',
     detail: item.desc || '',
-    contact: extra.contact || '',
+    contact: contactFields.contact,
+    canViewContact: contactFields.canViewContact,
+    contactHiddenReason: contactFields.contactHiddenReason,
   };
 }
 

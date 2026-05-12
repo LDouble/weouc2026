@@ -1,6 +1,7 @@
 import { CARPOOL_TIME_FILTERS } from './data';
 import { fetchCarpoolDetail, fetchCarpoolList } from '../../api/modules/carpool';
 import { getReviewStatus } from '../../services/shared';
+import { normalizeContactFields } from '../../services/shared';
 
 function resolveCarpoolStatusMeta(reviewStatus) {
   if (reviewStatus === 'pending' || reviewStatus === 'reviewing') {
@@ -18,6 +19,7 @@ function resolveCarpoolStatusMeta(reviewStatus) {
 function mapCarpoolItem(item) {
   const extra = item.extra || {};
   const statusMeta = resolveCarpoolStatusMeta(getReviewStatus(item));
+  const contactFields = normalizeContactFields(item);
   return {
     id: item.id,
     category: item.category || extra.category || '',
@@ -34,7 +36,9 @@ function mapCarpoolItem(item) {
     sponsorTag: item.created_at || '',
     note: item.note || extra.note || '',
     tags: item.tags || extra.tags || [],
-    contact: item.contact || extra.contact || '',
+    contact: contactFields.contact,
+    canViewContact: contactFields.canViewContact,
+    contactHiddenReason: contactFields.contactHiddenReason,
   };
 }
 
@@ -205,9 +209,23 @@ Page({
   },
 
   onCopyContact(e) {
-    const { contact } = e.currentTarget.dataset;
+    const { contact, canViewContact } = e.currentTarget.dataset;
+    if (canViewContact === false || canViewContact === 'false') {
+      wx.showModal({
+        title: '无法查看联系方式',
+        content: '绑定教务后即可查看联系方式，是否前往绑定？',
+        confirmText: '前往绑定',
+        cancelText: '暂不需要',
+        success: (res) => {
+          if (res.confirm) {
+            wx.navigateTo({ url: '/pages/edu-bind/index' });
+          }
+        },
+      });
+      return;
+    }
     if (!contact || contact === '站内私信') {
-      wx.showToast({ title: '可通过站内私信联系', icon: 'none' });
+      wx.showToast({ title: '暂无联系方式', icon: 'none' });
       return;
     }
     wx.setClipboardData({

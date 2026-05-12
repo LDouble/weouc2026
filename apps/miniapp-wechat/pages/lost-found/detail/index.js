@@ -1,5 +1,6 @@
 import { fetchLostFoundDetail } from '../../../api/modules/lostFound';
 import { LOST_FOUND_CATEGORIES } from '../data';
+import { normalizeContactFields } from '../../../services/shared';
 
 const CATEGORY_LABEL_MAP = LOST_FOUND_CATEGORIES.reduce((map, item) => {
   if (item.value && item.value !== 'all') {
@@ -45,7 +46,7 @@ function mapLostFoundDetail(raw = {}) {
   const type = extra.type || raw.feed_type || 'lost';
   const category = extra.category || '';
   const categoryLabel = CATEGORY_LABEL_MAP[category] || category || '其他';
-  const canViewContact = typeof raw.can_view_contact === 'boolean' ? raw.can_view_contact : null;
+  const contactFields = normalizeContactFields(raw);
 
   return {
     id: raw.id || '',
@@ -58,8 +59,9 @@ function mapLostFoundDetail(raw = {}) {
     categoryLabel,
     location: extra.location || '',
     eventTime: extra.event_time || '',
-    contact: extra.contact || '',
-    canViewContact,
+    contact: contactFields.contact,
+    canViewContact: contactFields.canViewContact,
+    contactHiddenReason: contactFields.contactHiddenReason,
     note: extra.item_feature || '',
     publisher: raw.publisher || '匿名同学',
     publisherInitial: raw.publisher_initial || (raw.publisher || '匿').charAt(0),

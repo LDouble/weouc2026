@@ -1,4 +1,5 @@
 import { getMenuButtonSafeArea } from '../../../utils/navigation';
+import { getNetworkConfirmMessage } from '../../../utils/networkError';
 import {
   fetchErrandDetail,
   acceptErrand,
@@ -124,7 +125,7 @@ Page({
       this.setData({ task, accepted: task.accepted, loading: false });
     } catch (e) {
       this.setData({ loading: false });
-      wx.showToast({ title: e.message || '加载失败，请重试', icon: 'none' });
+      wx.showToast({ title: (e && e.message) || '加载失败，请重试', icon: 'none' });
     }
   },
 
@@ -196,7 +197,7 @@ Page({
       await this.loadTask(this.data.task.id);
       wx.showToast({ title: '已为你锁定订单', icon: 'success' });
     } catch (err) {
-      wx.showToast({ title: err.message || '接单失败，请重试', icon: 'none' });
+      wx.showToast({ title: getNetworkConfirmMessage(err, (err && err.message) || '接单失败，请重试'), icon: 'none' });
     }
   },
 
@@ -219,7 +220,7 @@ Page({
             wx.redirectTo({ url: '/pages/errand/index' });
           }, 500);
         } catch (err) {
-          wx.showToast({ title: err.message || '取消失败，请重试', icon: 'none' });
+          wx.showToast({ title: getNetworkConfirmMessage(err, (err && err.message) || '取消失败，请重试'), icon: 'none' });
         }
       },
     });
@@ -238,7 +239,7 @@ Page({
           await this.loadTask(this.data.task.id);
           wx.showToast({ title: '已取消接单', icon: 'success' });
         } catch (err) {
-          wx.showToast({ title: err.message || '取消失败，请重试', icon: 'none' });
+          wx.showToast({ title: getNetworkConfirmMessage(err, (err && err.message) || '取消失败，请重试'), icon: 'none' });
         }
       },
     });

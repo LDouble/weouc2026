@@ -110,7 +110,21 @@ Page({
 
   onCopyContact(e) {
     const { item } = e.detail;
-    const { contact } = item;
+    const { contact, canViewContact } = item;
+    if (canViewContact === false) {
+      wx.showModal({
+        title: '无法查看联系方式',
+        content: '绑定教务后即可查看联系方式，是否前往绑定？',
+        confirmText: '前往绑定',
+        cancelText: '暂不需要',
+        success: (res) => {
+          if (res.confirm) {
+            wx.navigateTo({ url: '/pages/edu-bind/index' });
+          }
+        },
+      });
+      return;
+    }
     if (!contact) {
       wx.showToast({ title: '登记人未公开联系方式', icon: 'none' });
       return;

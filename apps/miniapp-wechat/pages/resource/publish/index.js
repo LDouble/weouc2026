@@ -2,6 +2,7 @@ import { getMenuButtonSafeArea } from '../../../utils/navigation';
 import { PUBLISH_CATEGORIES } from '../data';
 import { publishResource } from '../../../api/modules/resource';
 import { getUploadResultPath, uploadFile } from '../../../api/modules/upload';
+import { getNetworkConfirmMessage } from '../../../utils/networkError';
 
 const MAX_FILES = 5;
 
@@ -198,13 +199,13 @@ Page({
       if (error && error.statusCode === 404) {
         throw new Error('当前服务端未部署文件上传接口，暂时无法发布资料');
       }
-      throw new Error(error.message || '文件上传失败，请稍后重试');
+      throw new Error((error && error.message) || '文件上传失败，请稍后重试');
     }
 
     const filePaths = results.map(getUploadResultPath).filter(Boolean);
 
     if (filePaths.length !== fileList.length) {
-      throw new Error('部分文件上传失败');
+      throw new Error('文件上传失败，请检查网络后重试');
     }
 
     return filePaths;
@@ -254,7 +255,7 @@ Page({
       }, 360);
     } catch (e) {
       wx.hideLoading();
-      const message = e.message || '发布失败，请重试';
+      const message = getNetworkConfirmMessage(e, (e && e.message) || '发布失败，请重试');
       wx.showToast({ title: message, icon: 'none' });
     } finally {
       this.setData({ publishing: false });

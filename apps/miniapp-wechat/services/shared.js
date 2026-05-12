@@ -31,3 +31,31 @@ export function getReviewStatus(item = {}) {
   const extra = item.extra || {};
   return item.review_status || item.status || extra.review_status || extra.status || '';
 }
+
+export function normalizeContactFields(item = {}) {
+  const extra = item.extra || {};
+  const rawCanViewContact = Object.prototype.hasOwnProperty.call(item, 'can_view_contact')
+    ? item.can_view_contact
+    : item.canViewContact;
+  const canViewContact = typeof rawCanViewContact === 'boolean' ? rawCanViewContact : null;
+  const contact = item.contact || extra.contact || '';
+  const explicitReason =
+    item.contact_hidden_reason ||
+    item.contactHiddenReason ||
+    extra.contact_hidden_reason ||
+    extra.contactHiddenReason ||
+    '';
+  let contactHiddenReason = explicitReason;
+
+  if (!contactHiddenReason && canViewContact === false) {
+    contactHiddenReason = 'bind_required';
+  } else if (!contactHiddenReason && !contact) {
+    contactHiddenReason = 'empty';
+  }
+
+  return {
+    canViewContact,
+    contact,
+    contactHiddenReason,
+  };
+}

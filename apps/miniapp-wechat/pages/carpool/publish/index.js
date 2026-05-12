@@ -1,6 +1,7 @@
 import { getMenuButtonSafeArea } from '../../../utils/navigation';
 import { publishCarpool } from '../../../api/modules/carpool';
 import { saveHistoryAddress } from '../../../utils/addressStore';
+import { getNetworkConfirmMessage } from '../../../utils/networkError';
 
 function padNumber(value) {
   return value < 10 ? `0${value}` : `${value}`;
@@ -218,7 +219,7 @@ Page({
         wx.redirectTo({ url: targetUrl });
       }, 360);
     } catch (e) {
-      wx.showToast({ title: '发布失败，请重试', icon: 'none' });
+      wx.showToast({ title: getNetworkConfirmMessage(e, '发布失败，请重试'), icon: 'none' });
     }
   },
 });

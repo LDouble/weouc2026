@@ -11,7 +11,17 @@ function createRequestError(message, options = {}) {
   error.code = options.code || '';
   error.details = options.details || null;
   error.response = options.response;
+  error.networkFail = Boolean(options.networkFail);
   return error;
+}
+
+function shouldRetryOnNetworkFail(method, options = {}) {
+  const normalizedMethod = String(method || 'GET').toUpperCase();
+  if (normalizedMethod === 'GET') {
+    return options.retryOnNetworkFail !== false;
+  }
+
+  return options.retryOnNetworkFail === true;
 }
 
 function extractErrorInfo(body, fallbackMessage) {
@@ -50,6 +60,7 @@ function isBusinessSuccess(body) {
 }
 
 function request(url, method = 'GET', data = {}, options = {}) {
+  const normalizedMethod = String(method || 'GET').toUpperCase();
   const header = {
     'content-type': 'application/json',
   };
@@ -65,7 +76,7 @@ function request(url, method = 'GET', data = {}, options = {}) {
     const doRequest = (isRetry) => {
       wx.request({
         url: baseUrl + url,
-        method,
+        method: normalizedMethod,
         data,
         dataType: 'json',
         header,
@@ -132,15 +143,18 @@ function request(url, method = 'GET', data = {}, options = {}) {
           }
         },
         fail(err) {
-          if (!isRetry) {
+          if (!isRetry && shouldRetryOnNetworkFail(normalizedMethod, options)) {
             doRequest(true);
-          } else {
-            reject(
-              createRequestError('网络异常，请稍后再试', {
-                response: err,
-              }),
-            );
+            return;
           }
+
+          reject(
+            createRequestError('网络异常，请稍后再试', {
+              code: 'NETWORK_FAIL',
+              response: err,
+              networkFail: true,
+            }),
+          );
         },
       });
     };

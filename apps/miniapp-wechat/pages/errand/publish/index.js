@@ -2,6 +2,7 @@ import { getMenuButtonSafeArea } from '../../../utils/navigation';
 import { publishErrand } from '../../../api/modules/errand';
 import { getUploadResultPath, uploadFile } from '../../../api/modules/upload';
 import { saveHistoryAddress } from '../../../utils/addressStore';
+import { getNetworkConfirmMessage } from '../../../utils/networkError';
 import { PUBLISH_CATEGORIES } from '../data';
 
 const DEADLINE_OPTIONS = [
@@ -34,8 +35,8 @@ function normalizeText(value) {
 function confirmWithoutImages() {
   return new Promise((resolve) => {
     wx.showModal({
-      title: '图片上传暂不可用',
-      content: '当前服务端还未开放图片上传接口，可先继续发布无图任务。',
+      title: '图片上传失败',
+      content: '图片上传失败，请检查网络后重试。跑腿允许无图发布，也可先继续发布无图任务。',
       confirmText: '继续发布',
       cancelText: '返回修改',
       success: (res) => resolve(Boolean(res.confirm)),
@@ -242,7 +243,7 @@ Page({
         wx.redirectTo({ url: `/pages/errand/detail/index?id=${id}` });
       }, 1500);
     } catch (err) {
-      wx.showToast({ title: err.message || '发布失败，请重试', icon: 'none' });
+      wx.showToast({ title: getNetworkConfirmMessage(err, (err && err.message) || '发布失败，请重试'), icon: 'none' });
     } finally {
       this.setData({ submitting: false });
     }
