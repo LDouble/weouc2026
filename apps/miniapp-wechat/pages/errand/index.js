@@ -3,6 +3,7 @@ import {
   getErrandCategoryList,
   loadErrandList,
 } from '../../services/errandService';
+import { getNetworkConfirmMessage } from '../../utils/networkError';
 
 Page({
   data: {
@@ -131,7 +132,7 @@ Page({
         }, 450);
       });
     } catch (err) {
-      wx.showToast({ title: '接单失败，请重试', icon: 'none' });
+      wx.showToast({ title: getNetworkConfirmMessage(err, '接单失败，请重试'), icon: 'none' });
     }
   },
 

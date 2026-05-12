@@ -1,5 +1,6 @@
 import { PUBLISH_CATEGORIES } from '../data';
 import { publishMeetup } from '../../../api/modules/meetup';
+import { getNetworkConfirmMessage } from '../../../utils/networkError';
 
 function padNumber(value) {
   return value < 10 ? `0${value}` : `${value}`;
@@ -136,7 +137,7 @@ Page({
         wx.redirectTo({ url: `/pages/meetup/detail/index?id=${id}` });
       }, 360);
     } catch (error) {
-      wx.showToast({ title: error.message || '发布失败，请重试', icon: 'none' });
+      wx.showToast({ title: getNetworkConfirmMessage(error, (error && error.message) || '发布失败，请重试'), icon: 'none' });
     } finally {
       this.setData({ submitting: false });
     }

@@ -1,5 +1,6 @@
 import { getMenuButtonSafeArea } from '../../utils/navigation';
 import { publishMarket } from '../../api/modules/market';
+import { getNetworkConfirmMessage } from '../../utils/networkError';
 import { getUploadResultPath, uploadFile } from '../../api/modules/upload';
 import { getMarketCategoryValueMap, getPaletteOptions, getReleaseScene } from '../../stores/config';
 
@@ -272,7 +273,7 @@ Page({
           url: `/pages/market/detail/index?id=${productId}`,
         });
       } catch (error) {
-        wx.showToast({ title: error.message || '发布失败，请重试', icon: 'none' });
+        wx.showToast({ title: getNetworkConfirmMessage(error, (error && error.message) || '发布失败，请重试'), icon: 'none' });
       } finally {
         wx.hideLoading();
       }

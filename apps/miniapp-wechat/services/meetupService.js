@@ -1,7 +1,7 @@
 import { fetchMeetupDetail, fetchMeetupList } from '~/api/modules/meetup';
 import { MEETUP_CATEGORIES } from '~/constants/campus';
 import { formatDateTime, formatRelativeTime } from '~/utils/date';
-import { dedupeById, unwrapPayload } from './shared';
+import { dedupeById, normalizeContactFields, unwrapPayload } from './shared';
 
 const CATEGORY_LABEL_MAP = MEETUP_CATEGORIES.reduce((map, item) => {
   if (item.value && item.value !== 'all') {
@@ -44,6 +44,7 @@ function mapMeetupItem(item = {}) {
   const remainingSeats = Number(item.remaining_seats || extra.remaining_seats || 0);
   const startAt = item.start_at || extra.start_at || '';
   const deadlineAt = item.deadline_at || extra.deadline_at || '';
+  const contactFields = normalizeContactFields(item);
 
   return {
     id: item.id || '',
@@ -61,7 +62,9 @@ function mapMeetupItem(item = {}) {
     remainingSeats,
     feeText: item.fee_text || extra.fee_text || '',
     tags: item.tags || extra.tags || [],
-    contact: item.contact || extra.contact || '',
+    contact: contactFields.contact,
+    canViewContact: contactFields.canViewContact,
+    contactHiddenReason: contactFields.contactHiddenReason,
     status,
     statusText: statusMeta.text,
     statusTone: statusMeta.tone,
@@ -74,7 +77,6 @@ function mapMeetupItem(item = {}) {
     canJoin: Boolean(item.can_join),
     canCancelJoin: Boolean(item.can_cancel_join),
     canCancelPublish: Boolean(item.can_cancel_publish),
-    canViewContact: typeof item.can_view_contact === 'boolean' ? item.can_view_contact : null,
     actionText: getActionText({
       canCancelPublish: Boolean(item.can_cancel_publish),
       canCancelJoin: Boolean(item.can_cancel_join),
