@@ -3,27 +3,60 @@
 ## 技术选型
 
 - `Flutter`
-- `Riverpod`
+- `flutter_riverpod`
 - `go_router`
 - `dio`
 - `json_serializable`
 
-## 目标
+## 当前状态
 
-承载与小程序一致业务语义的更完整移动端体验，当前以跑腿、组局（含拼车等轻社交撮合）、二手交易、资料、失物招领为主，后续再扩展教务功能。
+- 已初始化可运行 Flutter 工程（`android + ios`）
+- 已建立 `feature-first + MVVM + repository` 基线目录与首个 `home` 特性壳层
+- 当前首页模块数据由 `service` 层静态提供，后续再切换真实接口
 
-## 推荐结构
+## 目录基线
 
 ```text
 lib/
+├── app/
+│   ├── router/
+│   └── weouc_app.dart
 ├── features/
+│   └── home/
+│       ├── data/
+│       │   ├── models/
+│       │   ├── repositories/
+│       │   └── services/
+│       ├── domain/
+│       │   └── models/
+│       └── presentation/
+│           ├── viewmodels/
+│           └── views/
 ├── shared/
+│   ├── core/
+│   ├── data/
+│   └── ui/
 └── main.dart
+```
+
+## 本地开发
+
+```bash
+cd /Users/liangluo/code/weouc2026/apps/mobile-flutter
+flutter pub get
+flutter run
+```
+
+## 本地校验
+
+```bash
+cd /Users/liangluo/code/weouc2026/apps/mobile-flutter
+flutter analyze
+flutter test
 ```
 
 ## 约束
 
-- 采用 `feature-first + MVVM + repository`
-- 业务规则不在页面层实现
-- 缓存和同步逻辑进入数据层
-- 联系方式可见性必须复用后端基于教务绑定状态的裁决结果
+- 页面层不承载业务规则，业务规则统一放在后端或 `repository` 层
+- 网络与缓存访问只通过 `data/services`、`data/repositories`
+- 联系方式等受限字段只消费后端裁决结果，不在客户端推断
