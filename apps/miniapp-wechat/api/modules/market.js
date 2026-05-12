@@ -19,3 +19,7 @@ export function publishMarket(data) {
 export function favoriteMarket(productId, action) {
   return post('/market/favorite', { product_id: productId, action });
 }
+
+export function deleteMarket(id) {
+  return post(`/market/delete/${id}`);
+}

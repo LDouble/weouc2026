@@ -1,5 +1,5 @@
 import { getMenuButtonSafeArea } from '../../../utils/navigation';
-import { fetchMarketDetail } from '../../../api/modules/market';
+import { fetchMarketDetail, deleteMarket } from '../../../api/modules/market';
 import { toggleMarketFavorite } from '../../../services/marketService';
 import { getMarketCategories } from '../../../stores/config';
 
@@ -13,7 +13,7 @@ function buildCategoryLabelMap() {
   }, {});
 }
 
-function mapMarketDetail(item, canViewContact = false) {
+function mapMarketDetail(item, canViewContact, isOwner, canEdit, canDelete, canFavorite) {
   const extra = item.extra || {};
   const categoryLabelMap = buildCategoryLabelMap();
   const isWanted = extra.category === 'wanted';
@@ -44,8 +44,14 @@ function mapMarketDetail(item, canViewContact = false) {
     images,
     cardBg: 'blue',
     detail: item.desc || '',
+    status: item.status || 'published',
     contact: canViewContact && hasContact ? (extra.contact || '') : '',
     canViewContact,
+    isOwner: Boolean(isOwner),
+    canEdit: Boolean(canEdit),
+    canDelete: Boolean(canDelete),
+    canFavorite: Boolean(canFavorite),
+    canCopyContact: canViewContact && hasContact,
     tags: [
       { label: categoryLabelMap[extra.category] || extra.category || '', icon: isWanted ? 'search' : 'shop', tone: 'slate' },
       { label: extra.trade_mode || '', icon: 'location', tone: 'blue' },
@@ -95,8 +101,14 @@ Page({
     try {
       const res = await fetchMarketDetail(id);
       const data = res.data || res;
-      const canViewContact = data.can_view_contact || false;
-      const product = mapMarketDetail(data, canViewContact);
+      const product = mapMarketDetail(
+        data,
+        data.can_view_contact || false,
+        data.is_owner || false,
+        data.can_edit || false,
+        data.can_delete || false,
+        data.can_favorite || false,
+      );
       this.setData({
         product,
         currentImageIndex: 0,
@@ -175,6 +187,33 @@ Page({
 
   onSellerHome() {
     wx.showToast({ title: '个人主页接入中', icon: 'none' });
+  },
+
+  onDelete() {
+    const { product } = this.data;
+    if (!product.canDelete) return;
+    wx.showModal({
+      title: '下架商品',
+      content: '下架后该商品将不再展示，确认下架？',
+      confirmText: '确认下架',
+      confirmColor: '#dc2626',
+      success: async (res) => {
+        if (!res.confirm) return;
+        try {
+          await deleteMarket(product.id);
+          wx.showToast({ title: '已下架', icon: 'success' });
+          setTimeout(() => {
+            if (getCurrentPages().length > 1) {
+              wx.navigateBack({ delta: 1 });
+              return;
+            }
+            wx.redirectTo({ url: '/pages/market/index' });
+          }, 500);
+        } catch (error) {
+          wx.showToast({ title: (error && error.message) || '下架失败，请重试', icon: 'none' });
+        }
+      },
+    });
   },
 
   onShareAppMessage() {

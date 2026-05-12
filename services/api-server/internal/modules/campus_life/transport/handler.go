@@ -84,6 +84,15 @@ func (h *Handler) FavoriteMarket(c *gin.Context) {
 	httpx.JSON(c, http.StatusOK, gin.H{"success": true})
 }
 
+func (h *Handler) DeleteMarket(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.service.DeleteMarket(c.Request.Context(), auth.PrincipalFromContext(c), id); err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, gin.H{"success": true})
+}
+
 func (h *Handler) ListErrands(c *gin.Context) {
 	query := cltypes.ErrandQuery{
 		Pagination: paginationFromContext(c),
@@ -198,6 +207,15 @@ func (h *Handler) PublishResource(c *gin.Context) {
 	httpx.JSON(c, http.StatusOK, response)
 }
 
+func (h *Handler) DeleteResource(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.service.DeleteResource(c.Request.Context(), auth.PrincipalFromContext(c), id); err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, gin.H{"success": true})
+}
+
 func (h *Handler) ListLostFound(c *gin.Context) {
 	query := cltypes.LostFoundQuery{
 		Pagination: paginationFromContext(c),
@@ -257,6 +275,15 @@ func (h *Handler) PublishCarpool(c *gin.Context) {
 		return
 	}
 	httpx.JSON(c, http.StatusOK, response)
+}
+
+func (h *Handler) DeleteCarpool(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.service.DeleteCarpool(c.Request.Context(), auth.PrincipalFromContext(c), id); err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, gin.H{"success": true})
 }
 
 func (h *Handler) ListMeetups(c *gin.Context) {
@@ -348,6 +375,24 @@ func (h *Handler) PublishLostFound(c *gin.Context) {
 		return
 	}
 	httpx.JSON(c, http.StatusOK, response)
+}
+
+func (h *Handler) DeleteLostFound(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.service.DeleteLostFound(c.Request.Context(), auth.PrincipalFromContext(c), id); err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, gin.H{"success": true})
+}
+
+func (h *Handler) MarkLostFoundResolved(c *gin.Context) {
+	id := c.Param("id")
+	if err := h.service.MarkLostFoundResolved(c.Request.Context(), auth.PrincipalFromContext(c), id); err != nil {
+		httpx.AbortWithError(c, err)
+		return
+	}
+	httpx.JSON(c, http.StatusOK, gin.H{"success": true})
 }
 
 func (h *Handler) ListReviewQueue(c *gin.Context) {

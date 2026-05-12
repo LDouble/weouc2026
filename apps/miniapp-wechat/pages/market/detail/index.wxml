@@ -1,6 +1,19 @@
 <view class="market-detail">
   <view class="market-detail__bg"></view>
 
+  <view wx:if="{{product.status === 'offline'}}" class="detail-status-banner detail-status-banner--offline">
+    <t-icon name="close-circle" size="28rpx" />
+    <text>已下架</text>
+  </view>
+  <view wx:elif="{{product.status === 'rejected'}}" class="detail-status-banner detail-status-banner--rejected">
+    <t-icon name="close-circle" size="28rpx" />
+    <text>审核未通过</text>
+  </view>
+  <view wx:elif="{{product.status === 'reviewing'}}" class="detail-status-banner detail-status-banner--reviewing">
+    <t-icon name="time" size="28rpx" />
+    <text>审核中</text>
+  </view>
+
   <view class="detail-hero">
     <swiper
       wx:if="{{product.images.length}}"
@@ -125,7 +138,13 @@
 
   <view class="detail-bottom">
     <view class="detail-bottom__inner">
-      <view class="detail-want {{wanted ? 'detail-want--active' : ''}}" hover-class="tap-button" bindtap="onToggleWanted">
+      <view wx:if="{{product.isOwner}}" class="detail-owner-actions">
+        <view wx:if="{{product.canDelete}}" class="detail-owner-btn detail-owner-btn--danger" hover-class="tap-button" bindtap="onDelete">
+          <t-icon name="close-circle" size="30rpx" />
+          <text>下架</text>
+        </view>
+      </view>
+      <view wx:else class="detail-want {{wanted ? 'detail-want--active' : ''}}" hover-class="tap-button" bindtap="onToggleWanted">
         <t-icon name="{{wanted ? 'heart-filled' : 'heart'}}" size="34rpx" />
         <text>想要</text>
       </view>

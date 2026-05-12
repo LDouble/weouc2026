@@ -5,6 +5,10 @@
 - [0001-foundation.md](/Users/liangluo/code/weouc2026/docs/exec-plans/active/0001-foundation.md)
 - [0002-m1-m2-closure.md](/Users/liangluo/code/weouc2026/docs/exec-plans/active/0002-m1-m2-closure.md)
 
+## 已归档计划
+
+- [0003-owner-viewer-differentiation.md](/Users/liangluo/code/weouc2026/docs/exec-plans/completed/0003-owner-viewer-differentiation.md)
+
 ## 当前产品约束
 
 - 学生端当前主线为跑腿、组局、二手交易、资料、失物招领
@@ -13,6 +17,8 @@
 
 ## 最近更新
 
+- `2026-05-13`：执行 `0003-owner-viewer-differentiation` 计划进展：后端已为所有六个校园生活类型补齐 `user_role`/`is_owner`/`can_edit`/`can_delete` 及特有 `can_xxx` 字段（详情+列表），新增 Market/Resource/LostFound/Carpool 下架接口和 LostFound 标记已找到接口，小程序 Errand/Market/LostFound/Meetup 详情页主态/客态 UI 改造完成，OpenAPI 契约为 6 个类型定义了详情响应 schema 和新增接口路径。剩余 A6（编辑接口）、A8（Carpool 加入拼车）、B4（SDK 生成）、C4/C6（Resource/Carpool 前端）待后续迭代。
+- `2026-05-13`：新增 `0003-owner-viewer-differentiation` 计划，统一为拼车、闲置、组局、失物招领、跑腿五个校园生活模块落地主态/客态操作行为差异化，后端返回完整 `user_role` + `can_xxx` 布尔字段，客户端直接消费不做本地推断。
 - `2026-05-12`：`apps/mobile-flutter` 已完成最小可运行外壳初始化，落地 `feature-first + MVVM + repository` 基线目录、`Riverpod + GoRouter + Dio` 接线，以及最小 `analyze/test` 校验。
 - `2026-05-12`：已补齐 `contracts -> SDK` 最小闭环入口：新增 `make generate-sdk` 与 `packages/contracts/scripts/generate-sdks.sh`，明确 JS/Dart SDK 生成目录和步骤。
 - `2026-05-12`：管理员后台 IAM 用户/角色/权限页已收口为真实会话快照视图，不再维护前端可编辑样例数据，并移除未落地后端接口的误导性调用。

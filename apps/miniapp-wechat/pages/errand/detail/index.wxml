@@ -1,6 +1,11 @@
 <view class="errand-detail" style="padding-top: {{navHeight}}px;">
   <view class="errand-detail__bg"></view>
 
+  <view wx:if="{{task.status === 'cancelled'}}" class="detail-status-banner detail-status-banner--cancelled">
+    <t-icon name="close-circle" size="28rpx" />
+    <text>已取消</text>
+  </view>
+
   <view class="detail-nav">
     <view
       class="detail-nav__button"
@@ -123,7 +128,7 @@
         <text>{{task.canCopyContact ? '复制联系' : '联系'}}</text>
       </view>
       <view
-        wx:if="{{task.canCancelPublish}}"
+        wx:if="{{task.canDelete}}"
         class="detail-cancel"
         hover-class="tap-button"
         bindtap="onCancelPublish"

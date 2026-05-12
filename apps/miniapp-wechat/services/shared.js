@@ -27,6 +27,11 @@ export function dedupeById(items = []) {
   });
 }
 
+export function getReviewStatus(item = {}) {
+  const extra = item.extra || {};
+  return item.review_status || item.status || extra.review_status || extra.status || '';
+}
+
 export function normalizeContactFields(item = {}) {
   const extra = item.extra || {};
   const rawCanViewContact = Object.prototype.hasOwnProperty.call(item, 'can_view_contact')

@@ -314,6 +314,7 @@ func (s *Service) ListMarket(ctx context.Context, principal auth.Principal, quer
 			continue
 		}
 		canViewContact := canViewContact(principal, item.PublisherUserID)
+		isOwner := item.PublisherUserID == principal.UserID
 		resolvedImages := resolveManagedURLs(ctx, s.storageProvider, item.Extra.Images)
 		resolvedImage := resolveManagedURL(ctx, s.storageProvider, item.Image)
 		if resolvedImage == "" {
@@ -330,6 +331,10 @@ func (s *Service) ListMarket(ctx context.Context, principal auth.Principal, quer
 			"liked":             item.LikedByUserIDs[principal.UserID],
 			"created_at":        item.CreatedAt.Format(time.RFC3339),
 			"status":            normalizeReviewStatus(item.ReviewStatus),
+			"is_owner":          isOwner,
+			"can_edit":          canEditContent(isOwner, item.ReviewStatus),
+			"can_delete":        canDeleteContent(isOwner, item.ReviewStatus),
+			"can_favorite":      !isOwner && principal.Authenticated,
 			"extra": map[string]any{
 				"category":       item.Extra.Category,
 				"price":          item.Extra.Price,
@@ -360,6 +365,8 @@ func (s *Service) GetMarketDetail(ctx context.Context, principal auth.Principal,
 	}
 
 	canView := canViewContact(principal, item.PublisherUserID)
+	role := simpleUserRole(item.PublisherUserID, principal)
+	isOwner := role == "publisher"
 	resolvedImages := resolveManagedURLs(ctx, s.storageProvider, item.Extra.Images)
 	resolvedImage := resolveManagedURL(ctx, s.storageProvider, item.Image)
 	if resolvedImage == "" {
@@ -376,7 +383,12 @@ func (s *Service) GetMarketDetail(ctx context.Context, principal auth.Principal,
 		"liked":             item.LikedByUserIDs[principal.UserID],
 		"created_at":        item.CreatedAt.Format(time.RFC3339),
 		"status":            normalizeReviewStatus(item.ReviewStatus),
+		"user_role":         role,
+		"is_owner":          isOwner,
 		"can_view_contact":  canView,
+		"can_edit":          canEditContent(isOwner, item.ReviewStatus),
+		"can_delete":        canDeleteContent(isOwner, item.ReviewStatus),
+		"can_favorite":      !isOwner && principal.Authenticated,
 		"extra": map[string]any{
 			"category":       item.Extra.Category,
 			"price":          item.Extra.Price,
@@ -473,6 +485,31 @@ func (s *Service) FavoriteMarket(ctx context.Context, principal auth.Principal, 
 	return nil
 }
 
+func (s *Service) DeleteMarket(ctx context.Context, principal auth.Principal, id string) error {
+	_, err := s.repository.UpdateMarket(ctx, id, func(item *cltypes.MarketItem) error {
+		if item.PublisherUserID != principal.UserID {
+			return httpx.Forbidden("只有发布者可以下架", nil)
+		}
+		normalized := normalizeReviewStatus(item.ReviewStatus)
+		if normalized != statusPublished && normalized != statusReviewing && normalized != statusRejected {
+			return httpx.BadRequest("当前状态不允许下架", nil)
+		}
+		item.ReviewStatus = statusOffline
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, clrepo.ErrNotFound) {
+			return httpx.NotFound("二手商品不存在", nil)
+		}
+		if isAppError(err) {
+			return err
+		}
+		return httpx.Internal("下架二手商品失败", err)
+	}
+	s.recordAudit(ctx, principal, "campus_life.market.delete", "market", id, "二手商品下架成功", nil)
+	return nil
+}
+
 func (s *Service) ListErrands(ctx context.Context, principal auth.Principal, query cltypes.ErrandQuery) (map[string]any, error) {
 	items, err := s.repository.ListErrands(ctx)
 	if err != nil {
@@ -495,6 +532,7 @@ func (s *Service) ListErrands(ctx context.Context, principal auth.Principal, que
 			continue
 		}
 		status := mergeErrandStatus(item.Status, item.ReviewStatus)
+		isOwner := role == "publisher"
 		filtered = append(filtered, map[string]any{
 			"id":                item.ID,
 			"category":          item.Category,
@@ -506,11 +544,16 @@ func (s *Service) ListErrands(ctx context.Context, principal auth.Principal, que
 			"reward":            item.Reward,
 			"status":            status,
 			"user_role":         role,
+			"is_owner":          isOwner,
 			"is_accepted":       status == statusAccepted,
 			"views":             0,
 			"publisher":         item.Publisher,
 			"publisher_initial": item.PublisherInitial,
 			"created_at":        item.CreatedAt.Format(time.RFC3339),
+			"can_edit":          canEditContent(isOwner, item.ReviewStatus),
+			"can_delete":        canDeleteContent(isOwner, item.ReviewStatus),
+			"can_accept":        !isOwner && status == statusPublished && principal.Authenticated,
+			"can_cancel_accept": role == "acceptor" && status == statusAccepted,
 		})
 	}
 
@@ -529,6 +572,7 @@ func (s *Service) GetErrandDetail(ctx context.Context, principal auth.Principal,
 		return nil, err
 	}
 	role := errandUserRole(item, principal)
+	isOwner := role == "publisher"
 	canView := canViewContact(principal, item.PublisherUserID)
 	status := mergeErrandStatus(item.Status, item.ReviewStatus)
 	resolvedImages := resolveManagedURLs(ctx, s.storageProvider, item.Images)
@@ -561,8 +605,13 @@ func (s *Service) GetErrandDetail(ctx context.Context, principal auth.Principal,
 				"urgent":      item.Urgent,
 			},
 		},
-		"user_role":        role,
-		"can_view_contact": canView,
+		"user_role":           role,
+		"is_owner":            isOwner,
+		"can_view_contact":    canView,
+		"can_edit":            canEditContent(isOwner, item.ReviewStatus),
+		"can_delete":          canDeleteContent(isOwner, item.ReviewStatus),
+		"can_accept":          !isOwner && status == statusPublished && principal.Authenticated,
+		"can_cancel_accept":   role == "acceptor" && status == statusAccepted,
 	}, nil
 }
 
@@ -741,6 +790,9 @@ func (s *Service) GetResourceDetail(ctx context.Context, principal auth.Principa
 	if err := ensureContentVisible(principal, item.PublisherUserID, item.ReviewStatus, "资料不存在"); err != nil {
 		return nil, err
 	}
+	canView := canViewContact(principal, item.PublisherUserID)
+	role := simpleUserRole(item.PublisherUserID, principal)
+	isOwner := role == "publisher"
 	resolvedFiles := resolveResourceFiles(ctx, s.storageProvider, item.Extra.Files)
 	return map[string]any{
 		"id":                item.ID,
@@ -750,10 +802,16 @@ func (s *Service) GetResourceDetail(ctx context.Context, principal auth.Principa
 		"publisher_initial": item.PublisherInitial,
 		"created_at":        item.CreatedAt.Format(time.RFC3339),
 		"status":            normalizeReviewStatus(item.ReviewStatus),
+		"user_role":         role,
+		"is_owner":          isOwner,
+		"can_view_contact":  canView,
+		"can_edit":          canEditContent(isOwner, item.ReviewStatus),
+		"can_delete":        canDeleteContent(isOwner, item.ReviewStatus),
+		"can_download":      principal.Authenticated && canView,
 		"extra": map[string]any{
 			"category":     item.Extra.Category,
 			"course_name":  item.Extra.CourseName,
-			"contact":      item.Extra.Contact,
+			"contact":      visibleValue(canView, item.Extra.Contact),
 			"files":        resolvedFiles,
 			"file_size":    item.Extra.FileSize,
 			"file_type":    item.Extra.FileType,
@@ -817,6 +875,31 @@ func (s *Service) PublishResource(ctx context.Context, principal auth.Principal,
 	return map[string]any{"id": item.ID}, nil
 }
 
+func (s *Service) DeleteResource(ctx context.Context, principal auth.Principal, id string) error {
+	_, err := s.repository.UpdateResource(ctx, id, func(item *cltypes.ResourceItem) error {
+		if item.PublisherUserID != principal.UserID {
+			return httpx.Forbidden("只有发布者可以下架", nil)
+		}
+		normalized := normalizeReviewStatus(item.ReviewStatus)
+		if normalized != statusPublished && normalized != statusReviewing && normalized != statusRejected {
+			return httpx.BadRequest("当前状态不允许下架", nil)
+		}
+		item.ReviewStatus = statusOffline
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, clrepo.ErrNotFound) {
+			return httpx.NotFound("资料不存在", nil)
+		}
+		if isAppError(err) {
+			return err
+		}
+		return httpx.Internal("下架资料失败", err)
+	}
+	s.recordAudit(ctx, principal, "campus_life.resource.delete", "resource", id, "资料下架成功", nil)
+	return nil
+}
+
 func (s *Service) ListLostFound(ctx context.Context, principal auth.Principal, query cltypes.LostFoundQuery) (map[string]any, error) {
 	items, err := s.repository.ListLostFound(ctx)
 	if err != nil {
@@ -838,6 +921,7 @@ func (s *Service) ListLostFound(ctx context.Context, principal auth.Principal, q
 			continue
 		}
 		canView := canViewContact(principal, item.PublisherUserID)
+		isOwner := item.PublisherUserID == principal.UserID
 		filtered = append(filtered, map[string]any{
 			"id":                item.ID,
 			"title":             item.Title,
@@ -846,6 +930,10 @@ func (s *Service) ListLostFound(ctx context.Context, principal auth.Principal, q
 			"publisher_initial": item.PublisherInitial,
 			"created_at":        item.CreatedAt.Format(time.RFC3339),
 			"status":            normalizeReviewStatus(item.ReviewStatus),
+			"is_owner":          isOwner,
+			"can_edit":          canEditContent(isOwner, item.ReviewStatus),
+			"can_delete":        canDeleteContent(isOwner, item.ReviewStatus),
+			"can_mark_resolved": isOwner && normalizeReviewStatus(item.ReviewStatus) == statusPublished,
 			"extra": map[string]any{
 				"type":         item.Extra.Type,
 				"category":     item.Extra.Category,
@@ -871,14 +959,23 @@ func (s *Service) GetLostFoundDetail(ctx context.Context, principal auth.Princip
 		return nil, err
 	}
 	canView := canViewContact(principal, item.PublisherUserID)
+	role := simpleUserRole(item.PublisherUserID, principal)
+	isOwner := role == "publisher"
+	status := normalizeReviewStatus(item.ReviewStatus)
 	return map[string]any{
-		"id":                item.ID,
-		"title":             item.Title,
-		"desc":              item.Desc,
-		"publisher":         item.Publisher,
-		"publisher_initial": item.PublisherInitial,
-		"created_at":        item.CreatedAt.Format(time.RFC3339),
-		"status":            normalizeReviewStatus(item.ReviewStatus),
+		"id":                 item.ID,
+		"title":              item.Title,
+		"desc":               item.Desc,
+		"publisher":          item.Publisher,
+		"publisher_initial":  item.PublisherInitial,
+		"created_at":         item.CreatedAt.Format(time.RFC3339),
+		"status":             status,
+		"user_role":          role,
+		"is_owner":           isOwner,
+		"can_view_contact":   canView,
+		"can_edit":           canEditContent(isOwner, item.ReviewStatus),
+		"can_delete":         canDeleteContent(isOwner, item.ReviewStatus),
+		"can_mark_resolved":  isOwner && status == statusPublished,
 		"extra": map[string]any{
 			"type":         item.Extra.Type,
 			"category":     item.Extra.Category,
@@ -928,6 +1025,55 @@ func (s *Service) PublishLostFound(ctx context.Context, principal auth.Principal
 	return map[string]any{"id": item.ID}, nil
 }
 
+func (s *Service) DeleteLostFound(ctx context.Context, principal auth.Principal, id string) error {
+	_, err := s.repository.UpdateLostFound(ctx, id, func(item *cltypes.LostFoundItem) error {
+		if item.PublisherUserID != principal.UserID {
+			return httpx.Forbidden("只有发布者可以下架", nil)
+		}
+		normalized := normalizeReviewStatus(item.ReviewStatus)
+		if normalized != statusPublished && normalized != statusReviewing && normalized != statusRejected {
+			return httpx.BadRequest("当前状态不允许下架", nil)
+		}
+		item.ReviewStatus = statusOffline
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, clrepo.ErrNotFound) {
+			return httpx.NotFound("失物招领不存在", nil)
+		}
+		if isAppError(err) {
+			return err
+		}
+		return httpx.Internal("下架失物招领失败", err)
+	}
+	s.recordAudit(ctx, principal, "campus_life.lost_found.delete", "lostFound", id, "失物招领下架成功", nil)
+	return nil
+}
+
+func (s *Service) MarkLostFoundResolved(ctx context.Context, principal auth.Principal, id string) error {
+	_, err := s.repository.UpdateLostFound(ctx, id, func(item *cltypes.LostFoundItem) error {
+		if item.PublisherUserID != principal.UserID {
+			return httpx.Forbidden("只有发布者可以标记已找到", nil)
+		}
+		if normalizeReviewStatus(item.ReviewStatus) != statusPublished {
+			return httpx.BadRequest("当前状态不允许标记已找到", nil)
+		}
+		item.ReviewStatus = "resolved"
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, clrepo.ErrNotFound) {
+			return httpx.NotFound("失物招领不存在", nil)
+		}
+		if isAppError(err) {
+			return err
+		}
+		return httpx.Internal("标记失物招领已找到失败", err)
+	}
+	s.recordAudit(ctx, principal, "campus_life.lost_found.resolve", "lostFound", id, "失物招领标记已找到", nil)
+	return nil
+}
+
 func (s *Service) ListCarpools(ctx context.Context, principal auth.Principal, query cltypes.CarpoolQuery) (map[string]any, error) {
 	items, err := s.repository.ListCarpools(ctx)
 	if err != nil {
@@ -948,7 +1094,13 @@ func (s *Service) ListCarpools(ctx context.Context, principal auth.Principal, qu
 			continue
 		}
 		canView := canViewContact(principal, item.PublisherUserID)
-		filtered = append(filtered, buildCarpoolPayload(item, canView, now))
+		isOwner := item.PublisherUserID == principal.UserID
+		payload := buildCarpoolPayload(item, canView, now)
+		payload["is_owner"] = isOwner
+		payload["can_edit"] = canEditContent(isOwner, item.ReviewStatus) && item.TravelAt.After(now.UTC())
+		payload["can_delete"] = canDeleteContent(isOwner, item.ReviewStatus)
+		payload["can_join_carpool"] = !isOwner && normalizeReviewStatus(item.ReviewStatus) == statusPublished && principal.Authenticated
+		filtered = append(filtered, payload)
 	}
 
 	return listEnvelope(paginateMaps(filtered, query.Pagination), len(filtered), query.Pagination), nil
@@ -967,8 +1119,17 @@ func (s *Service) GetCarpoolDetail(ctx context.Context, principal auth.Principal
 	}
 
 	canView := canViewContact(principal, item.PublisherUserID)
-	payload := buildCarpoolPayload(item, canView, time.Now().In(chinaLocation))
+	role := simpleUserRole(item.PublisherUserID, principal)
+	isOwner := role == "publisher"
+	now := time.Now().In(chinaLocation)
+	status := normalizeReviewStatus(item.ReviewStatus)
+	payload := buildCarpoolPayload(item, canView, now)
 	payload["can_view_contact"] = canView
+	payload["user_role"] = role
+	payload["is_owner"] = isOwner
+	payload["can_edit"] = canEditContent(isOwner, item.ReviewStatus) && item.TravelAt.After(now.UTC())
+	payload["can_delete"] = canDeleteContent(isOwner, item.ReviewStatus)
+	payload["can_join_carpool"] = !isOwner && status == statusPublished && principal.Authenticated
 	return payload, nil
 }
 
@@ -1030,6 +1191,31 @@ func (s *Service) PublishCarpool(ctx context.Context, principal auth.Principal, 
 	return map[string]any{"id": item.ID}, nil
 }
 
+func (s *Service) DeleteCarpool(ctx context.Context, principal auth.Principal, id string) error {
+	_, err := s.repository.UpdateCarpool(ctx, id, func(item *cltypes.CarpoolItem) error {
+		if item.PublisherUserID != principal.UserID {
+			return httpx.Forbidden("只有发布者可以取消发布", nil)
+		}
+		normalized := normalizeReviewStatus(item.ReviewStatus)
+		if normalized != statusPublished && normalized != statusReviewing && normalized != statusRejected {
+			return httpx.BadRequest("当前状态不允许取消发布", nil)
+		}
+		item.ReviewStatus = statusOffline
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, clrepo.ErrNotFound) {
+			return httpx.NotFound("拼车行程不存在", nil)
+		}
+		if isAppError(err) {
+			return err
+		}
+		return httpx.Internal("取消拼车发布失败", err)
+	}
+	s.recordAudit(ctx, principal, "campus_life.carpool.delete", "carpool", id, "拼车取消发布成功", nil)
+	return nil
+}
+
 func (s *Service) ListMeetups(ctx context.Context, principal auth.Principal, query cltypes.MeetupQuery) (map[string]any, error) {
 	items, err := s.repository.ListMeetups(ctx)
 	if err != nil {
@@ -1055,7 +1241,11 @@ func (s *Service) ListMeetups(ctx context.Context, principal auth.Principal, que
 		if !matchKeyword(query.Keyword, item.Title, item.Desc, item.Location, item.Publisher) {
 			continue
 		}
-		filtered = append(filtered, buildMeetupPayload(item, principal, now))
+		payload := buildMeetupPayload(item, principal, now)
+		payload["is_owner"] = meetupUserRole(item, principal) == "publisher"
+		payload["can_edit"] = canEditContent(meetupUserRole(item, principal) == "publisher", item.ReviewStatus) && mergeMeetupStatus(item.Status, item.ReviewStatus) != statusCancelled
+		payload["can_delete"] = meetupUserRole(item, principal) == "publisher" && mergeMeetupStatus(item.Status, item.ReviewStatus) != statusCancelled
+		filtered = append(filtered, payload)
 	}
 
 	return listEnvelope(paginateMaps(filtered, query.Pagination), len(filtered), query.Pagination), nil
@@ -1078,6 +1268,8 @@ func (s *Service) GetMeetupDetail(ctx context.Context, principal auth.Principal,
 
 	payload := buildMeetupPayload(item, principal, time.Now().In(chinaLocation))
 	payload["can_view_contact"] = canViewContact(principal, item.PublisherUserID)
+	payload["can_edit"] = canEditContent(meetupUserRole(item, principal) == "publisher", item.ReviewStatus) && mergeMeetupStatus(item.Status, item.ReviewStatus) != statusCancelled
+	payload["can_delete"] = meetupUserRole(item, principal) == "publisher" && mergeMeetupStatus(item.Status, item.ReviewStatus) != statusCancelled
 	return payload, nil
 }
 
@@ -1422,6 +1614,16 @@ func (s *Service) UpdateReviewStatus(ctx context.Context, principal auth.Princip
 	return nil
 }
 
+func simpleUserRole(publisherUserID string, principal auth.Principal) string {
+	if !principal.Authenticated {
+		return "viewer"
+	}
+	if publisherUserID == principal.UserID {
+		return "publisher"
+	}
+	return "viewer"
+}
+
 func errandUserRole(item cltypes.ErrandItem, principal auth.Principal) string {
 	if !principal.Authenticated {
 		return "viewer"
@@ -1446,6 +1648,30 @@ func meetupUserRole(item cltypes.MeetupItem, principal auth.Principal) string {
 		return "participant"
 	}
 	return "viewer"
+}
+
+func canEditContent(isOwner bool, reviewStatus string) bool {
+	if !isOwner {
+		return false
+	}
+	normalized := normalizeReviewStatus(reviewStatus)
+	return normalized == statusPublished || normalized == statusReviewing
+}
+
+func canDeleteContent(isOwner bool, reviewStatus string, extraConditions ...bool) bool {
+	if !isOwner {
+		return false
+	}
+	normalized := normalizeReviewStatus(reviewStatus)
+	if normalized != statusPublished && normalized != statusReviewing && normalized != statusRejected {
+		return false
+	}
+	for _, cond := range extraConditions {
+		if !cond {
+			return false
+		}
+	}
+	return true
 }
 
 func matchUserRole(publisherUserID, acceptorUserID string, principal auth.Principal, userRole string) bool {
