@@ -205,7 +205,7 @@ Page({
     const filePaths = results.map(getUploadResultPath).filter(Boolean);
 
     if (filePaths.length !== fileList.length) {
-      throw new Error('部分文件上传失败');
+      throw new Error('文件上传失败，请检查网络后重试');
     }
 
     return filePaths;

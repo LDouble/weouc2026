@@ -209,8 +209,8 @@ Page({
   confirmPublishWithoutImages() {
     return new Promise((resolve) => {
       wx.showModal({
-        title: '图片上传暂不可用',
-        content: '当前服务端还未开放图片上传接口，可先继续发布无图版本。',
+        title: '图片上传失败',
+        content: '图片上传失败，请检查网络后重试。闲置允许无图发布，也可先继续发布无图版本。',
         confirmText: '继续发布',
         cancelText: '返回修改',
         success: (res) => resolve(Boolean(res.confirm)),

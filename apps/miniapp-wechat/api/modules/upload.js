@@ -2,6 +2,36 @@ import { get, post } from '~/api/request';
 
 const COS = require('cos-wx-sdk-v5');
 
+const REQUIRED_STS_FIELDS = [
+  'bucket',
+  'region',
+  'path_prefix',
+  'tmp_secret_id',
+  'tmp_secret_key',
+  'session_token',
+  'start_time',
+  'expired_time',
+];
+
+function normalizeCOSSTS(response) {
+  const data = getUploadResultData(response) || {};
+  const missing = REQUIRED_STS_FIELDS.filter(
+    (field) => data[field] === undefined || data[field] === null || data[field] === '',
+  );
+  if (missing.length) {
+    throw new Error('上传凭证字段不完整，请稍后重试');
+  }
+  return data;
+}
+
+function normalizePresignedGET(response) {
+  const data = getUploadResultData(response) || {};
+  if (!data.path || !data.url) {
+    throw new Error('文件访问地址生成失败，请稍后重试');
+  }
+  return data;
+}
+
 function pickExt(name, filePath) {
   const n = name || (filePath && filePath.split('/').pop()) || '';
   const i = n.lastIndexOf('.');
@@ -18,11 +48,11 @@ function generateObjectKey(pathPrefix, filePath) {
 function fetchCOSSTS(scene = '') {
   const query = {};
   if (scene) query.scene = scene;
-  return get('/upload/cos-sts', query).then(getUploadResultData);
+  return get('/upload/cos-sts', query).then(normalizeCOSSTS);
 }
 
 function fetchPresignedGET(objectKey) {
-  return post('/upload/presigned-get', { path: objectKey }).then(getUploadResultData);
+  return post('/upload/presigned-get', { path: objectKey }).then(normalizePresignedGET);
 }
 
 export function getUploadResultData(uploadResponse) {
