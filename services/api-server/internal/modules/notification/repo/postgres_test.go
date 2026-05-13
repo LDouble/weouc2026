@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"regexp"
 	"testing"
 	"time"
@@ -173,4 +174,58 @@ func TestPostgresRepositoryNextID(t *testing.T) {
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet sql expectations: %v", err)
 	}
+}
+
+func TestPostgresRepositoryListMessagesWithFilters(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("new sqlmock failed: %v", err)
+	}
+	defer db.Close()
+
+	query := MessageListQuery{
+		UserID:     "u-1",
+		Category:   "system",
+		UnreadOnly: true,
+	}
+	sqlText, args := buildMessageListQuery(query)
+	rows := sqlmock.NewRows([]string{
+		"id", "title", "content", "category", "target_scope", "target_user_ids", "action_url", "publisher_user_id", "publisher", "created_at", "read_by_user_ids",
+	}).AddRow(
+		"notification-401",
+		"系统维护提醒",
+		"今晚 23 点维护。",
+		"system",
+		"users",
+		`["u-1"]`,
+		"/pages/home/index",
+		"admin-001",
+		"校园运营中心",
+		time.Date(2026, 5, 12, 9, 0, 0, 0, time.UTC),
+		`{}`,
+	)
+
+	mock.ExpectQuery(regexp.QuoteMeta(sqlText)).
+		WithArgs(toDriverValues(args)...).
+		WillReturnRows(rows)
+
+	repository := NewPostgresRepository(db)
+	items, err := repository.ListMessages(context.Background(), query)
+	if err != nil {
+		t.Fatalf("ListMessages returned error: %v", err)
+	}
+	if len(items) != 1 || items[0].ID != "notification-401" {
+		t.Fatalf("unexpected notification payloads: %+v", items)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet sql expectations: %v", err)
+	}
+}
+
+func toDriverValues(args []any) []driver.Value {
+	values := make([]driver.Value, 0, len(args))
+	for _, arg := range args {
+		values = append(values, arg)
+	}
+	return values
 }

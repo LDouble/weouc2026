@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,12 +27,15 @@ func NewInMemoryRepository() *InMemoryRepository {
 	return repository
 }
 
-func (r *InMemoryRepository) ListBanners(context.Context) ([]portaltypes.BannerItem, error) {
+func (r *InMemoryRepository) ListBanners(_ context.Context, query BannerListQuery) ([]portaltypes.BannerItem, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	items := make([]portaltypes.BannerItem, 0, len(r.banners))
 	for _, item := range r.banners {
+		if !matchKeyword(query.Keyword, item.Title, item.Description, item.ActionURL) {
+			continue
+		}
 		items = append(items, item)
 	}
 	return items, nil
@@ -67,12 +71,15 @@ func (r *InMemoryRepository) DeleteBanner(_ context.Context, id string) error {
 	return nil
 }
 
-func (r *InMemoryRepository) ListNotices(context.Context) ([]portaltypes.NoticeItem, error) {
+func (r *InMemoryRepository) ListNotices(_ context.Context, query NoticeListQuery) ([]portaltypes.NoticeItem, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	items := make([]portaltypes.NoticeItem, 0, len(r.notices))
 	for _, item := range r.notices {
+		if !matchKeyword(query.Keyword, item.Title, item.Summary, item.Content, item.Publisher) {
+			continue
+		}
 		items = append(items, cloneNotice(item))
 	}
 	return items, nil
@@ -169,4 +176,17 @@ func (r *InMemoryRepository) seed() {
 func cloneNotice(item portaltypes.NoticeItem) portaltypes.NoticeItem {
 	item.Tags = append([]string(nil), item.Tags...)
 	return item
+}
+
+func matchKeyword(keyword string, values ...string) bool {
+	keyword = strings.TrimSpace(strings.ToLower(keyword))
+	if keyword == "" {
+		return true
+	}
+	for _, value := range values {
+		if strings.Contains(strings.ToLower(value), keyword) {
+			return true
+		}
+	}
+	return false
 }

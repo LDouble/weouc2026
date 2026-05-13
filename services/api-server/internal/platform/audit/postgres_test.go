@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"database/sql/driver"
 	"regexp"
 	"testing"
 	"time"
@@ -89,7 +90,7 @@ func TestPostgresStoreList(t *testing.T) {
 		WillReturnRows(rows)
 
 	store := NewPostgresStore(db)
-	entries, err := store.List(context.Background())
+	entries, err := store.List(context.Background(), ListQuery{})
 	if err != nil {
 		t.Fatalf("List returned error: %v", err)
 	}
@@ -99,4 +100,56 @@ func TestPostgresStoreList(t *testing.T) {
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet sql expectations: %v", err)
 	}
+}
+
+func TestPostgresStoreListWithQuery(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("new sqlmock failed: %v", err)
+	}
+	defer db.Close()
+
+	query := ListQuery{
+		ActorID: "user-001",
+		Action:  "notification.read",
+	}
+	sqlText, args := buildAuditListQuery(query)
+	rows := sqlmock.NewRows([]string{
+		"id", "actor_id", "actor_name", "action", "resource_type", "resource_id", "result", "message", "details", "created_at",
+	}).AddRow(
+		"audit-902",
+		"user-001",
+		"海大同学",
+		"notification.read",
+		"notification_message",
+		"notification-102",
+		"success",
+		"通知已读",
+		`{"category":"system"}`,
+		time.Date(2026, 5, 11, 17, 0, 0, 0, time.UTC),
+	)
+
+	mock.ExpectQuery(regexp.QuoteMeta(sqlText)).
+		WithArgs(toDriverValues(args)...).
+		WillReturnRows(rows)
+
+	store := NewPostgresStore(db)
+	entries, err := store.List(context.Background(), query)
+	if err != nil {
+		t.Fatalf("List returned error: %v", err)
+	}
+	if len(entries) != 1 || entries[0].ResourceID != "notification-102" {
+		t.Fatalf("unexpected audit entries: %+v", entries)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet sql expectations: %v", err)
+	}
+}
+
+func toDriverValues(args []any) []driver.Value {
+	values := make([]driver.Value, 0, len(args))
+	for _, arg := range args {
+		values = append(values, arg)
+	}
+	return values
 }

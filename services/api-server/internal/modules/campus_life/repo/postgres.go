@@ -112,12 +112,13 @@ func NewPostgresRepository(db *sql.DB) *PostgresRepository {
 	return &PostgresRepository{db: db}
 }
 
-func (r *PostgresRepository) ListMarkets(ctx context.Context) ([]cltypes.MarketItem, error) {
+func (r *PostgresRepository) ListMarkets(ctx context.Context, query MarketListQuery) ([]cltypes.MarketItem, error) {
 	if r.db == nil {
 		return nil, fmt.Errorf("postgres campus_life repository db is nil")
 	}
 
-	rows, err := r.db.QueryContext(ctx, `SELECT `+marketColumns+` FROM campus_markets`)
+	sqlText, args := buildMarketListSQL(query)
+	rows, err := r.db.QueryContext(ctx, sqlText, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list markets failed: %w", err)
 	}
@@ -205,12 +206,13 @@ func (r *PostgresRepository) UpdateMarket(
 	return updated, nil
 }
 
-func (r *PostgresRepository) ListErrands(ctx context.Context) ([]cltypes.ErrandItem, error) {
+func (r *PostgresRepository) ListErrands(ctx context.Context, query ErrandListQuery) ([]cltypes.ErrandItem, error) {
 	if r.db == nil {
 		return nil, fmt.Errorf("postgres campus_life repository db is nil")
 	}
 
-	rows, err := r.db.QueryContext(ctx, `SELECT `+errandColumns+` FROM campus_errands`)
+	sqlText, args := buildErrandListSQL(query)
+	rows, err := r.db.QueryContext(ctx, sqlText, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list errands failed: %w", err)
 	}
@@ -298,12 +300,13 @@ func (r *PostgresRepository) UpdateErrand(
 	return updated, nil
 }
 
-func (r *PostgresRepository) ListResources(ctx context.Context) ([]cltypes.ResourceItem, error) {
+func (r *PostgresRepository) ListResources(ctx context.Context, query ResourceListQuery) ([]cltypes.ResourceItem, error) {
 	if r.db == nil {
 		return nil, fmt.Errorf("postgres campus_life repository db is nil")
 	}
 
-	rows, err := r.db.QueryContext(ctx, `SELECT `+resourceColumns+` FROM campus_resources`)
+	sqlText, args := buildResourceListSQL(query)
+	rows, err := r.db.QueryContext(ctx, sqlText, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list resources failed: %w", err)
 	}
@@ -391,12 +394,13 @@ func (r *PostgresRepository) UpdateResource(
 	return updated, nil
 }
 
-func (r *PostgresRepository) ListLostFound(ctx context.Context) ([]cltypes.LostFoundItem, error) {
+func (r *PostgresRepository) ListLostFound(ctx context.Context, query LostFoundListQuery) ([]cltypes.LostFoundItem, error) {
 	if r.db == nil {
 		return nil, fmt.Errorf("postgres campus_life repository db is nil")
 	}
 
-	rows, err := r.db.QueryContext(ctx, `SELECT `+lostFoundColumns+` FROM campus_lost_founds`)
+	sqlText, args := buildLostFoundListSQL(query)
+	rows, err := r.db.QueryContext(ctx, sqlText, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list lost_found failed: %w", err)
 	}
@@ -484,12 +488,13 @@ func (r *PostgresRepository) UpdateLostFound(
 	return updated, nil
 }
 
-func (r *PostgresRepository) ListCarpools(ctx context.Context) ([]cltypes.CarpoolItem, error) {
+func (r *PostgresRepository) ListCarpools(ctx context.Context, query CarpoolListQuery) ([]cltypes.CarpoolItem, error) {
 	if r.db == nil {
 		return nil, fmt.Errorf("postgres campus_life repository db is nil")
 	}
 
-	rows, err := r.db.QueryContext(ctx, `SELECT `+carpoolColumns+` FROM campus_carpools`)
+	sqlText, args := buildCarpoolListSQL(query)
+	rows, err := r.db.QueryContext(ctx, sqlText, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list carpools failed: %w", err)
 	}
@@ -577,12 +582,13 @@ func (r *PostgresRepository) UpdateCarpool(
 	return updated, nil
 }
 
-func (r *PostgresRepository) ListMeetups(ctx context.Context) ([]cltypes.MeetupItem, error) {
+func (r *PostgresRepository) ListMeetups(ctx context.Context, query MeetupListQuery) ([]cltypes.MeetupItem, error) {
 	if r.db == nil {
 		return nil, fmt.Errorf("postgres campus_life repository db is nil")
 	}
 
-	rows, err := r.db.QueryContext(ctx, `SELECT `+meetupColumns+` FROM campus_meetups`)
+	sqlText, args := buildMeetupListSQL(query)
+	rows, err := r.db.QueryContext(ctx, sqlText, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list meetups failed: %w", err)
 	}

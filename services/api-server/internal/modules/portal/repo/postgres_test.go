@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"regexp"
 	"testing"
 	"time"
@@ -169,4 +170,54 @@ func TestPostgresRepositoryGetNoticeReturnsNotFound(t *testing.T) {
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet sql expectations: %v", err)
 	}
+}
+
+func TestPostgresRepositoryListNoticesWithKeyword(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("new sqlmock failed: %v", err)
+	}
+	defer db.Close()
+
+	query := NoticeListQuery{Keyword: "维护"}
+	sqlText, args := buildNoticeListQuery(query)
+	rows := sqlmock.NewRows([]string{
+		"id", "title", "summary", "content", "audience", "tags", "pinned", "publisher_user_id", "publisher", "published_at", "created_at",
+	}).AddRow(
+		"notice-301",
+		"停机维护通知",
+		"今晚维护",
+		"发布链路将短暂只读。",
+		"all",
+		`["运维"]`,
+		true,
+		"admin-001",
+		"校园运营中心",
+		time.Date(2026, 5, 12, 12, 0, 0, 0, time.UTC),
+		time.Date(2026, 5, 12, 12, 0, 0, 0, time.UTC),
+	)
+
+	mock.ExpectQuery(regexp.QuoteMeta(sqlText)).
+		WithArgs(toDriverValues(args)...).
+		WillReturnRows(rows)
+
+	repository := NewPostgresRepository(db)
+	items, err := repository.ListNotices(context.Background(), query)
+	if err != nil {
+		t.Fatalf("ListNotices returned error: %v", err)
+	}
+	if len(items) != 1 || items[0].ID != "notice-301" {
+		t.Fatalf("unexpected notice payloads: %+v", items)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet sql expectations: %v", err)
+	}
+}
+
+func toDriverValues(args []any) []driver.Value {
+	values := make([]driver.Value, 0, len(args))
+	for _, arg := range args {
+		values = append(values, arg)
+	}
+	return values
 }

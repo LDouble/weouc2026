@@ -3,6 +3,7 @@ package audit
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
@@ -20,12 +21,19 @@ type Entry struct {
 	CreatedAt    time.Time
 }
 
+type ListQuery struct {
+	ActorID      string
+	Action       string
+	ResourceType string
+	ResourceID   string
+}
+
 type Recorder interface {
 	Record(ctx context.Context, entry Entry) error
 }
 
 type Repository interface {
-	List(ctx context.Context) ([]Entry, error)
+	List(ctx context.Context, query ListQuery) ([]Entry, error)
 }
 
 type Store interface {
@@ -63,12 +71,15 @@ func (s *InMemoryStore) Record(_ context.Context, entry Entry) error {
 	return nil
 }
 
-func (s *InMemoryStore) List(context.Context) ([]Entry, error) {
+func (s *InMemoryStore) List(_ context.Context, query ListQuery) ([]Entry, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	result := make([]Entry, 0, len(s.entries))
 	for _, entry := range s.entries {
+		if !matchEntryQuery(entry, query) {
+			continue
+		}
 		result = append(result, cloneEntry(entry))
 	}
 	return result, nil
@@ -95,6 +106,22 @@ func cloneDetails(details map[string]any) map[string]any {
 		cloned[key] = value
 	}
 	return cloned
+}
+
+func matchEntryQuery(entry Entry, query ListQuery) bool {
+	if strings.TrimSpace(query.ActorID) != "" && entry.ActorID != strings.TrimSpace(query.ActorID) {
+		return false
+	}
+	if strings.TrimSpace(query.Action) != "" && entry.Action != strings.TrimSpace(query.Action) {
+		return false
+	}
+	if strings.TrimSpace(query.ResourceType) != "" && entry.ResourceType != strings.TrimSpace(query.ResourceType) {
+		return false
+	}
+	if strings.TrimSpace(query.ResourceID) != "" && entry.ResourceID != strings.TrimSpace(query.ResourceID) {
+		return false
+	}
+	return true
 }
 
 func firstNonEmpty(values ...string) string {

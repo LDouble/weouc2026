@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -95,12 +96,13 @@ func (s *PostgresStore) Record(ctx context.Context, entry Entry) error {
 	return nil
 }
 
-func (s *PostgresStore) List(ctx context.Context) ([]Entry, error) {
+func (s *PostgresStore) List(ctx context.Context, query ListQuery) ([]Entry, error) {
 	if s.db == nil {
 		return nil, fmt.Errorf("postgres audit store db is nil")
 	}
 
-	rows, err := s.db.QueryContext(ctx, `SELECT `+auditColumns+` FROM audit_logs`)
+	sqlText, args := buildAuditListQuery(query)
+	rows, err := s.db.QueryContext(ctx, sqlText, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list audit logs failed: %w", err)
 	}
@@ -119,6 +121,30 @@ func (s *PostgresStore) List(ctx context.Context) ([]Entry, error) {
 	}
 
 	return entries, nil
+}
+
+func buildAuditListQuery(query ListQuery) (string, []any) {
+	conditions := make([]string, 0, 4)
+	args := make([]any, 0, 4)
+	addExact := func(column, value string) {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return
+		}
+		args = append(args, value)
+		conditions = append(conditions, fmt.Sprintf("%s = $%d", column, len(args)))
+	}
+
+	addExact("actor_id", query.ActorID)
+	addExact("action", query.Action)
+	addExact("resource_type", query.ResourceType)
+	addExact("resource_id", query.ResourceID)
+
+	sqlText := `SELECT ` + auditColumns + ` FROM audit_logs`
+	if len(conditions) > 0 {
+		sqlText += ` WHERE ` + strings.Join(conditions, ` AND `)
+	}
+	return sqlText, args
 }
 
 type auditExecer interface {

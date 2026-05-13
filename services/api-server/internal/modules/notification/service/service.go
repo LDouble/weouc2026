@@ -31,49 +31,35 @@ func (s *Service) ListMessages(
 	principal auth.Principal,
 	query notificationtypes.MessageQuery,
 ) (map[string]any, error) {
-	items, err := s.repository.ListMessages(ctx)
+	items, err := s.repository.ListMessages(ctx, notificationrepo.MessageListQuery{
+		UserID:     principal.UserID,
+		Category:   query.Category,
+		UnreadOnly: query.UnreadOnly,
+	})
 	if err != nil {
 		return nil, httpx.Internal("读取通知列表失败", err)
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
 
-	filtered := make([]notificationtypes.MessageItem, 0, len(items))
-	for _, item := range items {
-		if !isVisibleToUser(item, principal.UserID) {
-			continue
-		}
-		if query.Category != "" && query.Category != item.Category {
-			continue
-		}
-		if query.UnreadOnly && isReadByUser(item, principal.UserID) {
-			continue
-		}
-		filtered = append(filtered, item)
-	}
-
 	offset, limit := normalizePagination(query.Page, query.PageSize)
-	paged := paginateMessages(filtered, offset, limit)
+	paged := paginateMessages(items, offset, limit)
 	return map[string]any{
 		"list":     messagePayloads(paged, principal.UserID),
-		"total":    len(filtered),
+		"total":    len(items),
 		"page":     normalizePage(query.Page),
 		"pageSize": normalizePageSize(query.PageSize),
 	}, nil
 }
 
 func (s *Service) GetUnreadCount(ctx context.Context, principal auth.Principal) (map[string]any, error) {
-	items, err := s.repository.ListMessages(ctx)
+	items, err := s.repository.ListMessages(ctx, notificationrepo.MessageListQuery{
+		UserID:     principal.UserID,
+		UnreadOnly: true,
+	})
 	if err != nil {
 		return nil, httpx.Internal("读取未读通知数量失败", err)
 	}
-
-	count := 0
-	for _, item := range items {
-		if isVisibleToUser(item, principal.UserID) && !isReadByUser(item, principal.UserID) {
-			count++
-		}
-	}
-	return map[string]any{"count": count}, nil
+	return map[string]any{"count": len(items)}, nil
 }
 
 func (s *Service) PublishMessage(

@@ -27,13 +27,13 @@ func New(repository portalrepo.Repository, recorder audit.Recorder) *Service {
 }
 
 func (s *Service) GetHome(ctx context.Context) (map[string]any, error) {
-	banners, err := s.repository.ListBanners(ctx)
+	banners, err := s.repository.ListBanners(ctx, portalrepo.BannerListQuery{})
 	if err != nil {
 		return nil, httpx.Internal("读取门户轮播失败", err)
 	}
 	sortBanners(banners)
 
-	notices, err := s.repository.ListNotices(ctx)
+	notices, err := s.repository.ListNotices(ctx, portalrepo.NoticeListQuery{})
 	if err != nil {
 		return nil, httpx.Internal("读取门户公告失败", err)
 	}
@@ -49,25 +49,19 @@ func (s *Service) GetHome(ctx context.Context) (map[string]any, error) {
 }
 
 func (s *Service) ListBanners(ctx context.Context, query portaltypes.BannerQuery) (map[string]any, error) {
-	banners, err := s.repository.ListBanners(ctx)
+	banners, err := s.repository.ListBanners(ctx, portalrepo.BannerListQuery{
+		Keyword: query.Keyword,
+	})
 	if err != nil {
 		return nil, httpx.Internal("读取门户轮播列表失败", err)
 	}
 	sortBanners(banners)
 
-	filtered := make([]portaltypes.BannerItem, 0, len(banners))
-	for _, item := range banners {
-		if !matchKeyword(query.Keyword, item.Title, item.Description, item.ActionURL) {
-			continue
-		}
-		filtered = append(filtered, item)
-	}
-
 	offset, limit := normalizePagination(query.Page, query.PageSize)
-	paged := paginateBanners(filtered, offset, limit)
+	paged := paginateBanners(banners, offset, limit)
 	return map[string]any{
 		"list":     bannerPayloads(paged),
-		"total":    len(filtered),
+		"total":    len(banners),
 		"page":     normalizePage(query.Page),
 		"pageSize": normalizePageSize(query.PageSize),
 	}, nil
@@ -182,25 +176,19 @@ func (s *Service) DeleteBanner(ctx context.Context, principal auth.Principal, id
 }
 
 func (s *Service) ListNotices(ctx context.Context, query portaltypes.NoticeQuery) (map[string]any, error) {
-	notices, err := s.repository.ListNotices(ctx)
+	notices, err := s.repository.ListNotices(ctx, portalrepo.NoticeListQuery{
+		Keyword: query.Keyword,
+	})
 	if err != nil {
 		return nil, httpx.Internal("读取公告列表失败", err)
 	}
 	sortNotices(notices)
 
-	filtered := make([]portaltypes.NoticeItem, 0, len(notices))
-	for _, item := range notices {
-		if !matchKeyword(query.Keyword, item.Title, item.Summary, item.Content, item.Publisher) {
-			continue
-		}
-		filtered = append(filtered, item)
-	}
-
 	offset, limit := normalizePagination(query.Page, query.PageSize)
-	paged := paginateNotices(filtered, offset, limit)
+	paged := paginateNotices(notices, offset, limit)
 	return map[string]any{
 		"list":     noticePayloads(paged, false),
-		"total":    len(filtered),
+		"total":    len(notices),
 		"page":     normalizePage(query.Page),
 		"pageSize": normalizePageSize(query.PageSize),
 	}, nil

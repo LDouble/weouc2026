@@ -24,12 +24,15 @@ func NewInMemoryRepository() *InMemoryRepository {
 	return repository
 }
 
-func (r *InMemoryRepository) ListMessages(context.Context) ([]notificationtypes.MessageItem, error) {
+func (r *InMemoryRepository) ListMessages(_ context.Context, query MessageListQuery) ([]notificationtypes.MessageItem, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	items := make([]notificationtypes.MessageItem, 0, len(r.messages))
 	for _, item := range r.messages {
+		if !matchMessageQuery(item, query) {
+			continue
+		}
 		items = append(items, cloneMessage(item))
 	}
 	return items, nil
@@ -122,4 +125,37 @@ func cloneMessage(item notificationtypes.MessageItem) notificationtypes.MessageI
 		item.ReadByUserIDs = cloned
 	}
 	return item
+}
+
+func matchMessageQuery(item notificationtypes.MessageItem, query MessageListQuery) bool {
+	if query.Category != "" && item.Category != query.Category {
+		return false
+	}
+	if !isVisibleToUser(item, query.UserID) {
+		return false
+	}
+	if query.UnreadOnly && isReadByUser(item, query.UserID) {
+		return false
+	}
+	return true
+}
+
+func isVisibleToUser(item notificationtypes.MessageItem, userID string) bool {
+	if item.TargetScope == "all" {
+		return true
+	}
+	for _, targetUserID := range item.TargetUserIDs {
+		if targetUserID == userID {
+			return true
+		}
+	}
+	return false
+}
+
+func isReadByUser(item notificationtypes.MessageItem, userID string) bool {
+	if item.ReadByUserIDs == nil {
+		return false
+	}
+	_, exists := item.ReadByUserIDs[userID]
+	return exists
 }

@@ -57,228 +57,234 @@ func (s *Service) ListFeed(ctx context.Context, principal auth.Principal, query 
 	}
 
 	rows := make([]row, 0)
-	markets, err := s.repository.ListMarkets(ctx)
-	if err != nil {
-		return nil, httpx.Internal("读取二手动态失败", err)
-	}
-	for _, item := range markets {
-		if !matchUserRole(item.PublisherUserID, "", principal, query.UserRole) {
-			continue
-		}
-		if !shouldExposeContent(principal, item.PublisherUserID, item.ReviewStatus, query.UserRole) {
-			continue
-		}
-		if !matchFeedType(query.FeedTypes, "market") || !matchKeyword(query.Keyword, item.Title, item.Desc) {
-			continue
-		}
-		resolvedImages := resolveManagedURLs(ctx, s.storageProvider, item.Extra.Images)
-		resolvedImage := resolveManagedURL(ctx, s.storageProvider, item.Image)
-		if resolvedImage == "" {
-			resolvedImage = firstNonEmpty(resolvedImages...)
-		}
-		rows = append(rows, row{
-			id:        item.ID,
-			feedType:  "market",
-			createdAt: item.CreatedAt,
-			payload: map[string]any{
-				"id":              item.ID,
-				"feed_type":       "market",
-				"feed_type_label": "二手交易",
-				"title":           item.Title,
-				"desc":            item.Desc,
-				"publisher":       item.Publisher,
-				"created_at":      item.CreatedAt.Format(time.RFC3339),
-				"status":          normalizeReviewStatus(item.ReviewStatus),
-				"image":           resolvedImage,
-				"extra": map[string]any{
-					"images":   resolvedImages,
-					"likes":    item.Likes,
-					"comments": 0,
-				},
-			},
-		})
-	}
-	errands, err := s.repository.ListErrands(ctx)
-	if err != nil {
-		return nil, httpx.Internal("读取跑腿动态失败", err)
-	}
-	for _, item := range errands {
-		role := errandUserRole(item, principal)
-		if !matchUserRole(item.PublisherUserID, item.AcceptorUserID, principal, query.UserRole) {
-			continue
-		}
-		if !shouldExposeContent(principal, item.PublisherUserID, item.ReviewStatus, query.UserRole) {
-			continue
-		}
-		if !matchFeedType(query.FeedTypes, "errand") || !matchKeyword(query.Keyword, item.Title, item.Desc) {
-			continue
-		}
-		rows = append(rows, row{
-			id:        item.ID,
-			feedType:  "errand",
-			createdAt: item.CreatedAt,
-			payload: map[string]any{
-				"id":              item.ID,
-				"feed_type":       "errand",
-				"feed_type_label": "校园跑腿",
-				"title":           item.Title,
-				"desc":            item.Desc,
-				"publisher":       item.Publisher,
-				"created_at":      item.CreatedAt.Format(time.RFC3339),
-				"status":          mergeErrandStatus(item.Status, item.ReviewStatus),
-				"extra": map[string]any{
-					"likes":     0,
-					"comments":  0,
-					"user_role": role,
-				},
-			},
-		})
-	}
-	resources, err := s.repository.ListResources(ctx)
-	if err != nil {
-		return nil, httpx.Internal("读取资料动态失败", err)
-	}
-	for _, item := range resources {
-		if !matchUserRole(item.PublisherUserID, "", principal, query.UserRole) {
-			continue
-		}
-		if !shouldExposeContent(principal, item.PublisherUserID, item.ReviewStatus, query.UserRole) {
-			continue
-		}
-		if !matchFeedType(query.FeedTypes, "resource") || !matchKeyword(query.Keyword, item.Title, item.Desc) {
-			continue
-		}
-		rows = append(rows, row{
-			id:        item.ID,
-			feedType:  "resource",
-			createdAt: item.CreatedAt,
-			payload: map[string]any{
-				"id":              item.ID,
-				"feed_type":       "resource",
-				"feed_type_label": "资料共享",
-				"title":           item.Title,
-				"desc":            item.Desc,
-				"publisher":       item.Publisher,
-				"created_at":      item.CreatedAt.Format(time.RFC3339),
-				"status":          normalizeReviewStatus(item.ReviewStatus),
-			},
-		})
-	}
-	lostFounds, err := s.repository.ListLostFound(ctx)
-	if err != nil {
-		return nil, httpx.Internal("读取失物招领动态失败", err)
-	}
-	for _, item := range lostFounds {
-		if !matchUserRole(item.PublisherUserID, "", principal, query.UserRole) {
-			continue
-		}
-		if !shouldExposeContent(principal, item.PublisherUserID, item.ReviewStatus, query.UserRole) {
-			continue
-		}
-		if !matchFeedType(query.FeedTypes, "lostFound") || !matchKeyword(query.Keyword, item.Title, item.Desc) {
-			continue
-		}
-		rows = append(rows, row{
-			id:        item.ID,
-			feedType:  "lostFound",
-			createdAt: item.CreatedAt,
-			payload: map[string]any{
-				"id":              item.ID,
-				"feed_type":       "lostFound",
-				"feed_type_label": "失物招领",
-				"title":           item.Title,
-				"desc":            item.Desc,
-				"publisher":       item.Publisher,
-				"created_at":      item.CreatedAt.Format(time.RFC3339),
-				"status":          normalizeReviewStatus(item.ReviewStatus),
-			},
-		})
-	}
+	visibility := visibleCampusContentQuery(principal)
 	now := time.Now().In(chinaLocation)
-	carpools, err := s.repository.ListCarpools(ctx)
-	if err != nil {
-		return nil, httpx.Internal("读取拼车动态失败", err)
+
+	if matchFeedType(query.FeedTypes, "market") {
+		publisherUserID, ok := simplePublisherRoleFilter(principal, query.UserRole)
+		if ok {
+			markets, err := s.repository.ListMarkets(ctx, clrepo.MarketListQuery{
+				Visibility:      visibility,
+				Keyword:         query.Keyword,
+				PublisherUserID: publisherUserID,
+			})
+			if err != nil {
+				return nil, httpx.Internal("读取二手动态失败", err)
+			}
+			for _, item := range markets {
+				resolvedImages := resolveManagedURLs(ctx, s.storageProvider, item.Extra.Images)
+				resolvedImage := resolveManagedURL(ctx, s.storageProvider, item.Image)
+				if resolvedImage == "" {
+					resolvedImage = firstNonEmpty(resolvedImages...)
+				}
+				rows = append(rows, row{
+					id:        item.ID,
+					feedType:  "market",
+					createdAt: item.CreatedAt,
+					payload: map[string]any{
+						"id":              item.ID,
+						"feed_type":       "market",
+						"feed_type_label": "二手交易",
+						"title":           item.Title,
+						"desc":            item.Desc,
+						"publisher":       item.Publisher,
+						"created_at":      item.CreatedAt.Format(time.RFC3339),
+						"status":          normalizeReviewStatus(item.ReviewStatus),
+						"image":           resolvedImage,
+						"extra": map[string]any{
+							"images":   resolvedImages,
+							"likes":    item.Likes,
+							"comments": 0,
+						},
+					},
+				})
+			}
+		}
 	}
-	for _, item := range carpools {
-		if !matchUserRole(item.PublisherUserID, "", principal, query.UserRole) {
-			continue
+
+	if matchFeedType(query.FeedTypes, "errand") {
+		publisherUserID, acceptorUserID, ok := errandRoleFilters(principal, query.UserRole)
+		if ok {
+			errands, err := s.repository.ListErrands(ctx, clrepo.ErrandListQuery{
+				Visibility:      visibility,
+				Keyword:         query.Keyword,
+				PublisherUserID: publisherUserID,
+				AcceptorUserID:  acceptorUserID,
+			})
+			if err != nil {
+				return nil, httpx.Internal("读取跑腿动态失败", err)
+			}
+			for _, item := range errands {
+				role := errandUserRole(item, principal)
+				rows = append(rows, row{
+					id:        item.ID,
+					feedType:  "errand",
+					createdAt: item.CreatedAt,
+					payload: map[string]any{
+						"id":              item.ID,
+						"feed_type":       "errand",
+						"feed_type_label": "校园跑腿",
+						"title":           item.Title,
+						"desc":            item.Desc,
+						"publisher":       item.Publisher,
+						"created_at":      item.CreatedAt.Format(time.RFC3339),
+						"status":          mergeErrandStatus(item.Status, item.ReviewStatus),
+						"extra": map[string]any{
+							"likes":     0,
+							"comments":  0,
+							"user_role": role,
+						},
+					},
+				})
+			}
 		}
-		if !shouldExposeContent(principal, item.PublisherUserID, item.ReviewStatus, query.UserRole) {
-			continue
-		}
-		if !matchFeedType(query.FeedTypes, "carpool") ||
-			!matchKeyword(query.Keyword, item.From, item.To, item.Note, item.Type) {
-			continue
-		}
-		rows = append(rows, row{
-			id:        item.ID,
-			feedType:  "carpool",
-			createdAt: item.CreatedAt,
-			payload: map[string]any{
-				"id":              item.ID,
-				"feed_type":       "carpool",
-				"feed_type_label": "校园拼车",
-				"title":           carpoolTitle(item),
-				"desc":            carpoolFeedDesc(item),
-				"publisher":       item.Publisher,
-				"created_at":      item.CreatedAt.Format(time.RFC3339),
-				"status":          normalizeReviewStatus(item.ReviewStatus),
-				"extra": map[string]any{
-					"category":   normalizedCarpoolCategory(item, now),
-					"from":       item.From,
-					"to":         item.To,
-					"time":       formatCarpoolTravelText(item.TravelAt, now),
-					"type":       item.Type,
-					"seats_text": item.SeatsText,
-					"price":      item.Price,
-					"tags":       append([]string(nil), item.Tags...),
-					"comments":   0,
-				},
-			},
-		})
 	}
-	meetups, err := s.repository.ListMeetups(ctx)
-	if err != nil {
-		return nil, httpx.Internal("读取组局动态失败", err)
+
+	if matchFeedType(query.FeedTypes, "resource") {
+		publisherUserID, ok := simplePublisherRoleFilter(principal, query.UserRole)
+		if ok {
+			resources, err := s.repository.ListResources(ctx, clrepo.ResourceListQuery{
+				Visibility:      visibility,
+				Keyword:         query.Keyword,
+				PublisherUserID: publisherUserID,
+			})
+			if err != nil {
+				return nil, httpx.Internal("读取资料动态失败", err)
+			}
+			for _, item := range resources {
+				rows = append(rows, row{
+					id:        item.ID,
+					feedType:  "resource",
+					createdAt: item.CreatedAt,
+					payload: map[string]any{
+						"id":              item.ID,
+						"feed_type":       "resource",
+						"feed_type_label": "资料共享",
+						"title":           item.Title,
+						"desc":            item.Desc,
+						"publisher":       item.Publisher,
+						"created_at":      item.CreatedAt.Format(time.RFC3339),
+						"status":          normalizeReviewStatus(item.ReviewStatus),
+					},
+				})
+			}
+		}
 	}
-	for _, item := range meetups {
-		if !matchMeetupUserRole(item, principal, query.UserRole) {
-			continue
+
+	if matchFeedType(query.FeedTypes, "lostFound") {
+		publisherUserID, ok := simplePublisherRoleFilter(principal, query.UserRole)
+		if ok {
+			lostFounds, err := s.repository.ListLostFound(ctx, clrepo.LostFoundListQuery{
+				Visibility:      visibility,
+				Keyword:         query.Keyword,
+				PublisherUserID: publisherUserID,
+			})
+			if err != nil {
+				return nil, httpx.Internal("读取失物招领动态失败", err)
+			}
+			for _, item := range lostFounds {
+				rows = append(rows, row{
+					id:        item.ID,
+					feedType:  "lostFound",
+					createdAt: item.CreatedAt,
+					payload: map[string]any{
+						"id":              item.ID,
+						"feed_type":       "lostFound",
+						"feed_type_label": "失物招领",
+						"title":           item.Title,
+						"desc":            item.Desc,
+						"publisher":       item.Publisher,
+						"created_at":      item.CreatedAt.Format(time.RFC3339),
+						"status":          normalizeReviewStatus(item.ReviewStatus),
+					},
+				})
+			}
 		}
-		if !shouldExposeContent(principal, item.PublisherUserID, item.ReviewStatus, query.UserRole) {
-			continue
+	}
+
+	if matchFeedType(query.FeedTypes, "carpool") {
+		publisherUserID, ok := simplePublisherRoleFilter(principal, query.UserRole)
+		if ok {
+			carpools, err := s.repository.ListCarpools(ctx, clrepo.CarpoolListQuery{
+				Visibility:      visibility,
+				Keyword:         query.Keyword,
+				PublisherUserID: publisherUserID,
+			})
+			if err != nil {
+				return nil, httpx.Internal("读取拼车动态失败", err)
+			}
+			for _, item := range carpools {
+				rows = append(rows, row{
+					id:        item.ID,
+					feedType:  "carpool",
+					createdAt: item.CreatedAt,
+					payload: map[string]any{
+						"id":              item.ID,
+						"feed_type":       "carpool",
+						"feed_type_label": "校园拼车",
+						"title":           carpoolTitle(item),
+						"desc":            carpoolFeedDesc(item),
+						"publisher":       item.Publisher,
+						"created_at":      item.CreatedAt.Format(time.RFC3339),
+						"status":          normalizeReviewStatus(item.ReviewStatus),
+						"extra": map[string]any{
+							"category":   normalizedCarpoolCategory(item, now),
+							"from":       item.From,
+							"to":         item.To,
+							"time":       formatCarpoolTravelText(item.TravelAt, now),
+							"type":       item.Type,
+							"seats_text": item.SeatsText,
+							"price":      item.Price,
+							"tags":       append([]string(nil), item.Tags...),
+							"comments":   0,
+						},
+					},
+				})
+			}
 		}
-		if !shouldExposeMeetupState(principal, item, query.UserRole) {
-			continue
+	}
+
+	if matchFeedType(query.FeedTypes, "meetup") {
+		publisherUserID, participantUserID, ok := meetupRoleFilters(principal, query.UserRole)
+		if ok {
+			meetups, err := s.repository.ListMeetups(ctx, clrepo.MeetupListQuery{
+				Visibility:        visibility,
+				Keyword:           query.Keyword,
+				PublisherUserID:   publisherUserID,
+				ParticipantUserID: participantUserID,
+				State:             meetupStateQuery(principal),
+			})
+			if err != nil {
+				return nil, httpx.Internal("读取组局动态失败", err)
+			}
+			for _, item := range meetups {
+				rows = append(rows, row{
+					id:        item.ID,
+					feedType:  "meetup",
+					createdAt: item.CreatedAt,
+					payload: map[string]any{
+						"id":              item.ID,
+						"feed_type":       "meetup",
+						"feed_type_label": "校园组局",
+						"title":           item.Title,
+						"desc":            meetupFeedDesc(item),
+						"publisher":       item.Publisher,
+						"created_at":      item.CreatedAt.Format(time.RFC3339),
+						"status":          mergeMeetupStatus(item.Status, item.ReviewStatus),
+						"extra": map[string]any{
+							"category":        item.Category,
+							"location":        item.Location,
+							"start_at":        item.StartAt.In(chinaLocation).Format(time.RFC3339),
+							"joined_count":    meetupJoinedCount(item),
+							"remaining_seats": meetupRemainingSeats(item),
+							"fee_text":        item.FeeText,
+							"tags":            append([]string(nil), item.Tags...),
+							"comments":        0,
+						},
+					},
+				})
+			}
 		}
-		if !matchFeedType(query.FeedTypes, "meetup") || !matchKeyword(query.Keyword, item.Title, item.Desc, item.Location) {
-			continue
-		}
-		rows = append(rows, row{
-			id:        item.ID,
-			feedType:  "meetup",
-			createdAt: item.CreatedAt,
-			payload: map[string]any{
-				"id":              item.ID,
-				"feed_type":       "meetup",
-				"feed_type_label": "校园组局",
-				"title":           item.Title,
-				"desc":            meetupFeedDesc(item),
-				"publisher":       item.Publisher,
-				"created_at":      item.CreatedAt.Format(time.RFC3339),
-				"status":          mergeMeetupStatus(item.Status, item.ReviewStatus),
-				"extra": map[string]any{
-					"category":        item.Category,
-					"location":        item.Location,
-					"start_at":        item.StartAt.In(chinaLocation).Format(time.RFC3339),
-					"joined_count":    meetupJoinedCount(item),
-					"remaining_seats": meetupRemainingSeats(item),
-					"fee_text":        item.FeeText,
-					"tags":            append([]string(nil), item.Tags...),
-					"comments":        0,
-				},
-			},
-		})
 	}
 
 	sort.Slice(rows, func(i, j int) bool {
@@ -295,7 +301,11 @@ func (s *Service) ListFeed(ctx context.Context, principal auth.Principal, query 
 }
 
 func (s *Service) ListMarket(ctx context.Context, principal auth.Principal, query cltypes.MarketQuery) (map[string]any, error) {
-	items, err := s.repository.ListMarkets(ctx)
+	items, err := s.repository.ListMarkets(ctx, clrepo.MarketListQuery{
+		Visibility: visibleCampusContentQuery(principal),
+		Category:   query.Category,
+		Keyword:    query.Keyword,
+	})
 	if err != nil {
 		return nil, httpx.Internal("读取二手列表失败", err)
 	}
@@ -305,15 +315,6 @@ func (s *Service) ListMarket(ctx context.Context, principal auth.Principal, quer
 
 	filtered := make([]map[string]any, 0)
 	for _, item := range items {
-		if !shouldExposeContent(principal, item.PublisherUserID, item.ReviewStatus, "") {
-			continue
-		}
-		if query.Category != "" && query.Category != item.Extra.Category {
-			continue
-		}
-		if !matchKeyword(query.Keyword, item.Title, item.Desc) {
-			continue
-		}
 		canViewContact := canViewContact(principal, item.PublisherUserID)
 		isOwner := item.PublisherUserID == principal.UserID
 		resolvedImages := resolveManagedURLs(ctx, s.storageProvider, item.Extra.Images)
@@ -512,26 +513,24 @@ func (s *Service) DeleteMarket(ctx context.Context, principal auth.Principal, id
 }
 
 func (s *Service) ListErrands(ctx context.Context, principal auth.Principal, query cltypes.ErrandQuery) (map[string]any, error) {
-	items, err := s.repository.ListErrands(ctx)
+	publisherUserID, acceptorUserID, ok := errandRoleFilters(principal, query.UserRole)
+	if !ok {
+		return listEnvelope([]map[string]any{}, 0, query.Pagination), nil
+	}
+	items, err := s.repository.ListErrands(ctx, clrepo.ErrandListQuery{
+		Visibility:      visibleCampusContentQuery(principal),
+		Category:        query.Category,
+		Keyword:         query.Keyword,
+		PublisherUserID: publisherUserID,
+		AcceptorUserID:  acceptorUserID,
+	})
 	if err != nil {
 		return nil, httpx.Internal("读取跑腿列表失败", err)
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
 	filtered := make([]map[string]any, 0)
 	for _, item := range items {
-		if !shouldExposeContent(principal, item.PublisherUserID, item.ReviewStatus, query.UserRole) {
-			continue
-		}
-		if query.Category != "" && query.Category != item.Category {
-			continue
-		}
-		if !matchKeyword(query.Keyword, item.Title, item.Desc) {
-			continue
-		}
 		role := errandUserRole(item, principal)
-		if query.UserRole != "" && role != query.UserRole {
-			continue
-		}
 		status := mergeErrandStatus(item.Status, item.ReviewStatus)
 		isOwner := role == "publisher"
 		filtered = append(filtered, map[string]any{
@@ -606,13 +605,13 @@ func (s *Service) GetErrandDetail(ctx context.Context, principal auth.Principal,
 				"urgent":      item.Urgent,
 			},
 		},
-		"user_role":           role,
-		"is_owner":            isOwner,
-		"can_view_contact":    canView,
-		"can_edit":            canEditContent(isOwner, item.ReviewStatus),
-		"can_delete":          canDeleteContent(isOwner, item.ReviewStatus),
-		"can_accept":          !isOwner && status == statusPublished && principal.Authenticated,
-		"can_cancel_accept":   role == "acceptor" && status == statusAccepted,
+		"user_role":         role,
+		"is_owner":          isOwner,
+		"can_view_contact":  canView,
+		"can_edit":          canEditContent(isOwner, item.ReviewStatus),
+		"can_delete":        canDeleteContent(isOwner, item.ReviewStatus),
+		"can_accept":        !isOwner && status == statusPublished && principal.Authenticated,
+		"can_cancel_accept": role == "acceptor" && status == statusAccepted,
 	}, nil
 }
 
@@ -739,22 +738,17 @@ func (s *Service) CancelErrandAccept(ctx context.Context, principal auth.Princip
 }
 
 func (s *Service) ListResources(ctx context.Context, principal auth.Principal, query cltypes.ResourceQuery) (map[string]any, error) {
-	items, err := s.repository.ListResources(ctx)
+	items, err := s.repository.ListResources(ctx, clrepo.ResourceListQuery{
+		Visibility: publishedCampusContentQuery(),
+		Category:   query.Category,
+		Keyword:    query.Keyword,
+	})
 	if err != nil {
 		return nil, httpx.Internal("读取资料列表失败", err)
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
 	filtered := make([]map[string]any, 0)
 	for _, item := range items {
-		if normalizeReviewStatus(item.ReviewStatus) != statusPublished {
-			continue
-		}
-		if query.Category != "" && query.Category != item.Extra.Category {
-			continue
-		}
-		if !matchKeyword(query.Keyword, item.Title, item.Desc) {
-			continue
-		}
 		isOwner := item.PublisherUserID == principal.UserID
 		canView := canViewContact(principal, item.PublisherUserID)
 		resolvedFiles := resolveResourceFiles(ctx, s.storageProvider, item.Extra.Files)
@@ -908,25 +902,18 @@ func (s *Service) DeleteResource(ctx context.Context, principal auth.Principal, 
 }
 
 func (s *Service) ListLostFound(ctx context.Context, principal auth.Principal, query cltypes.LostFoundQuery) (map[string]any, error) {
-	items, err := s.repository.ListLostFound(ctx)
+	items, err := s.repository.ListLostFound(ctx, clrepo.LostFoundListQuery{
+		Visibility: visibleCampusContentQuery(principal),
+		Category:   query.Category,
+		Type:       query.Type,
+		Keyword:    query.Keyword,
+	})
 	if err != nil {
 		return nil, httpx.Internal("读取失物招领列表失败", err)
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
 	filtered := make([]map[string]any, 0)
 	for _, item := range items {
-		if !shouldExposeContent(principal, item.PublisherUserID, item.ReviewStatus, "") {
-			continue
-		}
-		if query.Category != "" && query.Category != item.Extra.Category {
-			continue
-		}
-		if query.Type != "" && query.Type != item.Extra.Type {
-			continue
-		}
-		if !matchKeyword(query.Keyword, item.Title, item.Desc) {
-			continue
-		}
 		canView := canViewContact(principal, item.PublisherUserID)
 		isOwner := item.PublisherUserID == principal.UserID
 		filtered = append(filtered, map[string]any{
@@ -970,19 +957,19 @@ func (s *Service) GetLostFoundDetail(ctx context.Context, principal auth.Princip
 	isOwner := role == "publisher"
 	status := normalizeReviewStatus(item.ReviewStatus)
 	return map[string]any{
-		"id":                 item.ID,
-		"title":              item.Title,
-		"desc":               item.Desc,
-		"publisher":          item.Publisher,
-		"publisher_initial":  item.PublisherInitial,
-		"created_at":         item.CreatedAt.Format(time.RFC3339),
-		"status":             status,
-		"user_role":          role,
-		"is_owner":           isOwner,
-		"can_view_contact":   canView,
-		"can_edit":           canEditContent(isOwner, item.ReviewStatus),
-		"can_delete":         canDeleteContent(isOwner, item.ReviewStatus),
-		"can_mark_resolved":  isOwner && status == statusPublished,
+		"id":                item.ID,
+		"title":             item.Title,
+		"desc":              item.Desc,
+		"publisher":         item.Publisher,
+		"publisher_initial": item.PublisherInitial,
+		"created_at":        item.CreatedAt.Format(time.RFC3339),
+		"status":            status,
+		"user_role":         role,
+		"is_owner":          isOwner,
+		"can_view_contact":  canView,
+		"can_edit":          canEditContent(isOwner, item.ReviewStatus),
+		"can_delete":        canDeleteContent(isOwner, item.ReviewStatus),
+		"can_mark_resolved": isOwner && status == statusPublished,
 		"extra": map[string]any{
 			"type":         item.Extra.Type,
 			"category":     item.Extra.Category,
@@ -1082,24 +1069,21 @@ func (s *Service) MarkLostFoundResolved(ctx context.Context, principal auth.Prin
 }
 
 func (s *Service) ListCarpools(ctx context.Context, principal auth.Principal, query cltypes.CarpoolQuery) (map[string]any, error) {
-	items, err := s.repository.ListCarpools(ctx)
+	now := time.Now().In(chinaLocation)
+	travelAtFrom, travelAtTo := carpoolTravelRange(query.Category, now)
+	items, err := s.repository.ListCarpools(ctx, clrepo.CarpoolListQuery{
+		Visibility:   publishedCampusContentQuery(),
+		Keyword:      query.Keyword,
+		TravelAtFrom: travelAtFrom,
+		TravelAtTo:   travelAtTo,
+	})
 	if err != nil {
 		return nil, httpx.Internal("读取拼车列表失败", err)
 	}
 	sort.Slice(items, func(i, j int) bool { return items[i].CreatedAt.After(items[j].CreatedAt) })
 
-	now := time.Now().In(chinaLocation)
 	filtered := make([]map[string]any, 0)
 	for _, item := range items {
-		if normalizeReviewStatus(item.ReviewStatus) != statusPublished {
-			continue
-		}
-		if query.Category != "" && query.Category != "all" && normalizedCarpoolCategory(item, now) != query.Category {
-			continue
-		}
-		if !matchKeyword(query.Keyword, item.From, item.To, item.Note, item.Publisher, item.Type) {
-			continue
-		}
 		canView := canViewContact(principal, item.PublisherUserID)
 		isOwner := item.PublisherUserID == principal.UserID
 		payload := buildCarpoolPayload(item, canView, now)
@@ -1224,7 +1208,23 @@ func (s *Service) DeleteCarpool(ctx context.Context, principal auth.Principal, i
 }
 
 func (s *Service) ListMeetups(ctx context.Context, principal auth.Principal, query cltypes.MeetupQuery) (map[string]any, error) {
-	items, err := s.repository.ListMeetups(ctx)
+	publisherUserID, participantUserID, ok := meetupRoleFilters(principal, query.UserRole)
+	if !ok {
+		return listEnvelope([]map[string]any{}, 0, query.Pagination), nil
+	}
+	items, err := s.repository.ListMeetups(ctx, clrepo.MeetupListQuery{
+		Visibility: visibleCampusContentQuery(principal),
+		Category: func() string {
+			if query.Category == "all" {
+				return ""
+			}
+			return query.Category
+		}(),
+		Keyword:           query.Keyword,
+		PublisherUserID:   publisherUserID,
+		ParticipantUserID: participantUserID,
+		State:             meetupStateQuery(principal),
+	})
 	if err != nil {
 		return nil, httpx.Internal("读取组局列表失败", err)
 	}
@@ -1233,21 +1233,6 @@ func (s *Service) ListMeetups(ctx context.Context, principal auth.Principal, que
 	filtered := make([]map[string]any, 0)
 	now := time.Now().In(chinaLocation)
 	for _, item := range items {
-		if !matchMeetupUserRole(item, principal, query.UserRole) {
-			continue
-		}
-		if !shouldExposeContent(principal, item.PublisherUserID, item.ReviewStatus, query.UserRole) {
-			continue
-		}
-		if !shouldExposeMeetupState(principal, item, query.UserRole) {
-			continue
-		}
-		if query.Category != "" && query.Category != "all" && query.Category != item.Category {
-			continue
-		}
-		if !matchKeyword(query.Keyword, item.Title, item.Desc, item.Location, item.Publisher) {
-			continue
-		}
 		payload := buildMeetupPayload(item, principal, now)
 		payload["is_owner"] = meetupUserRole(item, principal) == "publisher"
 		payload["can_edit"] = canEditContent(meetupUserRole(item, principal) == "publisher", item.ReviewStatus) && mergeMeetupStatus(item.Status, item.ReviewStatus) != statusCancelled
@@ -1441,9 +1426,6 @@ func (s *Service) ListReviewQueue(ctx context.Context, query cltypes.ReviewQuery
 
 	rows := make([]row, 0)
 	appendRow := func(contentType string, createdAt time.Time, reviewStatus string, title, desc, publisher, id string, extra map[string]any) {
-		if !matchReviewQuery(query, contentType, reviewStatus, title, desc, publisher, id) {
-			return
-		}
 		rows = append(rows, row{
 			createdAt: createdAt,
 			payload: map[string]any{
@@ -1459,88 +1441,122 @@ func (s *Service) ListReviewQueue(ctx context.Context, query cltypes.ReviewQuery
 		})
 	}
 
-	markets, err := s.repository.ListMarkets(ctx)
-	if err != nil {
-		return nil, httpx.Internal("读取二手审核列表失败", err)
-	}
-	for _, item := range markets {
-		appendRow("market", item.CreatedAt, item.ReviewStatus, item.Title, item.Desc, item.Publisher, item.ID, map[string]any{
-			"category":       item.Extra.Category,
-			"price":          item.Extra.Price,
-			"original_price": item.Extra.OriginalPrice,
-			"condition":      item.Extra.Condition,
-			"trade_mode":     item.Extra.TradeMode,
-		})
-	}
-
-	errands, err := s.repository.ListErrands(ctx)
-	if err != nil {
-		return nil, httpx.Internal("读取跑腿审核列表失败", err)
-	}
-	for _, item := range errands {
-		appendRow("errand", item.CreatedAt, item.ReviewStatus, item.Title, item.Desc, item.Publisher, item.ID, map[string]any{
-			"category":    item.Category,
-			"status":      item.Status,
-			"route_start": item.RouteStart,
-			"route_end":   item.RouteEnd,
-			"deadline":    item.Deadline.Format(time.RFC3339),
-			"reward":      item.Reward,
-		})
-	}
-
-	resources, err := s.repository.ListResources(ctx)
-	if err != nil {
-		return nil, httpx.Internal("读取资料审核列表失败", err)
-	}
-	for _, item := range resources {
-		appendRow("resource", item.CreatedAt, item.ReviewStatus, item.Title, item.Desc, item.Publisher, item.ID, map[string]any{
-			"category":    item.Extra.Category,
-			"course_name": item.Extra.CourseName,
-			"file_type":   item.Extra.FileType,
-			"file_size":   item.Extra.FileSize,
-		})
-	}
-
-	lostFounds, err := s.repository.ListLostFound(ctx)
-	if err != nil {
-		return nil, httpx.Internal("读取失物招领审核列表失败", err)
-	}
-	for _, item := range lostFounds {
-		appendRow("lostFound", item.CreatedAt, item.ReviewStatus, item.Title, item.Desc, item.Publisher, item.ID, map[string]any{
-			"category":   item.Extra.Category,
-			"type":       item.Extra.Type,
-			"location":   item.Extra.Location,
-			"event_time": item.Extra.EventTime,
-		})
-	}
-
-	carpools, err := s.repository.ListCarpools(ctx)
-	if err != nil {
-		return nil, httpx.Internal("读取拼车审核列表失败", err)
-	}
+	reviewQuery := reviewQueueContentQuery(query.ReviewStatus)
 	now := time.Now().In(chinaLocation)
-	for _, item := range carpools {
-		appendRow("carpool", item.CreatedAt, item.ReviewStatus, carpoolTitle(item), item.Note, item.Publisher, item.ID, map[string]any{
-			"category":   normalizedCarpoolCategory(item, now),
-			"from":       item.From,
-			"to":         item.To,
-			"time":       formatCarpoolTravelText(item.TravelAt, now),
-			"seats_text": item.SeatsText,
+
+	if query.ContentType == "" || query.ContentType == "market" {
+		markets, err := s.repository.ListMarkets(ctx, clrepo.MarketListQuery{
+			Visibility: reviewQuery,
+			Keyword:    query.Keyword,
 		})
+		if err != nil {
+			return nil, httpx.Internal("读取二手审核列表失败", err)
+		}
+		for _, item := range markets {
+			appendRow("market", item.CreatedAt, item.ReviewStatus, item.Title, item.Desc, item.Publisher, item.ID, map[string]any{
+				"category":       item.Extra.Category,
+				"price":          item.Extra.Price,
+				"original_price": item.Extra.OriginalPrice,
+				"condition":      item.Extra.Condition,
+				"trade_mode":     item.Extra.TradeMode,
+			})
+		}
 	}
-	meetups, err := s.repository.ListMeetups(ctx)
-	if err != nil {
-		return nil, httpx.Internal("读取组局审核列表失败", err)
-	}
-	for _, item := range meetups {
-		appendRow("meetup", item.CreatedAt, item.ReviewStatus, item.Title, item.Desc, item.Publisher, item.ID, map[string]any{
-			"category":         item.Category,
-			"location":         item.Location,
-			"start_at":         item.StartAt.In(chinaLocation).Format(time.RFC3339),
-			"max_participants": item.MaxParticipants,
-			"joined_count":     meetupJoinedCount(item),
-			"status":           normalizeMeetupStatus(item.Status),
+
+	if query.ContentType == "" || query.ContentType == "errand" {
+		errands, err := s.repository.ListErrands(ctx, clrepo.ErrandListQuery{
+			Visibility: reviewQuery,
+			Keyword:    query.Keyword,
 		})
+		if err != nil {
+			return nil, httpx.Internal("读取跑腿审核列表失败", err)
+		}
+		for _, item := range errands {
+			appendRow("errand", item.CreatedAt, item.ReviewStatus, item.Title, item.Desc, item.Publisher, item.ID, map[string]any{
+				"category":    item.Category,
+				"status":      item.Status,
+				"route_start": item.RouteStart,
+				"route_end":   item.RouteEnd,
+				"deadline":    item.Deadline.Format(time.RFC3339),
+				"reward":      item.Reward,
+			})
+		}
+	}
+
+	if query.ContentType == "" || query.ContentType == "resource" {
+		resources, err := s.repository.ListResources(ctx, clrepo.ResourceListQuery{
+			Visibility: reviewQuery,
+			Keyword:    query.Keyword,
+		})
+		if err != nil {
+			return nil, httpx.Internal("读取资料审核列表失败", err)
+		}
+		for _, item := range resources {
+			appendRow("resource", item.CreatedAt, item.ReviewStatus, item.Title, item.Desc, item.Publisher, item.ID, map[string]any{
+				"category":    item.Extra.Category,
+				"course_name": item.Extra.CourseName,
+				"file_type":   item.Extra.FileType,
+				"file_size":   item.Extra.FileSize,
+			})
+		}
+	}
+
+	if query.ContentType == "" || query.ContentType == "lostFound" {
+		lostFounds, err := s.repository.ListLostFound(ctx, clrepo.LostFoundListQuery{
+			Visibility: reviewQuery,
+			Keyword:    query.Keyword,
+		})
+		if err != nil {
+			return nil, httpx.Internal("读取失物招领审核列表失败", err)
+		}
+		for _, item := range lostFounds {
+			appendRow("lostFound", item.CreatedAt, item.ReviewStatus, item.Title, item.Desc, item.Publisher, item.ID, map[string]any{
+				"category":   item.Extra.Category,
+				"type":       item.Extra.Type,
+				"location":   item.Extra.Location,
+				"event_time": item.Extra.EventTime,
+			})
+		}
+	}
+
+	if query.ContentType == "" || query.ContentType == "carpool" {
+		carpools, err := s.repository.ListCarpools(ctx, clrepo.CarpoolListQuery{
+			Visibility: reviewQuery,
+			Keyword:    query.Keyword,
+		})
+		if err != nil {
+			return nil, httpx.Internal("读取拼车审核列表失败", err)
+		}
+		for _, item := range carpools {
+			appendRow("carpool", item.CreatedAt, item.ReviewStatus, carpoolTitle(item), item.Note, item.Publisher, item.ID, map[string]any{
+				"category":   normalizedCarpoolCategory(item, now),
+				"from":       item.From,
+				"to":         item.To,
+				"time":       formatCarpoolTravelText(item.TravelAt, now),
+				"seats_text": item.SeatsText,
+			})
+		}
+	}
+
+	if query.ContentType == "" || query.ContentType == "meetup" {
+		meetups, err := s.repository.ListMeetups(ctx, clrepo.MeetupListQuery{
+			Visibility: reviewQuery,
+			Keyword:    query.Keyword,
+			State:      clrepo.MeetupStateQuery{IncludeAllStatuses: true},
+		})
+		if err != nil {
+			return nil, httpx.Internal("读取组局审核列表失败", err)
+		}
+		for _, item := range meetups {
+			appendRow("meetup", item.CreatedAt, item.ReviewStatus, item.Title, item.Desc, item.Publisher, item.ID, map[string]any{
+				"category":         item.Category,
+				"location":         item.Location,
+				"start_at":         item.StartAt.In(chinaLocation).Format(time.RFC3339),
+				"max_participants": item.MaxParticipants,
+				"joined_count":     meetupJoinedCount(item),
+				"status":           normalizeMeetupStatus(item.Status),
+			})
+		}
 	}
 
 	sort.Slice(rows, func(i, j int) bool {
@@ -1679,6 +1695,98 @@ func canDeleteContent(isOwner bool, reviewStatus string, extraConditions ...bool
 		}
 	}
 	return true
+}
+
+func visibleCampusContentQuery(principal auth.Principal) clrepo.ContentVisibilityQuery {
+	if canModerateCampusLife(principal) {
+		return clrepo.ContentVisibilityQuery{IncludeAllReviewStatuses: true}
+	}
+	query := clrepo.ContentVisibilityQuery{
+		ReviewStatuses: []string{statusPublished, statusResolved},
+	}
+	if principal.Authenticated {
+		query.IncludeOwnerUserID = principal.UserID
+	}
+	return query
+}
+
+func publishedCampusContentQuery() clrepo.ContentVisibilityQuery {
+	return clrepo.ContentVisibilityQuery{
+		ReviewStatuses: []string{statusPublished},
+	}
+}
+
+func reviewQueueContentQuery(reviewStatus string) clrepo.ContentVisibilityQuery {
+	if strings.TrimSpace(reviewStatus) == "" {
+		return clrepo.ContentVisibilityQuery{IncludeAllReviewStatuses: true}
+	}
+	return clrepo.ContentVisibilityQuery{
+		ReviewStatuses: []string{normalizeReviewStatus(reviewStatus)},
+	}
+}
+
+func simplePublisherRoleFilter(principal auth.Principal, userRole string) (string, bool) {
+	switch strings.TrimSpace(userRole) {
+	case "":
+		return "", true
+	case "publisher":
+		if !principal.Authenticated {
+			return "", false
+		}
+		return principal.UserID, true
+	case "acceptor":
+		return "", false
+	default:
+		return "", true
+	}
+}
+
+func errandRoleFilters(principal auth.Principal, userRole string) (string, string, bool) {
+	switch strings.TrimSpace(userRole) {
+	case "":
+		return "", "", true
+	case "publisher":
+		if !principal.Authenticated {
+			return "", "", false
+		}
+		return principal.UserID, "", true
+	case "acceptor":
+		if !principal.Authenticated {
+			return "", "", false
+		}
+		return "", principal.UserID, true
+	default:
+		return "", "", true
+	}
+}
+
+func meetupRoleFilters(principal auth.Principal, userRole string) (string, string, bool) {
+	switch strings.TrimSpace(userRole) {
+	case "":
+		return "", "", true
+	case "publisher":
+		if !principal.Authenticated {
+			return "", "", false
+		}
+		return principal.UserID, "", true
+	case "participant":
+		if !principal.Authenticated {
+			return "", "", false
+		}
+		return "", principal.UserID, true
+	default:
+		return "", "", true
+	}
+}
+
+func meetupStateQuery(principal auth.Principal) clrepo.MeetupStateQuery {
+	if canModerateCampusLife(principal) {
+		return clrepo.MeetupStateQuery{IncludeAllStatuses: true}
+	}
+	if principal.Authenticated {
+		return clrepo.MeetupStateQuery{IncludeCancelledForUserID: principal.UserID}
+	}
+	return clrepo.MeetupStateQuery{}
 }
 
 func matchUserRole(publisherUserID, acceptorUserID string, principal auth.Principal, userRole string) bool {
@@ -1913,27 +2021,27 @@ func buildMeetupPayload(item cltypes.MeetupItem, principal auth.Principal, now t
 		(item.StartAt.IsZero() || item.StartAt.After(now.UTC()))
 
 	return map[string]any{
-		"id":                 item.ID,
-		"category":           item.Category,
-		"title":              item.Title,
-		"desc":               item.Desc,
-		"location":           item.Location,
-		"start_at":           item.StartAt.In(chinaLocation).Format(time.RFC3339),
-		"deadline_at":        item.DeadlineAt.In(chinaLocation).Format(time.RFC3339),
-		"max_participants":   item.MaxParticipants,
-		"joined_count":       joinedCount,
-		"remaining_seats":    remainingSeats,
-		"fee_text":           item.FeeText,
-		"tags":               append([]string(nil), item.Tags...),
-		"contact":            visibleValue(canView, item.Contact),
-		"status":             status,
-		"publisher":          item.Publisher,
-		"publisher_initial":  item.PublisherInitial,
-		"created_at":         item.CreatedAt.Format(time.RFC3339),
-		"user_role":          userRole,
-		"joined":             userRole == "participant",
-		"can_join":           canJoin,
-		"can_cancel_join":    userRole == "participant" && status != statusCancelled,
+		"id":                item.ID,
+		"category":          item.Category,
+		"title":             item.Title,
+		"desc":              item.Desc,
+		"location":          item.Location,
+		"start_at":          item.StartAt.In(chinaLocation).Format(time.RFC3339),
+		"deadline_at":       item.DeadlineAt.In(chinaLocation).Format(time.RFC3339),
+		"max_participants":  item.MaxParticipants,
+		"joined_count":      joinedCount,
+		"remaining_seats":   remainingSeats,
+		"fee_text":          item.FeeText,
+		"tags":              append([]string(nil), item.Tags...),
+		"contact":           visibleValue(canView, item.Contact),
+		"status":            status,
+		"publisher":         item.Publisher,
+		"publisher_initial": item.PublisherInitial,
+		"created_at":        item.CreatedAt.Format(time.RFC3339),
+		"user_role":         userRole,
+		"joined":            userRole == "participant",
+		"can_join":          canJoin,
+		"can_cancel_join":   userRole == "participant" && status != statusCancelled,
 		"extra": map[string]any{
 			"category":         item.Category,
 			"location":         item.Location,
@@ -2163,6 +2271,31 @@ func isSupportedCarpoolCategory(category string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func carpoolTravelRange(category string, now time.Time) (time.Time, time.Time) {
+	category = strings.TrimSpace(category)
+	if category == "" || category == "all" {
+		return time.Time{}, time.Time{}
+	}
+
+	today := startOfDay(now)
+	tomorrow := today.AddDate(0, 0, 1)
+	dayAfterTomorrow := today.AddDate(0, 0, 2)
+	nextWeekStart := endOfWeek(today).AddDate(0, 0, 1)
+
+	switch category {
+	case "today":
+		return today, tomorrow
+	case "tomorrow":
+		return tomorrow, dayAfterTomorrow
+	case "week":
+		return dayAfterTomorrow, nextWeekStart
+	case "longterm":
+		return nextWeekStart, time.Time{}
+	default:
+		return time.Time{}, time.Time{}
 	}
 }
 

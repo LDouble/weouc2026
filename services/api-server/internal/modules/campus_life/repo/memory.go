@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -257,10 +258,26 @@ func NewInMemoryRepository() *InMemoryRepository {
 	return repository
 }
 
-func (r *InMemoryRepository) ListMarkets(context.Context) ([]cltypes.MarketItem, error) {
+func (r *InMemoryRepository) ListMarkets(_ context.Context, query MarketListQuery) ([]cltypes.MarketItem, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return cloneMarketSlice(r.markets), nil
+	items := make([]cltypes.MarketItem, 0, len(r.markets))
+	for _, item := range r.markets {
+		if !matchContentVisibility(item.ReviewStatus, item.PublisherUserID, query.Visibility) {
+			continue
+		}
+		if strings.TrimSpace(query.Category) != "" && item.Extra.Category != strings.TrimSpace(query.Category) {
+			continue
+		}
+		if strings.TrimSpace(query.PublisherUserID) != "" && item.PublisherUserID != strings.TrimSpace(query.PublisherUserID) {
+			continue
+		}
+		if !matchKeywordQuery(query.Keyword, item.Title, item.Desc) {
+			continue
+		}
+		items = append(items, cloneMarket(item))
+	}
+	return items, nil
 }
 
 func (r *InMemoryRepository) GetMarket(_ context.Context, id string) (cltypes.MarketItem, error) {
@@ -296,10 +313,31 @@ func (r *InMemoryRepository) UpdateMarket(_ context.Context, id string, mutate f
 	return cloneMarket(next), nil
 }
 
-func (r *InMemoryRepository) ListErrands(context.Context) ([]cltypes.ErrandItem, error) {
+func (r *InMemoryRepository) ListErrands(_ context.Context, query ErrandListQuery) ([]cltypes.ErrandItem, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return cloneErrandSlice(r.errands), nil
+	items := make([]cltypes.ErrandItem, 0, len(r.errands))
+	for _, item := range r.errands {
+		if !matchContentVisibility(item.ReviewStatus, item.PublisherUserID, query.Visibility) {
+			continue
+		}
+		if strings.TrimSpace(query.Category) != "" && item.Category != strings.TrimSpace(query.Category) {
+			continue
+		}
+		if strings.TrimSpace(query.PublisherUserID) != "" && item.PublisherUserID != strings.TrimSpace(query.PublisherUserID) {
+			continue
+		}
+		if strings.TrimSpace(query.AcceptorUserID) != "" && item.AcceptorUserID != strings.TrimSpace(query.AcceptorUserID) {
+			continue
+		}
+		if !matchKeywordQuery(query.Keyword, item.Title, item.Desc) {
+			continue
+		}
+		cloned := item
+		cloned.Images = append([]string(nil), item.Images...)
+		items = append(items, cloned)
+	}
+	return items, nil
 }
 
 func (r *InMemoryRepository) GetErrand(_ context.Context, id string) (cltypes.ErrandItem, error) {
@@ -335,10 +373,26 @@ func (r *InMemoryRepository) UpdateErrand(_ context.Context, id string, mutate f
 	return item, nil
 }
 
-func (r *InMemoryRepository) ListResources(context.Context) ([]cltypes.ResourceItem, error) {
+func (r *InMemoryRepository) ListResources(_ context.Context, query ResourceListQuery) ([]cltypes.ResourceItem, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return cloneResourceSlice(r.resources), nil
+	items := make([]cltypes.ResourceItem, 0, len(r.resources))
+	for _, item := range r.resources {
+		if !matchContentVisibility(item.ReviewStatus, item.PublisherUserID, query.Visibility) {
+			continue
+		}
+		if strings.TrimSpace(query.Category) != "" && item.Extra.Category != strings.TrimSpace(query.Category) {
+			continue
+		}
+		if strings.TrimSpace(query.PublisherUserID) != "" && item.PublisherUserID != strings.TrimSpace(query.PublisherUserID) {
+			continue
+		}
+		if !matchKeywordQuery(query.Keyword, item.Title, item.Desc) {
+			continue
+		}
+		items = append(items, cloneResource(item))
+	}
+	return items, nil
 }
 
 func (r *InMemoryRepository) GetResource(_ context.Context, id string) (cltypes.ResourceItem, error) {
@@ -374,10 +428,29 @@ func (r *InMemoryRepository) UpdateResource(_ context.Context, id string, mutate
 	return cloneResource(next), nil
 }
 
-func (r *InMemoryRepository) ListLostFound(context.Context) ([]cltypes.LostFoundItem, error) {
+func (r *InMemoryRepository) ListLostFound(_ context.Context, query LostFoundListQuery) ([]cltypes.LostFoundItem, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return cloneLostFoundSlice(r.lostFounds), nil
+	items := make([]cltypes.LostFoundItem, 0, len(r.lostFounds))
+	for _, item := range r.lostFounds {
+		if !matchContentVisibility(item.ReviewStatus, item.PublisherUserID, query.Visibility) {
+			continue
+		}
+		if strings.TrimSpace(query.Category) != "" && item.Extra.Category != strings.TrimSpace(query.Category) {
+			continue
+		}
+		if strings.TrimSpace(query.Type) != "" && item.Extra.Type != strings.TrimSpace(query.Type) {
+			continue
+		}
+		if strings.TrimSpace(query.PublisherUserID) != "" && item.PublisherUserID != strings.TrimSpace(query.PublisherUserID) {
+			continue
+		}
+		if !matchKeywordQuery(query.Keyword, item.Title, item.Desc) {
+			continue
+		}
+		items = append(items, cloneLostFound(item))
+	}
+	return items, nil
 }
 
 func (r *InMemoryRepository) GetLostFound(_ context.Context, id string) (cltypes.LostFoundItem, error) {
@@ -413,10 +486,29 @@ func (r *InMemoryRepository) UpdateLostFound(_ context.Context, id string, mutat
 	return cloneLostFound(next), nil
 }
 
-func (r *InMemoryRepository) ListCarpools(context.Context) ([]cltypes.CarpoolItem, error) {
+func (r *InMemoryRepository) ListCarpools(_ context.Context, query CarpoolListQuery) ([]cltypes.CarpoolItem, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return cloneCarpoolSlice(r.carpools), nil
+	items := make([]cltypes.CarpoolItem, 0, len(r.carpools))
+	for _, item := range r.carpools {
+		if !matchContentVisibility(item.ReviewStatus, item.PublisherUserID, query.Visibility) {
+			continue
+		}
+		if strings.TrimSpace(query.PublisherUserID) != "" && item.PublisherUserID != strings.TrimSpace(query.PublisherUserID) {
+			continue
+		}
+		if !query.TravelAtFrom.IsZero() && item.TravelAt.Before(query.TravelAtFrom) {
+			continue
+		}
+		if !query.TravelAtTo.IsZero() && !item.TravelAt.Before(query.TravelAtTo) {
+			continue
+		}
+		if !matchKeywordQuery(query.Keyword, item.From, item.To, item.Note, item.Publisher, item.Type) {
+			continue
+		}
+		items = append(items, cloneCarpool(item))
+	}
+	return items, nil
 }
 
 func (r *InMemoryRepository) GetCarpool(_ context.Context, id string) (cltypes.CarpoolItem, error) {
@@ -452,10 +544,41 @@ func (r *InMemoryRepository) UpdateCarpool(_ context.Context, id string, mutate 
 	return cloneCarpool(next), nil
 }
 
-func (r *InMemoryRepository) ListMeetups(context.Context) ([]cltypes.MeetupItem, error) {
+func (r *InMemoryRepository) ListMeetups(_ context.Context, query MeetupListQuery) ([]cltypes.MeetupItem, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return cloneMeetupSlice(r.meetups), nil
+	items := make([]cltypes.MeetupItem, 0, len(r.meetups))
+	for _, item := range r.meetups {
+		if !matchContentVisibility(item.ReviewStatus, item.PublisherUserID, query.Visibility) {
+			continue
+		}
+		if !matchMeetupState(item, query.State) {
+			continue
+		}
+		if strings.TrimSpace(query.Category) != "" && item.Category != strings.TrimSpace(query.Category) {
+			continue
+		}
+		if strings.TrimSpace(query.PublisherUserID) != "" && item.PublisherUserID != strings.TrimSpace(query.PublisherUserID) {
+			continue
+		}
+		if strings.TrimSpace(query.ParticipantUserID) != "" {
+			found := false
+			for _, participantUserID := range item.ParticipantUserIDs {
+				if participantUserID == strings.TrimSpace(query.ParticipantUserID) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				continue
+			}
+		}
+		if !matchKeywordQuery(query.Keyword, item.Title, item.Desc, item.Location, item.Publisher) {
+			continue
+		}
+		items = append(items, cloneMeetup(item))
+	}
+	return items, nil
 }
 
 func (r *InMemoryRepository) GetMeetup(_ context.Context, id string) (cltypes.MeetupItem, error) {

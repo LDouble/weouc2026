@@ -21,7 +21,7 @@ func New(repository analyticsrepo.Repository) *Service {
 }
 
 func (s *Service) GetDashboard(ctx context.Context) (map[string]any, error) {
-	entries, err := s.repository.ListAuditLogs(ctx)
+	entries, err := s.repository.ListAuditLogs(ctx, analyticsrepo.AuditLogListQuery{})
 	if err != nil {
 		return nil, httpx.Internal("读取审计看板失败", err)
 	}
@@ -90,34 +90,22 @@ func (s *Service) GetDashboard(ctx context.Context) (map[string]any, error) {
 }
 
 func (s *Service) ListAuditLogs(ctx context.Context, query analyticstypes.AuditLogQuery) (map[string]any, error) {
-	entries, err := s.repository.ListAuditLogs(ctx)
+	entries, err := s.repository.ListAuditLogs(ctx, analyticsrepo.AuditLogListQuery{
+		ActorID:      query.ActorID,
+		Action:       query.Action,
+		ResourceType: query.ResourceType,
+		ResourceID:   query.ResourceID,
+	})
 	if err != nil {
 		return nil, httpx.Internal("读取审计日志失败", err)
 	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].CreatedAt.After(entries[j].CreatedAt) })
 
-	filtered := make([]audit.Entry, 0, len(entries))
-	for _, entry := range entries {
-		if query.ActorID != "" && entry.ActorID != query.ActorID {
-			continue
-		}
-		if query.Action != "" && entry.Action != query.Action {
-			continue
-		}
-		if query.ResourceType != "" && entry.ResourceType != query.ResourceType {
-			continue
-		}
-		if query.ResourceID != "" && entry.ResourceID != query.ResourceID {
-			continue
-		}
-		filtered = append(filtered, entry)
-	}
-
 	offset, limit := normalizePagination(query.Page, query.PageSize)
-	paged := paginateEntries(filtered, offset, limit)
+	paged := paginateEntries(entries, offset, limit)
 	return map[string]any{
 		"list":     toPayloads(paged),
-		"total":    len(filtered),
+		"total":    len(entries),
 		"page":     normalizePage(query.Page),
 		"pageSize": normalizePageSize(query.PageSize),
 	}, nil

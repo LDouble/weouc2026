@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	notificationtypes "github.com/liangluo/weouc2026/services/api-server/internal/modules/notification/types"
 )
@@ -31,12 +32,13 @@ func NewPostgresRepository(db *sql.DB) *PostgresRepository {
 	return &PostgresRepository{db: db}
 }
 
-func (r *PostgresRepository) ListMessages(ctx context.Context) ([]notificationtypes.MessageItem, error) {
+func (r *PostgresRepository) ListMessages(ctx context.Context, query MessageListQuery) ([]notificationtypes.MessageItem, error) {
 	if r.db == nil {
 		return nil, fmt.Errorf("postgres notification repository db is nil")
 	}
 
-	rows, err := r.db.QueryContext(ctx, `SELECT `+messageColumns+` FROM notification_messages`)
+	sqlText, args := buildMessageListQuery(query)
+	rows, err := r.db.QueryContext(ctx, sqlText, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list notification messages failed: %w", err)
 	}
@@ -162,6 +164,34 @@ func (r *PostgresRepository) NextID(ctx context.Context, prefix string) (string,
 	}
 
 	return fmt.Sprintf("%s-%03d", prefix, value), nil
+}
+
+func buildMessageListQuery(query MessageListQuery) (string, []any) {
+	conditions := make([]string, 0, 3)
+	args := make([]any, 0, 3)
+	userID := strings.TrimSpace(query.UserID)
+	category := strings.TrimSpace(query.Category)
+
+	if category != "" {
+		args = append(args, category)
+		conditions = append(conditions, fmt.Sprintf("category = $%d", len(args)))
+	}
+	if userID == "" {
+		conditions = append(conditions, `target_scope = 'all'`)
+	} else {
+		args = append(args, userID)
+		placeholder := fmt.Sprintf("$%d", len(args))
+		conditions = append(conditions, `(target_scope = 'all' OR (target_scope = 'users' AND target_user_ids ? `+placeholder+`))`)
+		if query.UnreadOnly {
+			conditions = append(conditions, `(NOT read_by_user_ids ? `+placeholder+`)`)
+		}
+	}
+
+	sqlText := `SELECT ` + messageColumns + ` FROM notification_messages`
+	if len(conditions) > 0 {
+		sqlText += ` WHERE ` + strings.Join(conditions, ` AND `)
+	}
+	return sqlText, args
 }
 
 type notificationQueryRower interface {

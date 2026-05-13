@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"encoding/json"
 	"regexp"
 	"testing"
@@ -219,4 +220,71 @@ func TestPostgresRepositoryGetMeetup(t *testing.T) {
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Fatalf("unmet sql expectations: %v", err)
 	}
+}
+
+func TestPostgresRepositoryListMarketsWithQuery(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("new sqlmock failed: %v", err)
+	}
+	defer db.Close()
+
+	query := MarketListQuery{
+		Visibility: ContentVisibilityQuery{
+			ReviewStatuses:     []string{"published", "resolved"},
+			IncludeOwnerUserID: "user-001",
+		},
+		Category: "digital",
+		Keyword:  "iPad",
+	}
+	sqlText, args := buildMarketListSQL(query)
+	extraRaw, err := json.Marshal(cltypes.MarketExtra{
+		Category: "digital",
+		Price:    "4299",
+		Images:   []string{"miniapp/market/u-1/20260510/ipad.png"},
+	})
+	if err != nil {
+		t.Fatalf("marshal market extra failed: %v", err)
+	}
+	rows := sqlmock.NewRows([]string{
+		"id", "title", "description", "review_status", "publisher_user_id", "publisher", "publisher_initial",
+		"image", "created_at", "likes", "liked_by_user_ids", "extra",
+	}).AddRow(
+		"market-301",
+		"iPad Air",
+		"成色很好",
+		"published",
+		"user-001",
+		"海大同学",
+		"海",
+		"miniapp/market/u-1/20260510/ipad.png",
+		time.Date(2026, 5, 12, 12, 0, 0, 0, time.UTC),
+		8,
+		`{"user-002":true}`,
+		extraRaw,
+	)
+
+	mock.ExpectQuery(regexp.QuoteMeta(sqlText)).
+		WithArgs(toDriverValues(args)...).
+		WillReturnRows(rows)
+
+	repository := NewPostgresRepository(db)
+	items, err := repository.ListMarkets(context.Background(), query)
+	if err != nil {
+		t.Fatalf("ListMarkets returned error: %v", err)
+	}
+	if len(items) != 1 || items[0].ID != "market-301" {
+		t.Fatalf("unexpected market payloads: %+v", items)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("unmet sql expectations: %v", err)
+	}
+}
+
+func toDriverValues(args []any) []driver.Value {
+	values := make([]driver.Value, 0, len(args))
+	for _, arg := range args {
+		values = append(values, arg)
+	}
+	return values
 }

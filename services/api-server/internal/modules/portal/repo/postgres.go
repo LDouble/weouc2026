@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	portaltypes "github.com/liangluo/weouc2026/services/api-server/internal/modules/portal/types"
 )
@@ -40,12 +41,13 @@ func NewPostgresRepository(db *sql.DB) *PostgresRepository {
 	return &PostgresRepository{db: db}
 }
 
-func (r *PostgresRepository) ListBanners(ctx context.Context) ([]portaltypes.BannerItem, error) {
+func (r *PostgresRepository) ListBanners(ctx context.Context, query BannerListQuery) ([]portaltypes.BannerItem, error) {
 	if r.db == nil {
 		return nil, fmt.Errorf("postgres portal repository db is nil")
 	}
 
-	rows, err := r.db.QueryContext(ctx, `SELECT `+bannerColumns+` FROM portal_banners`)
+	sqlText, args := buildBannerListQuery(query)
+	rows, err := r.db.QueryContext(ctx, sqlText, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list portal banners failed: %w", err)
 	}
@@ -115,12 +117,13 @@ func (r *PostgresRepository) DeleteBanner(ctx context.Context, id string) error 
 	return nil
 }
 
-func (r *PostgresRepository) ListNotices(ctx context.Context) ([]portaltypes.NoticeItem, error) {
+func (r *PostgresRepository) ListNotices(ctx context.Context, query NoticeListQuery) ([]portaltypes.NoticeItem, error) {
 	if r.db == nil {
 		return nil, fmt.Errorf("postgres portal repository db is nil")
 	}
 
-	rows, err := r.db.QueryContext(ctx, `SELECT `+noticeColumns+` FROM portal_notices`)
+	sqlText, args := buildNoticeListQuery(query)
+	rows, err := r.db.QueryContext(ctx, sqlText, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list portal notices failed: %w", err)
 	}
@@ -223,6 +226,45 @@ func (r *PostgresRepository) NextID(ctx context.Context, prefix string) (string,
 	}
 
 	return fmt.Sprintf("%s-%03d", prefix, value), nil
+}
+
+func buildBannerListQuery(query BannerListQuery) (string, []any) {
+	conditions := make([]string, 0, 1)
+	args := make([]any, 0, 1)
+	if keyword := strings.TrimSpace(query.Keyword); keyword != "" {
+		args = append(args, "%"+keyword+"%")
+		placeholder := fmt.Sprintf("$%d", len(args))
+		conditions = append(conditions, `(`+
+			`title ILIKE `+placeholder+` OR `+
+			`description ILIKE `+placeholder+` OR `+
+			`action_url ILIKE `+placeholder+`)`)
+	}
+
+	sqlText := `SELECT ` + bannerColumns + ` FROM portal_banners`
+	if len(conditions) > 0 {
+		sqlText += ` WHERE ` + strings.Join(conditions, ` AND `)
+	}
+	return sqlText, args
+}
+
+func buildNoticeListQuery(query NoticeListQuery) (string, []any) {
+	conditions := make([]string, 0, 1)
+	args := make([]any, 0, 1)
+	if keyword := strings.TrimSpace(query.Keyword); keyword != "" {
+		args = append(args, "%"+keyword+"%")
+		placeholder := fmt.Sprintf("$%d", len(args))
+		conditions = append(conditions, `(`+
+			`title ILIKE `+placeholder+` OR `+
+			`summary ILIKE `+placeholder+` OR `+
+			`content ILIKE `+placeholder+` OR `+
+			`publisher ILIKE `+placeholder+`)`)
+	}
+
+	sqlText := `SELECT ` + noticeColumns + ` FROM portal_notices`
+	if len(conditions) > 0 {
+		sqlText += ` WHERE ` + strings.Join(conditions, ` AND `)
+	}
+	return sqlText, args
 }
 
 type portalQueryRower interface {
