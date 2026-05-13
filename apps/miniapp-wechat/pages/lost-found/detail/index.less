@@ -11,36 +11,6 @@ page {
   background: #f7f8fb;
 }
 
-.lf-status-banner {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8rpx;
-  padding: 16rpx 0;
-  font-size: 26rpx;
-  font-weight: 700;
-}
-
-.lf-status-banner--offline {
-  color: #6b7280;
-  background: #f3f4f6;
-}
-
-.lf-status-banner--rejected {
-  color: #dc2626;
-  background: #fef2f2;
-}
-
-.lf-status-banner--reviewing {
-  color: #d97706;
-  background: #fffbeb;
-}
-
-.lf-status-banner--resolved {
-  color: #059669;
-  background: #ecfdf5;
-}
-
 .lf-detail-bg {
   position: fixed;
   top: -40rpx;
@@ -121,8 +91,16 @@ page {
   background: linear-gradient(135deg, #f59e0b, #d97706);
 }
 
-.lf-hero__status--found {
+.lf-hero__status--green {
   background: linear-gradient(135deg, #10b981, #0f766e);
+}
+
+.lf-hero__status--amber {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.lf-hero__status--red {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
 }
 
 .lf-hero__title {

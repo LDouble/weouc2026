@@ -96,7 +96,7 @@ Page({
 
   onCancelPublishTap() {
     const { detail } = this.data;
-    if (!detail.id || !detail.canCancelPublish) return;
+    if (!detail.id || !detail.canDelete) return;
 
     wx.showModal({
       title: '取消组局',

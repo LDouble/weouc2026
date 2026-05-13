@@ -1,7 +1,7 @@
 import { acceptErrand, fetchErrandList } from '~/api/modules/errand';
 import { ERRAND_CATEGORIES } from '~/constants/campus';
 import { formatDeadline, formatRelativeTime } from '~/utils/date';
-import { unwrapPayload } from './shared';
+import { getStatusDisplay, unwrapPayload } from './shared';
 
 const TONE_MAP = {
   parcel: 'blue',
@@ -19,21 +19,23 @@ const CATEGORY_LABEL_MAP = ERRAND_CATEGORIES.reduce((map, item) => {
   return map;
 }, {});
 
+const ERRAND_STATUS_OVERRIDES = {
+  published: { label: '待接单' },
+};
+
 function mapErrandItem(item = {}) {
   const status = item.status || '';
   const userRole = item.user_role || 'viewer';
   const isAccepted = Boolean(item.is_accepted) || status === 'accepted';
   const isPublisher = userRole === 'publisher';
   const isAcceptor = userRole === 'acceptor';
-  let actionText = '接单';
+  const canAccept = Boolean(item.can_accept);
+  const statusDisplay = getStatusDisplay(status, ERRAND_STATUS_OVERRIDES);
 
+  let actionText = '接单';
   if (isPublisher) actionText = '我的发布';
   else if (isAcceptor) actionText = '已接单';
-  else if (isAccepted) actionText = '已被接';
-  else if (status === 'reviewing') actionText = '审核中';
-  else if (status === 'rejected') actionText = '审核未通过';
-  else if (status === 'offline') actionText = '已下线';
-  else if (status === 'cancelled') actionText = '已取消';
+  else if (!canAccept && status !== 'published') actionText = statusDisplay.label;
 
   return {
     id: item.id,
@@ -55,9 +57,11 @@ function mapErrandItem(item = {}) {
     creditShort: '良好',
     avatarTone: TONE_MAP[item.category] || 'gray',
     status,
+    statusLabel: statusDisplay.label,
+    statusTone: statusDisplay.tone,
     userRole,
     accepted: isAccepted,
-    canAccept: !isPublisher && !isAccepted && status === 'published',
+    canAccept,
     actionText,
   };
 }

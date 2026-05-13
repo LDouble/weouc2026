@@ -2506,7 +2506,7 @@ components:
           description: 联系方式，can_view_contact 为 false 时为空
         status:
           type: string
-          enum: [published, accepted, cancelled]
+          enum: [reviewing, published, rejected, offline, accepted, cancelled]
         is_accepted:
           type: boolean
         images:
@@ -2806,7 +2806,7 @@ components:
           description: 联系方式，can_view_contact 为 false 时为空
         status:
           type: string
-          enum: [open, full, cancelled]
+          enum: [reviewing, open, full, rejected, offline, cancelled]
         publisher:
           type: string
         publisher_initial:
@@ -2834,9 +2834,6 @@ components:
         can_cancel_join:
           type: boolean
           description: 参与者可取消报名
-        can_cancel_publish:
-          type: boolean
-          description: 兼容旧客户端，等同于 can_delete
     MeetupDetailResponseEnvelope:
       allOf:
         - $ref: '#/components/schemas/RequestEnvelope'

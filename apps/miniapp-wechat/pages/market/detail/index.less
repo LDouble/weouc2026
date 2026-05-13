@@ -13,29 +13,31 @@ page {
   background: #f8f9fa;
 }
 
-.detail-status-banner {
-  display: flex;
+.status-tag {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 8rpx;
-  padding: 16rpx 0;
-  font-size: 26rpx;
-  font-weight: 700;
+  height: 40rpx;
+  padding: 0 14rpx;
+  margin-left: 12rpx;
+  border-radius: 999rpx;
+  font-size: 20rpx;
+  font-weight: 900;
+  vertical-align: middle;
 }
 
-.detail-status-banner--offline {
-  color: #6b7280;
-  background: #f3f4f6;
+.status-tag--amber {
+  color: #b45309;
+  background: #fef3c7;
 }
 
-.detail-status-banner--rejected {
+.status-tag--red {
   color: #dc2626;
   background: #fef2f2;
 }
 
-.detail-status-banner--reviewing {
-  color: #d97706;
-  background: #fffbeb;
+.status-tag--green {
+  color: #15803d;
+  background: #dcfce7;
 }
 
 .market-detail__bg {

@@ -1,11 +1,6 @@
 <view class="errand-detail" style="padding-top: {{navHeight}}px;">
   <view class="errand-detail__bg"></view>
 
-  <view wx:if="{{task.status === 'cancelled'}}" class="detail-status-banner detail-status-banner--cancelled">
-    <t-icon name="close-circle" size="28rpx" />
-    <text>已取消</text>
-  </view>
-
   <view class="detail-nav">
     <view
       class="detail-nav__button"
@@ -48,7 +43,10 @@
       </view>
     </view>
 
-    <view class="detail-main__title">{{task.title}}</view>
+    <view class="detail-main__title">
+      <text>{{task.title}}</text>
+      <view wx:if="{{task.status !== 'published'}}" class="status-tag status-tag--{{task.statusTone}}">{{task.statusLabel}}</view>
+    </view>
     <view class="detail-main__content">{{task.detail}}</view>
 
     <view wx:if="{{task.images.length}}" class="detail-images">

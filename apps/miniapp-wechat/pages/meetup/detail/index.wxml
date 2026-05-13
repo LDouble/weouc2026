@@ -1,11 +1,6 @@
 <view class="meetup-detail-page">
   <view class="meetup-detail-bg"></view>
 
-  <view wx:if="{{detail.status === 'cancelled'}}" class="meetup-status-banner meetup-status-banner--cancelled">
-    <t-icon name="close-circle" size="28rpx" />
-    <text>已取消</text>
-  </view>
-
   <common-page-header
     title="组局详情"
     background="rgba(255, 255, 255, 0.82)"

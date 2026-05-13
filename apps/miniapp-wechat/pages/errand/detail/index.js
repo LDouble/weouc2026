@@ -7,6 +7,7 @@ import {
   cancelErrandPublish,
 } from '../../../api/modules/errand';
 import { ERRAND_CATEGORIES } from '../data';
+import { getStatusDisplay } from '../../../services/shared';
 
 function formatTimeAgo(dateStr) {
   const now = Date.now();
@@ -43,12 +44,17 @@ const TONE_MAP = {
   other: 'gray',
 };
 
+const ERRAND_DETAIL_STATUS_OVERRIDES = {
+  published: { label: '待接单' },
+};
+
 function mapErrandDetail(item, userRole, canViewContact, canEdit, canDelete, canAccept, canCancelAccept) {
   const extra = item.extra || {};
   const status = item.status || extra.status || '';
   const isAccepted = !!item.is_accepted || status === 'accepted';
   const isPublisher = userRole === 'publisher';
   const isAcceptor = userRole === 'acceptor';
+  const statusDisplay = getStatusDisplay(status, ERRAND_DETAIL_STATUS_OVERRIDES);
   let primaryActionText = '立即抢单';
   if (isPublisher) primaryActionText = isAccepted ? '已被接单' : '等待接单';
   else if (isAccepted) primaryActionText = '已锁定订单';
@@ -81,6 +87,8 @@ function mapErrandDetail(item, userRole, canViewContact, canEdit, canDelete, can
     avatarTone: TONE_MAP[item.category || extra.category] || 'gray',
     contact: canViewContact && hasContact ? (item.contact || extra.contact || '') : '',
     status,
+    statusLabel: statusDisplay.label,
+    statusTone: statusDisplay.tone,
     userRole,
     isPublisher,
     isAcceptor,
@@ -89,7 +97,6 @@ function mapErrandDetail(item, userRole, canViewContact, canEdit, canDelete, can
     canEdit: Boolean(canEdit),
     canDelete: Boolean(canDelete),
     canAccept: Boolean(canAccept),
-    canCancelPublish: Boolean(canDelete),
     canCancelAccept: Boolean(canCancelAccept),
     canCopyContact: canViewContact && hasContact,
     canViewContact,

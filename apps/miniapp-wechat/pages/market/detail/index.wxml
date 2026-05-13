@@ -1,19 +1,6 @@
 <view class="market-detail">
   <view class="market-detail__bg"></view>
 
-  <view wx:if="{{product.status === 'offline'}}" class="detail-status-banner detail-status-banner--offline">
-    <t-icon name="close-circle" size="28rpx" />
-    <text>已下架</text>
-  </view>
-  <view wx:elif="{{product.status === 'rejected'}}" class="detail-status-banner detail-status-banner--rejected">
-    <t-icon name="close-circle" size="28rpx" />
-    <text>审核未通过</text>
-  </view>
-  <view wx:elif="{{product.status === 'reviewing'}}" class="detail-status-banner detail-status-banner--reviewing">
-    <t-icon name="time" size="28rpx" />
-    <text>审核中</text>
-  </view>
-
   <view class="detail-hero">
     <swiper
       wx:if="{{product.images.length}}"
@@ -83,7 +70,10 @@
       </view>
     </view>
 
-    <view class="detail-title">{{product.title}}</view>
+    <view class="detail-title">
+      <text>{{product.title}}</text>
+      <view wx:if="{{product.status !== 'published'}}" class="status-tag status-tag--{{product.statusTone}}">{{product.statusLabel}}</view>
+    </view>
 
     <view class="detail-tags">
       <view wx:for="{{product.tags}}" wx:key="label" class="detail-tag detail-tag--{{item.tone}}">

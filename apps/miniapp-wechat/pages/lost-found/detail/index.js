@@ -1,6 +1,6 @@
 import { fetchLostFoundDetail, deleteLostFound, resolveLostFound } from '../../../api/modules/lostFound';
 import { LOST_FOUND_CATEGORIES } from '../data';
-import { normalizeContactFields } from '../../../services/shared';
+import { getStatusDisplay, normalizeContactFields } from '../../../services/shared';
 
 const CATEGORY_LABEL_MAP = LOST_FOUND_CATEGORIES.reduce((map, item) => {
   if (item.value && item.value !== 'all') {
@@ -41,20 +41,36 @@ function formatRelativeTime(dateStr) {
   return `${month}月${day}日 ${hours}:${minutes} 登记`;
 }
 
+function getLostFoundDetailOverrides(type) {
+  if (type === 'lost') {
+    return {
+      published: { label: '寻找中' },
+      resolved: { label: '已找到' },
+    };
+  }
+  return {
+    published: { label: '待认领' },
+    resolved: { label: '已认领' },
+  };
+}
+
 function mapLostFoundDetail(raw = {}) {
   const extra = raw.extra || {};
   const type = extra.type || raw.feed_type || 'lost';
   const category = extra.category || '';
   const categoryLabel = CATEGORY_LABEL_MAP[category] || category || '其他';
   const contactFields = normalizeContactFields(raw);
+  const status = raw.status || 'published';
+  const statusDisplay = getStatusDisplay(status, getLostFoundDetailOverrides(type));
 
   return {
     id: raw.id || '',
     type,
     typeLabel: type === 'lost' ? '失物登记' : '招领登记',
-    reviewStatus: raw.status || 'published',
-    statusLabel: type === 'lost' ? '寻找中' : '待认领',
-    status: raw.status || 'published',
+    reviewStatus: status,
+    statusLabel: statusDisplay.label,
+    statusTone: statusDisplay.tone,
+    status,
     title: raw.title || '',
     desc: raw.desc || '',
     category,

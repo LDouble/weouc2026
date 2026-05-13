@@ -35,6 +35,7 @@ const (
 	statusFull      = "full"
 	statusAccepted  = "accepted"
 	statusOpen      = "open"
+	statusResolved  = "resolved"
 
 	campusLifeModeratePermission = "campus_life:moderate"
 )
@@ -737,7 +738,7 @@ func (s *Service) CancelErrandAccept(ctx context.Context, principal auth.Princip
 	return nil
 }
 
-func (s *Service) ListResources(ctx context.Context, query cltypes.ResourceQuery) (map[string]any, error) {
+func (s *Service) ListResources(ctx context.Context, principal auth.Principal, query cltypes.ResourceQuery) (map[string]any, error) {
 	items, err := s.repository.ListResources(ctx)
 	if err != nil {
 		return nil, httpx.Internal("读取资料列表失败", err)
@@ -754,6 +755,8 @@ func (s *Service) ListResources(ctx context.Context, query cltypes.ResourceQuery
 		if !matchKeyword(query.Keyword, item.Title, item.Desc) {
 			continue
 		}
+		isOwner := item.PublisherUserID == principal.UserID
+		canView := canViewContact(principal, item.PublisherUserID)
 		resolvedFiles := resolveResourceFiles(ctx, s.storageProvider, item.Extra.Files)
 		filtered = append(filtered, map[string]any{
 			"id":                item.ID,
@@ -763,10 +766,14 @@ func (s *Service) ListResources(ctx context.Context, query cltypes.ResourceQuery
 			"publisher_initial": item.PublisherInitial,
 			"created_at":        item.CreatedAt.Format(time.RFC3339),
 			"status":            normalizeReviewStatus(item.ReviewStatus),
+			"is_owner":          isOwner,
+			"can_edit":          canEditContent(isOwner, item.ReviewStatus),
+			"can_delete":        canDeleteContent(isOwner, item.ReviewStatus),
+			"can_download":      !isOwner && canView && principal.Authenticated,
 			"extra": map[string]any{
 				"category":     item.Extra.Category,
 				"course_name":  item.Extra.CourseName,
-				"contact":      item.Extra.Contact,
+				"contact":      visibleValue(canView, item.Extra.Contact),
 				"files":        resolvedFiles,
 				"file_size":    item.Extra.FileSize,
 				"file_type":    item.Extra.FileType,
@@ -1058,7 +1065,7 @@ func (s *Service) MarkLostFoundResolved(ctx context.Context, principal auth.Prin
 		if normalizeReviewStatus(item.ReviewStatus) != statusPublished {
 			return httpx.BadRequest("当前状态不允许标记已找到", nil)
 		}
-		item.ReviewStatus = "resolved"
+		item.ReviewStatus = statusResolved
 		return nil
 	})
 	if err != nil {
@@ -1663,7 +1670,7 @@ func canDeleteContent(isOwner bool, reviewStatus string, extraConditions ...bool
 		return false
 	}
 	normalized := normalizeReviewStatus(reviewStatus)
-	if normalized != statusPublished && normalized != statusReviewing && normalized != statusRejected {
+	if normalized != statusPublished && normalized != statusReviewing && normalized != statusRejected && normalized != statusResolved {
 		return false
 	}
 	for _, cond := range extraConditions {
@@ -1927,7 +1934,6 @@ func buildMeetupPayload(item cltypes.MeetupItem, principal auth.Principal, now t
 		"joined":             userRole == "participant",
 		"can_join":           canJoin,
 		"can_cancel_join":    userRole == "participant" && status != statusCancelled,
-		"can_cancel_publish": userRole == "publisher" && status != statusCancelled,
 		"extra": map[string]any{
 			"category":         item.Category,
 			"location":         item.Location,
@@ -1945,7 +1951,8 @@ func buildMeetupPayload(item cltypes.MeetupItem, principal auth.Principal, now t
 }
 
 func shouldExposeContent(principal auth.Principal, ownerUserID, reviewStatus, userRole string) bool {
-	if normalizeReviewStatus(reviewStatus) == statusPublished {
+	normalized := normalizeReviewStatus(reviewStatus)
+	if normalized == statusPublished || normalized == statusResolved {
 		return true
 	}
 	return canAccessPendingContent(principal, ownerUserID, userRole)
@@ -2009,6 +2016,8 @@ func normalizeReviewStatus(status string) string {
 		return statusRejected
 	case statusOffline:
 		return statusOffline
+	case statusResolved:
+		return statusResolved
 	default:
 		return statusPublished
 	}

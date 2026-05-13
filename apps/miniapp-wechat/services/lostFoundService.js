@@ -1,6 +1,6 @@
 import { fetchLostFoundList } from '~/api/modules/lostFound';
 import { LOST_FOUND_CATEGORIES } from '~/constants/campus';
-import { normalizeContactFields, unwrapPayload } from './shared';
+import { getStatusDisplay, normalizeContactFields, unwrapPayload } from './shared';
 
 const CATEGORY_LABEL_MAP = LOST_FOUND_CATEGORIES.reduce((map, item) => {
   if (item.value && item.value !== 'all') {
@@ -23,6 +23,19 @@ function stableIndex(value, modulo) {
   return total % modulo;
 }
 
+function getLostFoundOverrides(type) {
+  if (type === 'lost') {
+    return {
+      published: { label: '寻找中' },
+      resolved: { label: '已找到' },
+    };
+  }
+  return {
+    published: { label: '待认领' },
+    resolved: { label: '已认领' },
+  };
+}
+
 function mapLostFoundItem(raw = {}) {
   const extra = raw.extra || {};
   const type = extra.type || raw.feed_type || 'lost';
@@ -30,6 +43,8 @@ function mapLostFoundItem(raw = {}) {
   const category = extra.category || '';
   const categoryLabel = CATEGORY_LABEL_MAP[category] || category || '其他';
   const contactFields = normalizeContactFields(raw);
+  const status = raw.status || 'published';
+  const statusDisplay = getStatusDisplay(status, getLostFoundOverrides(type));
 
   return {
     id: raw.id,
@@ -43,8 +58,9 @@ function mapLostFoundItem(raw = {}) {
     contact: contactFields.contact,
     canViewContact: contactFields.canViewContact,
     contactHiddenReason: contactFields.contactHiddenReason,
-    status: isLost ? '寻找中' : '待认领',
-    statusTone: isLost ? 'amber' : 'green',
+    status,
+    statusLabel: statusDisplay.label,
+    statusTone: statusDisplay.tone,
     sponsor: raw.publisher || '',
     sponsorInitial: raw.publisher_initial || (raw.publisher || '').charAt(0),
     sponsorTag: '',

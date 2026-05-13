@@ -12,8 +12,8 @@
         <view class="lf-card__time">{{item.time}}</view>
       </view>
     </view>
-    <view class="lf-status lf-status--{{item.type}}">
-      {{item.type === 'lost' ? '寻找中' : '待认领'}}
+    <view class="lf-status lf-status--{{item.statusTone}}">
+      {{item.statusLabel}}
     </view>
   </view>
 

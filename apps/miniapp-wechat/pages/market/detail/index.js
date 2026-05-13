@@ -2,6 +2,7 @@ import { getMenuButtonSafeArea } from '../../../utils/navigation';
 import { fetchMarketDetail, deleteMarket } from '../../../api/modules/market';
 import { toggleMarketFavorite } from '../../../services/marketService';
 import { getMarketCategories } from '../../../stores/config';
+import { getStatusDisplay } from '../../../services/shared';
 
 function buildCategoryLabelMap() {
   const categories = getMarketCategories();
@@ -25,6 +26,8 @@ function mapMarketDetail(item, canViewContact, isOwner, canEdit, canDelete, canF
     variant: 'center',
   }));
   const hasContact = Boolean(extra.contact);
+  const status = item.status || 'published';
+  const statusDisplay = getStatusDisplay(status);
 
   return {
     id: item.id,
@@ -44,7 +47,9 @@ function mapMarketDetail(item, canViewContact, isOwner, canEdit, canDelete, canF
     images,
     cardBg: 'blue',
     detail: item.desc || '',
-    status: item.status || 'published',
+    status,
+    statusLabel: statusDisplay.label,
+    statusTone: statusDisplay.tone,
     contact: canViewContact && hasContact ? (extra.contact || '') : '',
     canViewContact,
     isOwner: Boolean(isOwner),

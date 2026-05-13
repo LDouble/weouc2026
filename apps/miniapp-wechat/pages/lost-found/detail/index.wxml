@@ -1,23 +1,6 @@
 <view class="lf-detail-page">
   <view class="lf-detail-bg"></view>
 
-  <view wx:if="{{detail.status === 'offline'}}" class="lf-status-banner lf-status-banner--offline">
-    <t-icon name="close-circle" size="28rpx" />
-    <text>已下架</text>
-  </view>
-  <view wx:elif="{{detail.status === 'rejected'}}" class="lf-status-banner lf-status-banner--rejected">
-    <t-icon name="close-circle" size="28rpx" />
-    <text>审核未通过</text>
-  </view>
-  <view wx:elif="{{detail.status === 'reviewing'}}" class="lf-status-banner lf-status-banner--reviewing">
-    <t-icon name="time" size="28rpx" />
-    <text>审核中</text>
-  </view>
-  <view wx:elif="{{detail.status === 'resolved'}}" class="lf-status-banner lf-status-banner--resolved">
-    <t-icon name="check-circle" size="28rpx" />
-    <text>{{detail.type === 'lost' ? '已找到' : '已认领'}}</text>
-  </view>
-
   <common-page-header
     title="{{detail.typeLabel || '失物招领'}}"
     subtitle="{{detail.publisherMeta || '查看登记详情'}}"
@@ -35,7 +18,7 @@
 
     <block wx:elif="{{detail.id}}">
       <view class="lf-hero">
-        <view class="lf-hero__status lf-hero__status--{{detail.type}}">
+        <view class="lf-hero__status lf-hero__status--{{detail.statusTone}}">
           {{detail.statusLabel}}
         </view>
         <view class="lf-hero__title">{{detail.title}}</view>

@@ -1,24 +1,15 @@
 import { CARPOOL_TIME_FILTERS } from './data';
-import { fetchCarpoolDetail, fetchCarpoolList } from '../../api/modules/carpool';
-import { getReviewStatus } from '../../services/shared';
-import { normalizeContactFields } from '../../services/shared';
+import { deleteCarpool, fetchCarpoolDetail, fetchCarpoolList } from '../../api/modules/carpool';
+import { getStatusDisplay, getReviewStatus, normalizeContactFields } from '../../services/shared';
 
-function resolveCarpoolStatusMeta(reviewStatus) {
-  if (reviewStatus === 'pending' || reviewStatus === 'reviewing') {
-    return { text: '审核中', tone: 'amber' };
-  }
-  if (reviewStatus === 'cancelled') {
-    return { text: '已取消', tone: 'red' };
-  }
-  if (reviewStatus === 'rejected' || reviewStatus === 'offline') {
-    return { text: '已下架', tone: 'red' };
-  }
-  return { text: '可拼', tone: 'green' };
-}
+const CARPOOL_STATUS_OVERRIDES = {
+  published: { label: '可拼' },
+};
 
 function mapCarpoolItem(item) {
   const extra = item.extra || {};
-  const statusMeta = resolveCarpoolStatusMeta(getReviewStatus(item));
+  const status = getReviewStatus(item);
+  const statusDisplay = getStatusDisplay(status, CARPOOL_STATUS_OVERRIDES);
   const contactFields = normalizeContactFields(item);
   return {
     id: item.id,
@@ -29,8 +20,8 @@ function mapCarpoolItem(item) {
     type: item.type || extra.type || '',
     seatsText: item.seats_text || extra.seats_text || '',
     price: item.price || extra.price || '',
-    status: statusMeta.text,
-    statusTone: statusMeta.tone,
+    status: statusDisplay.label,
+    statusTone: statusDisplay.tone,
     sponsor: item.publisher || '',
     sponsorInitial: item.publisher_initial || '',
     sponsorTag: item.created_at || '',
@@ -39,6 +30,8 @@ function mapCarpoolItem(item) {
     contact: contactFields.contact,
     canViewContact: contactFields.canViewContact,
     contactHiddenReason: contactFields.contactHiddenReason,
+    isOwner: Boolean(item.is_owner),
+    canDelete: Boolean(item.can_delete),
   };
 }
 
@@ -232,6 +225,28 @@ Page({
       data: contact,
       success: () => {
         wx.showToast({ title: '联系方式已复制', icon: 'success' });
+      },
+    });
+  },
+
+  onCancelPublish(e) {
+    const { id } = e.currentTarget.dataset;
+    if (!id) return;
+    wx.showModal({
+      title: '取消发布',
+      content: '确定要取消这条拼车信息吗？',
+      confirmText: '确定取消',
+      confirmColor: '#dc2626',
+      success: async (res) => {
+        if (!res.confirm) return;
+        try {
+          await deleteCarpool(id);
+          wx.showToast({ title: '已取消发布', icon: 'success' });
+          this.refreshTrips();
+        } catch (err) {
+          console.error('[carpool] cancel failed:', err);
+          wx.showToast({ title: '取消失败，请重试', icon: 'none' });
+        }
       },
     });
   },

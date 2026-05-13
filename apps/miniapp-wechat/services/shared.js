@@ -32,6 +32,27 @@ export function getReviewStatus(item = {}) {
   return item.review_status || item.status || extra.review_status || extra.status || '';
 }
 
+const STATUS_DISPLAY_MAP = {
+  reviewing: { label: '审核中', tone: 'amber' },
+  published: { label: '已发布', tone: 'green' },
+  rejected: { label: '审核未通过', tone: 'red' },
+  offline: { label: '已下架', tone: 'red' },
+  cancelled: { label: '已取消', tone: 'red' },
+  accepted: { label: '已接单', tone: 'blue' },
+  open: { label: '报名中', tone: 'green' },
+  full: { label: '人数已满', tone: 'purple' },
+  resolved: { label: '已找到', tone: 'green' },
+};
+
+export function getStatusDisplay(status, overrides = {}) {
+  const entry = STATUS_DISPLAY_MAP[status];
+  if (!entry) return { label: status, tone: 'default' };
+  return {
+    label: (overrides[status] && overrides[status].label) || entry.label,
+    tone: (overrides[status] && overrides[status].tone) || entry.tone,
+  };
+}
+
 export function normalizeContactFields(item = {}) {
   const extra = item.extra || {};
   const rawCanViewContact = Object.prototype.hasOwnProperty.call(item, 'can_view_contact')

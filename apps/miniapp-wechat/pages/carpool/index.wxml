@@ -87,6 +87,12 @@
           </view>
           <view class="carpool-card__actions">
             <view
+              wx:if="{{item.canDelete}}"
+              class="carpool-card__action carpool-card__action--danger"
+              data-id="{{item.id}}"
+              catchtap="onCancelPublish"
+            >取消发布</view>
+            <view
               class="carpool-card__action"
               data-contact="{{item.contact}}"
               data-can-view-contact="{{item.canViewContact}}"

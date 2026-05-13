@@ -176,7 +176,7 @@ func (h *Handler) ListResources(c *gin.Context) {
 		Category:   strings.TrimSpace(c.Query("category")),
 		Keyword:    strings.TrimSpace(c.Query("keyword")),
 	}
-	response, err := h.service.ListResources(c.Request.Context(), query)
+	response, err := h.service.ListResources(c.Request.Context(), auth.PrincipalFromContext(c), query)
 	if err != nil {
 		httpx.AbortWithError(c, err)
 		return
