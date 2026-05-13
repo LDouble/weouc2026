@@ -2,13 +2,14 @@ package repo
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"github.com/liangluo/weouc2026/services/api-server/internal/modules/system/types"
 	appconfig "github.com/liangluo/weouc2026/services/api-server/internal/platform/config"
 	"github.com/liangluo/weouc2026/services/api-server/internal/providers/storage_provider"
 	"github.com/redis/go-redis/v9"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 type StatusRepository interface {
@@ -30,9 +31,16 @@ type StaticProbe struct {
 	detail   string
 }
 
-type PostgresProbe struct {
-	config appconfig.PostgresConfig
-	db     *sql.DB
+type MySQLProbe struct {
+	config appconfig.MySQLConfig
+	db     interface {
+		PingContext(ctx context.Context) error
+	}
+}
+
+type MongoProbe struct {
+	config appconfig.MongoConfig
+	client *mongo.Client
 }
 
 type RedisProbe struct {
@@ -60,8 +68,14 @@ func NewStaticProbe(name, status string, required bool, detail string) *StaticPr
 	}
 }
 
-func NewPostgresProbe(cfg appconfig.PostgresConfig, db *sql.DB) *PostgresProbe {
-	return &PostgresProbe{config: cfg, db: db}
+func NewMySQLProbe(cfg appconfig.MySQLConfig, db interface {
+	PingContext(ctx context.Context) error
+}) *MySQLProbe {
+	return &MySQLProbe{config: cfg, db: db}
+}
+
+func NewMongoProbe(cfg appconfig.MongoConfig, client *mongo.Client) *MongoProbe {
+	return &MongoProbe{config: cfg, client: client}
 }
 
 func NewRedisProbe(cfg appconfig.RedisConfig, client *redis.Client) *RedisProbe {
@@ -104,21 +118,21 @@ func (p *StaticProbe) Check(context.Context) types.DependencyStatus {
 	}
 }
 
-func (p *PostgresProbe) Check(ctx context.Context) types.DependencyStatus {
+func (p *MySQLProbe) Check(ctx context.Context) types.DependencyStatus {
 	if !p.config.Enabled {
 		return types.DependencyStatus{
-			Name:     "postgres",
+			Name:     "mysql",
 			Status:   "skipped",
 			Required: false,
-			Detail:   "未启用 PostgreSQL 健康探测",
+			Detail:   "未启用 MySQL 健康探测",
 		}
 	}
 	if p.db == nil {
 		return types.DependencyStatus{
-			Name:     "postgres",
+			Name:     "mysql",
 			Status:   "not_ready",
 			Required: true,
-			Detail:   "PostgreSQL 连接器初始化失败",
+			Detail:   "MySQL 连接器初始化失败",
 		}
 	}
 
@@ -127,7 +141,7 @@ func (p *PostgresProbe) Check(ctx context.Context) types.DependencyStatus {
 
 	if err := p.db.PingContext(checkCtx); err != nil {
 		return types.DependencyStatus{
-			Name:     "postgres",
+			Name:     "mysql",
 			Status:   "not_ready",
 			Required: true,
 			Detail:   err.Error(),
@@ -135,7 +149,45 @@ func (p *PostgresProbe) Check(ctx context.Context) types.DependencyStatus {
 	}
 
 	return types.DependencyStatus{
-		Name:     "postgres",
+		Name:     "mysql",
+		Status:   "ready",
+		Required: true,
+		Detail:   "连接正常",
+	}
+}
+
+func (p *MongoProbe) Check(ctx context.Context) types.DependencyStatus {
+	if !p.config.Enabled {
+		return types.DependencyStatus{
+			Name:     "mongo",
+			Status:   "skipped",
+			Required: false,
+			Detail:   "未启用 MongoDB 健康探测",
+		}
+	}
+	if p.client == nil {
+		return types.DependencyStatus{
+			Name:     "mongo",
+			Status:   "not_ready",
+			Required: true,
+			Detail:   "MongoDB 连接器初始化失败",
+		}
+	}
+
+	checkCtx, cancel := context.WithTimeout(ctx, p.config.HealthCheckTimeout)
+	defer cancel()
+
+	if err := p.client.Ping(checkCtx, readpref.Primary()); err != nil {
+		return types.DependencyStatus{
+			Name:     "mongo",
+			Status:   "not_ready",
+			Required: true,
+			Detail:   err.Error(),
+		}
+	}
+
+	return types.DependencyStatus{
+		Name:     "mongo",
 		Status:   "ready",
 		Required: true,
 		Detail:   "连接正常",

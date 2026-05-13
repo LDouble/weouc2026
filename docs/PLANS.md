@@ -4,6 +4,7 @@
 
 - [0001-foundation.md](/Users/liangluo/code/weouc2026/docs/exec-plans/active/0001-foundation.md)
 - [0002-m1-m2-closure.md](/Users/liangluo/code/weouc2026/docs/exec-plans/active/0002-m1-m2-closure.md)
+- [0004-storage-state-refactor.md](/Users/liangluo/code/weouc2026/docs/exec-plans/active/0004-storage-state-refactor.md)
 
 ## 已归档计划
 
@@ -17,6 +18,11 @@
 
 ## 最近更新
 
+- `2026-05-13`：`api-server` 已继续推进 `0004-storage-state-refactor` 的第二阶段实现：运行时默认依赖已切到 `MySQL + MongoDB + Redis`，`IAM` 改为 `GORM + MySQL + Redis` 主链路并接入 `AutoMigrate`，`portal/notification/analytics/campus_life` 已补 `MongoDB` 仓储装配入口，Docker 联调环境同步改为 `mysql + mongo + redis`；原依赖 `memory/postgres` 的接口级测试已改为显式集成测试跳过态，等待真实环境用例回补。
+- `2026-05-13`：新增 `0004-storage-state-refactor` 计划，并完成后端“`MySQL + MongoDB + Redis + BMFS`”目标架构的设计建档：核心主数据转向 `MySQL`，社区内容/审核/审计/配置转向 `MongoDB`，状态流转由 `BMFS` 统一承载，审核态并入单一 `status`；当前仅完成设计与文档同步，且不再要求迁移历史数据、兼容旧链路或保留历史代码逻辑。
+- `2026-05-13`：已为 `0004-storage-state-refactor` 补充后端安全策略：明确 `MySQL` 参数化查询、`MongoDB` 白名单查询 builder、输入校验、限流、防越权、错误脱敏与注入回归测试要求。
+- `2026-05-13`：已补充“`MySQL` 侧统一使用 `GORM`”到架构与执行计划，并在 `api-server` 中落地 `MySQL + GORM` 配置与客户端骨架，作为后续 `iam` 迁移起点。
+- `2026-05-13`：`api-server` 已继续推进 `0004-storage-state-refactor` 的第一阶段实现：补齐 `mysql_redis` 的 IAM 装配路径、`GORM` 版 MySQL 用户仓储、MySQL 健康探针与对应测试；当前 MySQL 迁移脚本与真实联调仍待下一轮补齐。
 - `2026-05-13`：执行 `0003-owner-viewer-differentiation` 计划进展：后端已为所有六个校园生活类型补齐 `user_role`/`is_owner`/`can_edit`/`can_delete` 及特有 `can_xxx` 字段（详情+列表），新增 Market/Resource/LostFound/Carpool 下架接口和 LostFound 标记已找到接口，小程序 Errand/Market/LostFound/Meetup 详情页主态/客态 UI 改造完成，OpenAPI 契约为 6 个类型定义了详情响应 schema 和新增接口路径。剩余 A6（编辑接口）、A8（Carpool 加入拼车）、B4（SDK 生成）、C4/C6（Resource/Carpool 前端）待后续迭代。
 - `2026-05-13`：新增 `0003-owner-viewer-differentiation` 计划，统一为拼车、闲置、组局、失物招领、跑腿五个校园生活模块落地主态/客态操作行为差异化，后端返回完整 `user_role` + `can_xxx` 布尔字段，客户端直接消费不做本地推断。
 - `2026-05-12`：`apps/mobile-flutter` 已完成最小可运行外壳初始化，落地 `feature-first + MVVM + repository` 基线目录、`Riverpod + GoRouter + Dio` 接线，以及最小 `analyze/test` 校验。

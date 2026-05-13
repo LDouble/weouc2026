@@ -20,7 +20,8 @@ func NewModule(appConfig appconfig.AppConfig, dependencies Dependencies) *Module
 	statusRepo := dependencies.StatusRepository
 	if statusRepo == nil {
 		statusRepo = repo.NewRuntimeStatusRepository(
-			repo.NewStaticProbe("postgres", "skipped", false, "未启用 PostgreSQL 健康探测"),
+			repo.NewStaticProbe("mysql", "skipped", false, "未启用 MySQL 健康探测"),
+			repo.NewStaticProbe("mongo", "skipped", false, "未启用 MongoDB 健康探测"),
 			repo.NewStaticProbe("redis", "skipped", false, "未启用 Redis 健康探测"),
 			repo.NewStaticProbe("object_storage", "skipped", false, "当前阶段未接入对象存储健康探测"),
 		)

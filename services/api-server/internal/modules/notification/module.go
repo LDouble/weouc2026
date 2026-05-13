@@ -18,11 +18,7 @@ type Module struct {
 }
 
 func NewModule(dependencies Dependencies) *Module {
-	repository := dependencies.Repository
-	if repository == nil {
-		repository = notificationrepo.NewInMemoryRepository()
-	}
-	service := notificationservice.New(repository, dependencies.AuditRecorder)
+	service := notificationservice.New(dependencies.Repository, dependencies.AuditRecorder)
 	handler := transport.NewHandler(service)
 	return &Module{handler: handler}
 }

@@ -20,9 +20,6 @@ type Service struct {
 }
 
 func New(repository portalrepo.Repository, recorder audit.Recorder) *Service {
-	if repository == nil {
-		repository = portalrepo.NewInMemoryRepository()
-	}
 	return &Service{repository: repository, recorder: recorder}
 }
 

@@ -1,19 +1,36 @@
 name: weouc-api-server
 
 services:
-  postgres:
-    image: postgres:17-alpine
+  mysql:
+    image: mysql:8.4
     environment:
       TZ: ${TZ:-Asia/Shanghai}
-      POSTGRES_DB: ${POSTGRES_DB:-weouc}
-      POSTGRES_USER: ${POSTGRES_USER:-weouc}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-weouc}
+      MYSQL_DATABASE: ${MYSQL_DB:-weouc}
+      MYSQL_USER: ${MYSQL_USER:-weouc}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-weouc}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${MYSQL_PORT:-3306}:3306"
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  mongo:
+    image: mongo:8
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      MONGO_INITDB_DATABASE: ${MONGO_DB:-weouc}
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand({ ping: 1 }).ok' mongodb://127.0.0.1:27017/admin | grep -q 1"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -44,17 +61,24 @@ services:
       API_SERVER_PORT: 8080
       API_SERVER_VERSION: ${API_SERVER_VERSION:-dev-docker}
       API_SERVER_AUTH_ACCESS_TOKEN_TTL: ${API_SERVER_AUTH_ACCESS_TOKEN_TTL:-24h}
-      API_SERVER_IAM_BACKEND: ${API_SERVER_IAM_BACKEND:-postgres_redis}
-      API_SERVER_CAMPUS_LIFE_BACKEND: ${API_SERVER_CAMPUS_LIFE_BACKEND:-postgres}
+      API_SERVER_IAM_BACKEND: ${API_SERVER_IAM_BACKEND:-mysql_redis}
+      API_SERVER_CAMPUS_LIFE_BACKEND: ${API_SERVER_CAMPUS_LIFE_BACKEND:-mongo}
+      API_SERVER_PORTAL_BACKEND: ${API_SERVER_PORTAL_BACKEND:-mongo}
+      API_SERVER_NOTIFICATION_BACKEND: ${API_SERVER_NOTIFICATION_BACKEND:-mongo}
+      API_SERVER_ANALYTICS_BACKEND: ${API_SERVER_ANALYTICS_BACKEND:-mongo}
       API_SERVER_AUTO_MIGRATE: ${API_SERVER_AUTO_MIGRATE:-true}
-      API_SERVER_POSTGRES_ENABLED: "true"
-      API_SERVER_POSTGRES_HOST: postgres
-      API_SERVER_POSTGRES_PORT: 5432
-      API_SERVER_POSTGRES_DATABASE: ${POSTGRES_DB:-weouc}
-      API_SERVER_POSTGRES_USER: ${POSTGRES_USER:-weouc}
-      API_SERVER_POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-weouc}
-      API_SERVER_POSTGRES_SSL_MODE: disable
-      API_SERVER_POSTGRES_HEALTHCHECK_TIMEOUT: ${API_SERVER_POSTGRES_HEALTHCHECK_TIMEOUT:-2s}
+      API_SERVER_MYSQL_ENABLED: "true"
+      API_SERVER_MYSQL_HOST: mysql
+      API_SERVER_MYSQL_PORT: 3306
+      API_SERVER_MYSQL_DATABASE: ${MYSQL_DB:-weouc}
+      API_SERVER_MYSQL_USER: ${MYSQL_USER:-weouc}
+      API_SERVER_MYSQL_PASSWORD: ${MYSQL_PASSWORD:-weouc}
+      API_SERVER_MYSQL_PARAMS: charset=utf8mb4&parseTime=True&loc=Local
+      API_SERVER_MYSQL_HEALTHCHECK_TIMEOUT: ${API_SERVER_MYSQL_HEALTHCHECK_TIMEOUT:-2s}
+      API_SERVER_MONGO_ENABLED: "true"
+      API_SERVER_MONGO_URI: mongodb://mongo:27017/?directConnection=true
+      API_SERVER_MONGO_DATABASE: ${MONGO_DB:-weouc}
+      API_SERVER_MONGO_HEALTHCHECK_TIMEOUT: ${API_SERVER_MONGO_HEALTHCHECK_TIMEOUT:-2s}
       API_SERVER_REDIS_ENABLED: "true"
       API_SERVER_REDIS_HOST: redis
       API_SERVER_REDIS_PORT: 6379
@@ -71,7 +95,9 @@ services:
       API_SERVER_COS_PRESIGNED_GET_TTL: ${API_SERVER_COS_PRESIGNED_GET_TTL:-6h}
       API_SERVER_COS_HEALTHCHECK_TIMEOUT: ${API_SERVER_COS_HEALTHCHECK_TIMEOUT:-2s}
     depends_on:
-      postgres:
+      mysql:
+        condition: service_healthy
+      mongo:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -86,5 +112,6 @@ services:
     restart: unless-stopped
 
 volumes:
-  postgres-data:
+  mysql-data:
+  mongo-data:
   redis-data:
