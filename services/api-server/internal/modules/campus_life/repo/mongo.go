@@ -3,238 +3,289 @@ package repo
 import (
 	"context"
 	"fmt"
+	"time"
 
 	cltypes "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/types"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type MongoRepository struct {
-	markets   *mongo.Collection
-	errands   *mongo.Collection
-	resources *mongo.Collection
-	lostFound *mongo.Collection
-	carpools  *mongo.Collection
-	meetups   *mongo.Collection
-	sequences *mongo.Collection
-}
-
-type mongoEnvelope[T any] struct {
-	ID      string `bson:"_id"`
-	Payload T      `bson:"payload"`
-}
-
-type sequenceDocument struct {
-	ID    string `bson:"_id"`
-	Value int64  `bson:"value"`
+	collection *mongo.Collection
 }
 
 func NewMongoRepository(database *mongo.Database) *MongoRepository {
 	if database == nil {
 		return &MongoRepository{}
 	}
+	coll := database.Collection("community_content")
+	return &MongoRepository{collection: coll}
+}
 
-	return &MongoRepository{
-		markets:   database.Collection("campus_life_markets"),
-		errands:   database.Collection("campus_life_errands"),
-		resources: database.Collection("campus_life_resources"),
-		lostFound: database.Collection("campus_life_lost_found"),
-		carpools:  database.Collection("campus_life_carpools"),
-		meetups:   database.Collection("campus_life_meetups"),
-		sequences: database.Collection("campus_life_sequences"),
+func (r *MongoRepository) EnsureIndexes(ctx context.Context) error {
+	if r.collection == nil {
+		return nil
 	}
-}
-
-func (r *MongoRepository) ListMarkets(ctx context.Context) ([]cltypes.MarketItem, error) {
-	return listDocuments[cltypes.MarketItem](ctx, r.markets, "list campus_life markets failed")
-}
-
-func (r *MongoRepository) GetMarket(ctx context.Context, id string) (cltypes.MarketItem, error) {
-	return getDocument[cltypes.MarketItem](ctx, r.markets, id, "get campus_life market failed")
-}
-
-func (r *MongoRepository) SaveMarket(ctx context.Context, item cltypes.MarketItem) (cltypes.MarketItem, error) {
-	return saveDocument(ctx, r.markets, item.ID, item, "save campus_life market failed")
-}
-
-func (r *MongoRepository) UpdateMarket(ctx context.Context, id string, mutate func(*cltypes.MarketItem) error) (cltypes.MarketItem, error) {
-	return updateDocument(ctx, r.markets, id, mutate, "update campus_life market failed")
-}
-
-func (r *MongoRepository) ListErrands(ctx context.Context) ([]cltypes.ErrandItem, error) {
-	return listDocuments[cltypes.ErrandItem](ctx, r.errands, "list campus_life errands failed")
-}
-
-func (r *MongoRepository) GetErrand(ctx context.Context, id string) (cltypes.ErrandItem, error) {
-	return getDocument[cltypes.ErrandItem](ctx, r.errands, id, "get campus_life errand failed")
-}
-
-func (r *MongoRepository) SaveErrand(ctx context.Context, item cltypes.ErrandItem) (cltypes.ErrandItem, error) {
-	return saveDocument(ctx, r.errands, item.ID, item, "save campus_life errand failed")
-}
-
-func (r *MongoRepository) UpdateErrand(ctx context.Context, id string, mutate func(*cltypes.ErrandItem) error) (cltypes.ErrandItem, error) {
-	return updateDocument(ctx, r.errands, id, mutate, "update campus_life errand failed")
-}
-
-func (r *MongoRepository) ListResources(ctx context.Context) ([]cltypes.ResourceItem, error) {
-	return listDocuments[cltypes.ResourceItem](ctx, r.resources, "list campus_life resources failed")
-}
-
-func (r *MongoRepository) GetResource(ctx context.Context, id string) (cltypes.ResourceItem, error) {
-	return getDocument[cltypes.ResourceItem](ctx, r.resources, id, "get campus_life resource failed")
-}
-
-func (r *MongoRepository) SaveResource(ctx context.Context, item cltypes.ResourceItem) (cltypes.ResourceItem, error) {
-	return saveDocument(ctx, r.resources, item.ID, item, "save campus_life resource failed")
-}
-
-func (r *MongoRepository) UpdateResource(ctx context.Context, id string, mutate func(*cltypes.ResourceItem) error) (cltypes.ResourceItem, error) {
-	return updateDocument(ctx, r.resources, id, mutate, "update campus_life resource failed")
-}
-
-func (r *MongoRepository) ListLostFound(ctx context.Context) ([]cltypes.LostFoundItem, error) {
-	return listDocuments[cltypes.LostFoundItem](ctx, r.lostFound, "list campus_life lost_found failed")
-}
-
-func (r *MongoRepository) GetLostFound(ctx context.Context, id string) (cltypes.LostFoundItem, error) {
-	return getDocument[cltypes.LostFoundItem](ctx, r.lostFound, id, "get campus_life lost_found failed")
-}
-
-func (r *MongoRepository) SaveLostFound(ctx context.Context, item cltypes.LostFoundItem) (cltypes.LostFoundItem, error) {
-	return saveDocument(ctx, r.lostFound, item.ID, item, "save campus_life lost_found failed")
-}
-
-func (r *MongoRepository) UpdateLostFound(ctx context.Context, id string, mutate func(*cltypes.LostFoundItem) error) (cltypes.LostFoundItem, error) {
-	return updateDocument(ctx, r.lostFound, id, mutate, "update campus_life lost_found failed")
-}
-
-func (r *MongoRepository) ListCarpools(ctx context.Context) ([]cltypes.CarpoolItem, error) {
-	return listDocuments[cltypes.CarpoolItem](ctx, r.carpools, "list campus_life carpools failed")
-}
-
-func (r *MongoRepository) GetCarpool(ctx context.Context, id string) (cltypes.CarpoolItem, error) {
-	return getDocument[cltypes.CarpoolItem](ctx, r.carpools, id, "get campus_life carpool failed")
-}
-
-func (r *MongoRepository) SaveCarpool(ctx context.Context, item cltypes.CarpoolItem) (cltypes.CarpoolItem, error) {
-	return saveDocument(ctx, r.carpools, item.ID, item, "save campus_life carpool failed")
-}
-
-func (r *MongoRepository) UpdateCarpool(ctx context.Context, id string, mutate func(*cltypes.CarpoolItem) error) (cltypes.CarpoolItem, error) {
-	return updateDocument(ctx, r.carpools, id, mutate, "update campus_life carpool failed")
-}
-
-func (r *MongoRepository) ListMeetups(ctx context.Context) ([]cltypes.MeetupItem, error) {
-	return listDocuments[cltypes.MeetupItem](ctx, r.meetups, "list campus_life meetups failed")
-}
-
-func (r *MongoRepository) GetMeetup(ctx context.Context, id string) (cltypes.MeetupItem, error) {
-	return getDocument[cltypes.MeetupItem](ctx, r.meetups, id, "get campus_life meetup failed")
-}
-
-func (r *MongoRepository) SaveMeetup(ctx context.Context, item cltypes.MeetupItem) (cltypes.MeetupItem, error) {
-	return saveDocument(ctx, r.meetups, item.ID, item, "save campus_life meetup failed")
-}
-
-func (r *MongoRepository) UpdateMeetup(ctx context.Context, id string, mutate func(*cltypes.MeetupItem) error) (cltypes.MeetupItem, error) {
-	return updateDocument(ctx, r.meetups, id, mutate, "update campus_life meetup failed")
-}
-
-func (r *MongoRepository) NextID(ctx context.Context, prefix string) (string, error) {
-	if r.sequences == nil {
-		return "", fmt.Errorf("mongo campus_life sequence collection is nil")
+	indexes := []mongo.IndexModel{
+		{Keys: bson.D{{Key: "content_type", Value: 1}, {Key: "status", Value: 1}, {Key: "created_at", Value: -1}}},
+		{Keys: bson.D{{Key: "status", Value: 1}, {Key: "created_at", Value: -1}}},
+		{Keys: bson.D{{Key: "publisher_user_id", Value: 1}, {Key: "created_at", Value: -1}}},
+		{Keys: bson.D{{Key: "publisher_user_id", Value: 1}, {Key: "status", Value: 1}, {Key: "created_at", Value: -1}}},
+		{Keys: bson.D{{Key: "deleted_at", Value: 1}}, Options: options.Index().SetSparse(true)},
 	}
-
-	var sequence sequenceDocument
-	if err := r.sequences.FindOneAndUpdate(
-		ctx,
-		bson.M{"_id": prefix},
-		bson.M{"$inc": bson.M{"value": 1}},
-		options.FindOneAndUpdate().SetUpsert(true).SetReturnDocument(options.After),
-	).Decode(&sequence); err != nil {
-		return "", fmt.Errorf("increment campus_life sequence failed: %w", err)
-	}
-
-	return fmt.Sprintf("%s-%03d", prefix, sequence.Value), nil
+	_, err := r.collection.Indexes().CreateMany(ctx, indexes)
+	return err
 }
 
-func listDocuments[T any](ctx context.Context, collection *mongo.Collection, message string) ([]T, error) {
-	if collection == nil {
-		return nil, fmt.Errorf("mongo collection is nil")
+func (r *MongoRepository) Save(ctx context.Context, item cltypes.CommunityContent) (cltypes.CommunityContent, error) {
+	if r.collection == nil {
+		return item, fmt.Errorf("mongo collection is nil")
 	}
-
-	cursor, err := collection.Find(ctx, bson.D{})
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", message, err)
-	}
-	defer cursor.Close(ctx)
-
-	items := make([]T, 0)
-	for cursor.Next(ctx) {
-		var document mongoEnvelope[T]
-		if err := cursor.Decode(&document); err != nil {
-			return nil, fmt.Errorf("%s: %w", message, err)
+	now := time.Now().UTC()
+	item.CreatedAt = now
+	item.UpdatedAt = now
+	if item.ID.IsZero() {
+		doc, err := bson.Marshal(item)
+		if err != nil {
+			return item, fmt.Errorf("marshal community_content failed: %w", err)
 		}
-		items = append(items, document.Payload)
+		var m bson.M
+		if err := bson.Unmarshal(doc, &m); err != nil {
+			return item, fmt.Errorf("unmarshal community_content failed: %w", err)
+		}
+		delete(m, "_id")
+		res, err := r.collection.InsertOne(ctx, m)
+		if err != nil {
+			return item, fmt.Errorf("insert community_content failed: %w", err)
+		}
+		item.ID = res.InsertedID.(primitive.ObjectID)
+		return item, nil
 	}
-	if err := cursor.Err(); err != nil {
-		return nil, fmt.Errorf("%s: %w", message, err)
+	_, err := r.collection.InsertOne(ctx, item)
+	if err != nil {
+		return item, fmt.Errorf("insert community_content failed: %w", err)
 	}
-
-	return items, nil
+	return item, nil
 }
 
-func getDocument[T any](ctx context.Context, collection *mongo.Collection, id, message string) (T, error) {
-	var zero T
-	if collection == nil {
+func (r *MongoRepository) GetByID(ctx context.Context, id string) (cltypes.CommunityContent, error) {
+	var zero cltypes.CommunityContent
+	if r.collection == nil {
 		return zero, fmt.Errorf("mongo collection is nil")
 	}
-
-	var document mongoEnvelope[T]
-	if err := collection.FindOne(ctx, bson.M{"_id": id}).Decode(&document); err != nil {
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return zero, ErrNotFound
+	}
+	filter := bson.M{"_id": objID, "deleted_at": nil}
+	var result cltypes.CommunityContent
+	if err := r.collection.FindOne(ctx, filter).Decode(&result); err != nil {
 		if err == mongo.ErrNoDocuments {
 			return zero, ErrNotFound
 		}
-		return zero, fmt.Errorf("%s: %w", message, err)
+		return zero, fmt.Errorf("get community_content by id failed: %w", err)
 	}
-
-	return document.Payload, nil
+	return result, nil
 }
 
-func saveDocument[T any](ctx context.Context, collection *mongo.Collection, id string, payload T, message string) (T, error) {
-	if collection == nil {
-		return payload, fmt.Errorf("mongo collection is nil")
-	}
-
-	document := mongoEnvelope[T]{
-		ID:      id,
-		Payload: payload,
-	}
-	if _, err := collection.ReplaceOne(ctx, bson.M{"_id": id}, document, options.Replace().SetUpsert(true)); err != nil {
-		return payload, fmt.Errorf("%s: %w", message, err)
-	}
-
-	return payload, nil
-}
-
-func updateDocument[T any](
-	ctx context.Context,
-	collection *mongo.Collection,
-	id string,
-	mutate func(*T) error,
-	message string,
-) (T, error) {
-	current, err := getDocument[T](ctx, collection, id, message)
+func (r *MongoRepository) Update(ctx context.Context, id string, mutate func(*cltypes.CommunityContent) error) (cltypes.CommunityContent, error) {
+	current, err := r.GetByID(ctx, id)
 	if err != nil {
-		var zero T
-		return zero, err
+		return current, err
 	}
 	if err := mutate(&current); err != nil {
-		var zero T
-		return zero, err
+		return current, err
 	}
+	current.UpdatedAt = time.Now().UTC()
+	_, err = r.collection.ReplaceOne(ctx, bson.M{"_id": current.ID}, current)
+	if err != nil {
+		return current, fmt.Errorf("update community_content failed: %w", err)
+	}
+	return current, nil
+}
 
-	return saveDocument(ctx, collection, id, current, message)
+func (r *MongoRepository) ListByType(ctx context.Context, contentType string, filter cltypes.ContentFilter) ([]cltypes.CommunityContent, int64, error) {
+	if r.collection == nil {
+		return nil, 0, fmt.Errorf("mongo collection is nil")
+	}
+	query := bson.M{"content_type": contentType, "deleted_at": nil}
+	if len(filter.Statuses) > 0 {
+		query["status"] = bson.M{"$in": filter.Statuses}
+	}
+	if filter.Category != "" {
+		query["type_payload.category"] = filter.Category
+	}
+	if filter.SubType != "" {
+		query["type_payload.type"] = filter.SubType
+	}
+	if filter.Keyword != "" {
+		query["$or"] = []bson.M{
+			{"title": bson.M{"$regex": filter.Keyword, "$options": "i"}},
+			{"desc": bson.M{"$regex": filter.Keyword, "$options": "i"}},
+		}
+	}
+	if !filter.IncludeAllStatus {
+		visibleStatuses := filter.VisibleStatuses
+		if len(visibleStatuses) == 0 {
+			visibleStatuses = cltypes.VisibleStatuses
+		}
+		if filter.CurrentUserID != "" {
+			orClauses := []bson.M{
+				{"publisher_user_id": filter.CurrentUserID},
+				{"status": bson.M{"$in": visibleStatuses}},
+			}
+			if filter.AcceptorUserID != "" {
+				orClauses = append(orClauses, bson.M{"type_payload.acceptor_user_id": filter.AcceptorUserID})
+			}
+			if filter.ParticipantUserID != "" {
+				orClauses = append(orClauses, bson.M{"type_payload.participant_user_ids": filter.ParticipantUserID})
+			}
+			if existingOr, ok := query["$or"]; ok {
+				query["$and"] = []bson.M{
+					{"$or": existingOr},
+					{"$or": orClauses},
+				}
+				delete(query, "$or")
+			} else {
+				query["$or"] = orClauses
+			}
+		} else {
+			query["status"] = bson.M{"$in": visibleStatuses}
+			if filter.AcceptorUserID != "" {
+				query["type_payload.acceptor_user_id"] = filter.AcceptorUserID
+			}
+			if filter.ParticipantUserID != "" {
+				query["type_payload.participant_user_ids"] = filter.ParticipantUserID
+			}
+		}
+	}
+	if filter.PublisherUserID != "" {
+		query["publisher_user_id"] = filter.PublisherUserID
+	}
+	total, err := r.collection.CountDocuments(ctx, query)
+	if err != nil {
+		return nil, 0, fmt.Errorf("count community_content by type failed: %w", err)
+	}
+	opts := options.Find().
+		SetSort(bson.D{{Key: "created_at", Value: -1}})
+	page := filter.Page
+	if page <= 0 {
+		page = 1
+	}
+	pageSize := filter.PageSize
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	opts.SetSkip(int64((page - 1) * pageSize))
+	opts.SetLimit(int64(pageSize))
+
+	cursor, err := r.collection.Find(ctx, query, opts)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list community_content by type failed: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	items := make([]cltypes.CommunityContent, 0)
+	for cursor.Next(ctx) {
+		var doc cltypes.CommunityContent
+		if err := cursor.Decode(&doc); err != nil {
+			return nil, 0, fmt.Errorf("decode community_content failed: %w", err)
+		}
+		items = append(items, doc)
+	}
+	if err := cursor.Err(); err != nil {
+		return nil, 0, fmt.Errorf("cursor error: %w", err)
+	}
+	return items, total, nil
+}
+
+func (r *MongoRepository) ListForFeed(ctx context.Context, filter cltypes.FeedFilter) ([]cltypes.CommunityContent, int64, error) {
+	if r.collection == nil {
+		return nil, 0, fmt.Errorf("mongo collection is nil")
+	}
+	query := bson.M{"deleted_at": nil}
+	if len(filter.FeedTypes) > 0 {
+		query["content_type"] = bson.M{"$in": filter.FeedTypes}
+	}
+	if filter.Keyword != "" {
+		query["$or"] = []bson.M{
+			{"title": bson.M{"$regex": filter.Keyword, "$options": "i"}},
+			{"desc": bson.M{"$regex": filter.Keyword, "$options": "i"}},
+		}
+	}
+	if !filter.IncludeAllStatus {
+		visibleStatuses := filter.VisibleStatuses
+		if len(visibleStatuses) == 0 {
+			visibleStatuses = cltypes.VisibleStatuses
+		}
+		if filter.CurrentUserID != "" {
+			orClauses := []bson.M{
+				{"publisher_user_id": filter.CurrentUserID},
+				{"status": bson.M{"$in": visibleStatuses}},
+			}
+			if filter.AcceptorUserID != "" {
+				orClauses = append(orClauses, bson.M{"type_payload.acceptor_user_id": filter.AcceptorUserID})
+			}
+			if filter.ParticipantUserID != "" {
+				orClauses = append(orClauses, bson.M{"type_payload.participant_user_ids": filter.ParticipantUserID})
+			}
+			if existingOr, ok := query["$or"]; ok {
+				query["$and"] = []bson.M{
+					{"$or": existingOr},
+					{"$or": orClauses},
+				}
+				delete(query, "$or")
+			} else {
+				query["$or"] = orClauses
+			}
+		} else {
+			query["status"] = bson.M{"$in": visibleStatuses}
+			if filter.AcceptorUserID != "" {
+				query["type_payload.acceptor_user_id"] = filter.AcceptorUserID
+			}
+			if filter.ParticipantUserID != "" {
+				query["type_payload.participant_user_ids"] = filter.ParticipantUserID
+			}
+		}
+	}
+	if filter.PublisherUserID != "" {
+		query["publisher_user_id"] = filter.PublisherUserID
+	}
+	total, err := r.collection.CountDocuments(ctx, query)
+	if err != nil {
+		return nil, 0, fmt.Errorf("count community_content for feed failed: %w", err)
+	}
+	opts := options.Find().
+		SetSort(bson.D{{Key: "created_at", Value: -1}})
+	page := filter.Page
+	if page <= 0 {
+		page = 1
+	}
+	pageSize := filter.PageSize
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	opts.SetSkip(int64((page - 1) * pageSize))
+	opts.SetLimit(int64(pageSize))
+
+	cursor, err := r.collection.Find(ctx, query, opts)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list community_content for feed failed: %w", err)
+	}
+	defer cursor.Close(ctx)
+
+	items := make([]cltypes.CommunityContent, 0)
+	for cursor.Next(ctx) {
+		var doc cltypes.CommunityContent
+		if err := cursor.Decode(&doc); err != nil {
+			return nil, 0, fmt.Errorf("decode community_content failed: %w", err)
+		}
+		items = append(items, doc)
+	}
+	if err := cursor.Err(); err != nil {
+		return nil, 0, fmt.Errorf("cursor error: %w", err)
+	}
+	return items, total, nil
 }

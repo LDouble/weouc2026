@@ -1,63 +1,158 @@
 package types
 
-import "time"
+import (
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
+
+const (
+	ContentTypeMarket    = "market"
+	ContentTypeErrand    = "errand"
+	ContentTypeResource  = "resource"
+	ContentTypeLostFound = "lost_found"
+	ContentTypeCarpool   = "carpool"
+	ContentTypeMeetup    = "meetup"
+)
+
+const (
+	StatusReviewing = "reviewing"
+	StatusPublished = "published"
+	StatusRejected  = "rejected"
+	StatusOffline   = "offline"
+	StatusCancelled = "cancelled"
+	StatusAccepted  = "accepted"
+	StatusOpen      = "open"
+	StatusFull      = "full"
+	StatusResolved  = "resolved"
+)
+
+type CommunityContent struct {
+	ID              primitive.ObjectID `bson:"_id"`
+	ContentType     string             `bson:"content_type"`
+	Title           string             `bson:"title"`
+	Desc            string             `bson:"desc"`
+	Status          string             `bson:"status"`
+	PublisherUserID string             `bson:"publisher_user_id"`
+	Contact         string             `bson:"contact"`
+	Images          []string           `bson:"images"`
+	Tags            []string           `bson:"tags"`
+	CreatedAt       time.Time          `bson:"created_at"`
+	UpdatedAt       time.Time          `bson:"updated_at"`
+	CreatedBy       string             `bson:"created_by"`
+	UpdatedBy       string             `bson:"updated_by"`
+	DeletedAt       *time.Time         `bson:"deleted_at"`
+	TypePayload     bson.M             `bson:"type_payload"`
+	ExtJSON         map[string]any     `bson:"ext_json,omitempty"`
+	LikedByUserIDs  map[string]bool    `bson:"liked_by_user_ids,omitempty"`
+	Likes           int                `bson:"likes,omitempty"`
+}
+
+type MarketPayload struct {
+	Category      string `json:"category" bson:"category"`
+	Price         string `json:"price" bson:"price"`
+	OriginalPrice string `json:"original_price" bson:"original_price"`
+	Condition     string `json:"condition" bson:"condition"`
+	TradeMode     string `json:"trade_mode" bson:"trade_mode"`
+}
+
+type ErrandPayload struct {
+	Category       string    `json:"category" bson:"category"`
+	RouteStart     string    `json:"route_start" bson:"route_start"`
+	RouteEnd       string    `json:"route_end" bson:"route_end"`
+	Deadline       time.Time `json:"deadline" bson:"deadline"`
+	Reward         string    `json:"reward" bson:"reward"`
+	Urgent         bool      `json:"urgent" bson:"urgent"`
+	AcceptorUserID string    `json:"acceptor_user_id" bson:"acceptor_user_id"`
+}
+
+type ResourcePayload struct {
+	Category    string         `json:"category" bson:"category"`
+	CourseName  string         `json:"course_name" bson:"course_name"`
+	Files       []ResourceFile `json:"files" bson:"files"`
+	FileSize    string         `json:"file_size" bson:"file_size"`
+	FileType    string         `json:"file_type" bson:"file_type"`
+	DownloadURL string         `json:"download_url" bson:"download_url"`
+	Likes       int            `json:"likes" bson:"likes"`
+	Views       int            `json:"views" bson:"views"`
+}
+
+type LostFoundPayload struct {
+	Type        string `json:"type" bson:"type"`
+	Category    string `json:"category" bson:"category"`
+	Location    string `json:"location" bson:"location"`
+	EventTime   string `json:"event_time" bson:"event_time"`
+	ItemFeature string `json:"item_feature" bson:"item_feature"`
+}
+
+type CarpoolPayload struct {
+	Category  string    `json:"category" bson:"category"`
+	From      string    `json:"from" bson:"from"`
+	To        string    `json:"to" bson:"to"`
+	TravelAt  time.Time `json:"travel_at" bson:"travel_at"`
+	Type      string    `json:"type" bson:"type"`
+	SeatsText string    `json:"seats_text" bson:"seats_text"`
+	Price     string    `json:"price" bson:"price"`
+	Note      string    `json:"note" bson:"note"`
+}
+
+type MeetupPayload struct {
+	Category           string    `json:"category" bson:"category"`
+	Location           string    `json:"location" bson:"location"`
+	StartAt            time.Time `json:"start_at" bson:"start_at"`
+	DeadlineAt         time.Time `json:"deadline_at" bson:"deadline_at"`
+	MaxParticipants    int       `json:"max_participants" bson:"max_participants"`
+	FeeText            string    `json:"fee_text" bson:"fee_text"`
+	ParticipantUserIDs []string  `json:"participant_user_ids" bson:"participant_user_ids"`
+}
+
+type ResourceFile struct {
+	Name     string `json:"name"`
+	Path     string `json:"path,omitempty"`
+	URL      string `json:"url"`
+	FileType string `json:"file_type"`
+	FileSize string `json:"file_size"`
+}
 
 type Pagination struct {
 	Page     int
 	PageSize int
 }
 
-type FeedQuery struct {
-	Pagination
-	FeedTypes []string
-	Keyword   string
-	UserRole  string
+var VisibleStatuses = []string{
+	StatusPublished,
+	StatusOpen,
+	StatusAccepted,
+	StatusFull,
+	StatusResolved,
 }
 
-type MarketQuery struct {
+type ContentFilter struct {
 	Pagination
-	Category string
-	Keyword  string
+	ContentType       string
+	Statuses          []string
+	Keyword           string
+	Category          string
+	SubType           string
+	PublisherUserID   string
+	AcceptorUserID    string
+	ParticipantUserID string
+	VisibleStatuses   []string
+	IncludeAllStatus  bool
+	CurrentUserID     string
 }
 
-type ErrandQuery struct {
+type FeedFilter struct {
 	Pagination
-	Category string
-	Keyword  string
-	UserRole string
-}
-
-type ResourceQuery struct {
-	Pagination
-	Category string
-	Keyword  string
-}
-
-type LostFoundQuery struct {
-	Pagination
-	Category string
-	Keyword  string
-	Type     string
-}
-
-type CarpoolQuery struct {
-	Pagination
-	Category string
-	Keyword  string
-}
-
-type MeetupQuery struct {
-	Pagination
-	Category string
-	Keyword  string
-	UserRole string
-}
-
-type ReviewQuery struct {
-	Pagination
-	ContentType  string
-	ReviewStatus string
-	Keyword      string
+	FeedTypes         []string
+	Keyword           string
+	PublisherUserID   string
+	AcceptorUserID    string
+	ParticipantUserID string
+	VisibleStatuses   []string
+	IncludeAllStatus  bool
+	CurrentUserID     string
 }
 
 type MarketPublishRequest struct {
@@ -153,141 +248,52 @@ type MeetupActionRequest struct {
 	MeetupID string `json:"meetup_id"`
 }
 
-type ResourceFile struct {
-	Name     string `json:"name"`
-	Path     string `json:"path,omitempty"`
-	URL      string `json:"url"`
-	FileType string `json:"file_type"`
-	FileSize string `json:"file_size"`
+type FeedQuery struct {
+	Pagination
+	FeedTypes []string
+	Keyword   string
 }
 
-type MarketItem struct {
-	ID               string
-	Title            string
-	Desc             string
-	ReviewStatus     string
-	PublisherUserID  string
-	Publisher        string
-	PublisherInitial string
-	Image            string
-	CreatedAt        time.Time
-	Likes            int
-	LikedByUserIDs   map[string]bool
-	Extra            MarketExtra
+type MarketQuery struct {
+	Pagination
+	Category string
+	Keyword  string
 }
 
-type MarketExtra struct {
-	Category      string
-	Price         string
-	OriginalPrice string
-	Condition     string
-	TradeMode     string
-	Contact       string
-	Images        []string
+type ErrandQuery struct {
+	Pagination
+	Category string
+	Keyword  string
 }
 
-type ErrandItem struct {
-	ID               string
-	Title            string
-	Desc             string
-	ReviewStatus     string
-	Category         string
-	RouteStart       string
-	RouteEnd         string
-	Deadline         time.Time
-	Reward           string
-	Contact          string
-	Urgent           bool
-	Images           []string
-	Status           string
-	PublisherUserID  string
-	Publisher        string
-	PublisherInitial string
-	AcceptorUserID   string
-	CreatedAt        time.Time
+type ResourceQuery struct {
+	Pagination
+	Category string
+	Keyword  string
 }
 
-type ResourceItem struct {
-	ID               string
-	Title            string
-	Desc             string
-	ReviewStatus     string
-	PublisherUserID  string
-	Publisher        string
-	PublisherInitial string
-	CreatedAt        time.Time
-	Extra            ResourceExtra
+type LostFoundQuery struct {
+	Pagination
+	Category string
+	Keyword  string
+	Type     string
 }
 
-type ResourceExtra struct {
-	Category    string
-	CourseName  string
-	Contact     string
-	Files       []ResourceFile
-	FileSize    string
-	FileType    string
-	DownloadURL string
-	Likes       int
-	Views       int
+type CarpoolQuery struct {
+	Pagination
+	Category string
+	Keyword  string
 }
 
-type LostFoundItem struct {
-	ID               string
-	Title            string
-	Desc             string
-	ReviewStatus     string
-	PublisherUserID  string
-	Publisher        string
-	PublisherInitial string
-	CreatedAt        time.Time
-	Extra            LostFoundExtra
+type MeetupQuery struct {
+	Pagination
+	Category string
+	Keyword  string
 }
 
-type LostFoundExtra struct {
-	Type        string
-	Category    string
-	Location    string
-	EventTime   string
-	ItemFeature string
-	Contact     string
-}
-
-type CarpoolItem struct {
-	ID               string
-	Category         string
-	From             string
-	To               string
-	TravelAt         time.Time
-	Type             string
-	SeatsText        string
-	Price            string
-	Note             string
-	Tags             []string
-	Contact          string
-	ReviewStatus     string
-	PublisherUserID  string
-	Publisher        string
-	PublisherInitial string
-	CreatedAt        time.Time
-}
-
-type MeetupItem struct {
-	ID                 string
-	Category           string
-	Title              string
-	Desc               string
-	Location           string
-	StartAt            time.Time
-	DeadlineAt         time.Time
-	MaxParticipants    int
-	FeeText            string
-	Tags               []string
-	Contact            string
-	Status             string
-	ReviewStatus       string
-	PublisherUserID    string
-	Publisher          string
-	PublisherInitial   string
-	ParticipantUserIDs []string
-	CreatedAt          time.Time
+type ReviewQuery struct {
+	Pagination
+	ContentType  string
+	ReviewStatus string
+	Keyword      string
 }

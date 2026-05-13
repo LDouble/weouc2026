@@ -48,8 +48,8 @@ function buildPersonalInfo(profile) {
 
 async function fetchStats() {
   const [feedResult, errandResult] = await Promise.all([
-    fetchFeedList({ page: 1, pageSize: 1, user_role: 'publisher' }).catch(() => ({})),
-    fetchErrandList({ page: 1, pageSize: 1, user_role: 'acceptor' }).catch(() => ({})),
+    fetchFeedList({ page: 1, pageSize: 1 }).catch(() => ({})),
+    fetchErrandList({ page: 1, pageSize: 1 }).catch(() => ({})),
   ]);
 
   const feedData = unwrapPayload(feedResult);

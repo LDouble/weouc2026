@@ -10,35 +10,9 @@ import (
 var ErrNotFound = errors.New("item not found")
 
 type Repository interface {
-	ListMarkets(ctx context.Context) ([]cltypes.MarketItem, error)
-	GetMarket(ctx context.Context, id string) (cltypes.MarketItem, error)
-	SaveMarket(ctx context.Context, item cltypes.MarketItem) (cltypes.MarketItem, error)
-	UpdateMarket(ctx context.Context, id string, mutate func(*cltypes.MarketItem) error) (cltypes.MarketItem, error)
-
-	ListErrands(ctx context.Context) ([]cltypes.ErrandItem, error)
-	GetErrand(ctx context.Context, id string) (cltypes.ErrandItem, error)
-	SaveErrand(ctx context.Context, item cltypes.ErrandItem) (cltypes.ErrandItem, error)
-	UpdateErrand(ctx context.Context, id string, mutate func(*cltypes.ErrandItem) error) (cltypes.ErrandItem, error)
-
-	ListResources(ctx context.Context) ([]cltypes.ResourceItem, error)
-	GetResource(ctx context.Context, id string) (cltypes.ResourceItem, error)
-	SaveResource(ctx context.Context, item cltypes.ResourceItem) (cltypes.ResourceItem, error)
-	UpdateResource(ctx context.Context, id string, mutate func(*cltypes.ResourceItem) error) (cltypes.ResourceItem, error)
-
-	ListLostFound(ctx context.Context) ([]cltypes.LostFoundItem, error)
-	GetLostFound(ctx context.Context, id string) (cltypes.LostFoundItem, error)
-	SaveLostFound(ctx context.Context, item cltypes.LostFoundItem) (cltypes.LostFoundItem, error)
-	UpdateLostFound(ctx context.Context, id string, mutate func(*cltypes.LostFoundItem) error) (cltypes.LostFoundItem, error)
-
-	ListCarpools(ctx context.Context) ([]cltypes.CarpoolItem, error)
-	GetCarpool(ctx context.Context, id string) (cltypes.CarpoolItem, error)
-	SaveCarpool(ctx context.Context, item cltypes.CarpoolItem) (cltypes.CarpoolItem, error)
-	UpdateCarpool(ctx context.Context, id string, mutate func(*cltypes.CarpoolItem) error) (cltypes.CarpoolItem, error)
-
-	ListMeetups(ctx context.Context) ([]cltypes.MeetupItem, error)
-	GetMeetup(ctx context.Context, id string) (cltypes.MeetupItem, error)
-	SaveMeetup(ctx context.Context, item cltypes.MeetupItem) (cltypes.MeetupItem, error)
-	UpdateMeetup(ctx context.Context, id string, mutate func(*cltypes.MeetupItem) error) (cltypes.MeetupItem, error)
-
-	NextID(ctx context.Context, prefix string) (string, error)
+	Save(ctx context.Context, item cltypes.CommunityContent) (cltypes.CommunityContent, error)
+	GetByID(ctx context.Context, id string) (cltypes.CommunityContent, error)
+	Update(ctx context.Context, id string, mutate func(*cltypes.CommunityContent) error) (cltypes.CommunityContent, error)
+	ListByType(ctx context.Context, contentType string, filter cltypes.ContentFilter) ([]cltypes.CommunityContent, int64, error)
+	ListForFeed(ctx context.Context, filter cltypes.FeedFilter) ([]cltypes.CommunityContent, int64, error)
 }

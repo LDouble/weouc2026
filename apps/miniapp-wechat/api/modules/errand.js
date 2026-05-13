@@ -2,11 +2,9 @@ import { get, post } from '~/api/request';
 
 export function fetchErrandList(params = {}) {
   const { category, keyword, page = 1, pageSize = 20 } = params;
-  const userRole = params.userRole || params.user_role;
   const query = { page, pageSize };
   if (category) query.category = category;
   if (keyword) query.keyword = keyword;
-  if (userRole) query.user_role = userRole;
   return get('/errand/list', query);
 }
 
