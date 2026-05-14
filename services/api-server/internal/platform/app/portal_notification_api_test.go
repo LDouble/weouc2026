@@ -12,6 +12,8 @@ import (
 )
 
 func TestPortalAndNotificationAPIs(t *testing.T) {
+	t.Skip("requires mysql + mongo + redis integration environment")
+
 	cfg := appconfig.AppConfig{
 		Service: appconfig.ServiceConfig{
 			Name:        "api-server",

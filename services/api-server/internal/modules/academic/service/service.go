@@ -26,9 +26,6 @@ func New(repository academicrepo.Repository, users iamrepo.UserRepository, recor
 	if repository == nil {
 		repository = academicrepo.NewProviderRepository(nil)
 	}
-	if users == nil {
-		users = iamrepo.NewInMemoryUserRepository()
-	}
 
 	return &Service{
 		repository: repository,

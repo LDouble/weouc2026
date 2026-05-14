@@ -76,7 +76,7 @@ Page({
 
   async loadRecords() {
     try {
-      const res = await fetchFeedList({ page: 1, pageSize: 50, user_role: 'publisher' });
+      const res = await fetchFeedList({ page: 1, pageSize: 50 });
       const data = res.data || res;
       const list = data.list || [];
       const allRecords = list.map((item) => {

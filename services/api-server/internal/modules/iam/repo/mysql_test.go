@@ -2,17 +2,18 @@ package repo
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
-	"regexp"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	iamtypes "github.com/liangluo/weouc2026/services/api-server/internal/modules/iam/types"
+	gormmysql "gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
-func TestPostgresUserRepositoryFindByID(t *testing.T) {
+func TestMySQLUserRepositoryFindByID(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("new sqlmock failed: %v", err)
@@ -33,6 +34,14 @@ func TestPostgresUserRepositoryFindByID(t *testing.T) {
 		t.Fatalf("marshal profile failed: %v", err)
 	}
 
+	gormDB, err := gorm.Open(gormmysql.New(gormmysql.Config{
+		Conn:                      db,
+		SkipInitializeWithVersion: true,
+	}), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open gorm failed: %v", err)
+	}
+
 	rows := sqlmock.NewRows([]string{
 		"id", "open_id", "username", "password_hash", "nickname", "avatar_url", "roles", "permissions", "student_profile", "created_at", "updated_at",
 	}).AddRow(
@@ -44,16 +53,16 @@ func TestPostgresUserRepositoryFindByID(t *testing.T) {
 		"https://example.com/avatar.png",
 		`["student"]`,
 		`["contact:view"]`,
-		profileJSON,
+		string(profileJSON),
 		time.Date(2026, 5, 10, 8, 0, 0, 0, time.UTC),
 		time.Date(2026, 5, 10, 8, 30, 0, 0, time.UTC),
 	)
 
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT ` + userColumns + ` FROM iam_users WHERE id = $1 LIMIT 1`)).
-		WithArgs("user-001").
+	mock.ExpectQuery("SELECT \\* FROM `iam_users` WHERE id = \\? LIMIT \\?").
+		WithArgs("user-001", 1).
 		WillReturnRows(rows)
 
-	repository := NewPostgresUserRepository(db)
+	repository := NewMySQLUserRepository(gormDB)
 	user, err := repository.FindByID(context.Background(), "user-001")
 	if err != nil {
 		t.Fatalf("FindByID returned error: %v", err)
@@ -66,24 +75,32 @@ func TestPostgresUserRepositoryFindByID(t *testing.T) {
 	}
 }
 
-func TestPostgresUserRepositoryUpdateReturnsNotFound(t *testing.T) {
+func TestMySQLUserRepositoryUpdateReturnsNotFound(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("new sqlmock failed: %v", err)
 	}
 	defer db.Close()
 
+	gormDB, err := gorm.Open(gormmysql.New(gormmysql.Config{
+		Conn:                      db,
+		SkipInitializeWithVersion: true,
+	}), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("open gorm failed: %v", err)
+	}
+
 	mock.ExpectBegin()
-	mock.ExpectQuery(regexp.QuoteMeta(`SELECT ` + userColumns + ` FROM iam_users WHERE id = $1 FOR UPDATE`)).
-		WithArgs("missing-user").
-		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery("SELECT \\* FROM `iam_users` WHERE id = \\? LIMIT \\? FOR UPDATE").
+		WithArgs("missing-user", 1).
+		WillReturnError(gorm.ErrRecordNotFound)
 	mock.ExpectRollback()
 
-	repository := NewPostgresUserRepository(db)
+	repository := NewMySQLUserRepository(gormDB)
 	_, err = repository.Update(context.Background(), "missing-user", func(user *iamtypes.User) error {
 		return nil
 	})
-	if err != ErrUserNotFound {
+	if !errors.Is(err, ErrUserNotFound) {
 		t.Fatalf("expected ErrUserNotFound, got %v", err)
 	}
 	if err := mock.ExpectationsWereMet(); err != nil {

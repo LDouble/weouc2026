@@ -2,15 +2,25 @@
 
 ## 技术选型
 
+- 当前实现：`PostgreSQL + Redis`
+- 目标架构：`MySQL + MongoDB + Redis + BMFS`
+- `MySQL` 侧 ORM：`GORM`
 - `Go`
 - `Gin`
-- `PostgreSQL`
-- `Redis`
 - `OpenAPI`
 
 ## 目标
 
 作为统一业务入口，对三类客户端提供一致的业务语义和权限裁决。
+
+## 重构设计状态
+
+- 当前代码实现仍以 `PostgreSQL + Redis` 为主
+- 已完成目标重构设计建档：核心主数据迁移到 `MySQL`，社区内容/审核/审计/配置迁移到 `MongoDB`，状态流转改由 `BMFS` 统一承载
+- 设计详情见：
+  - [ARCHITECTURE.md](/Users/liangluo/code/weouc2026/ARCHITECTURE.md)
+  - [0004-storage-state-refactor.md](/Users/liangluo/code/weouc2026/docs/exec-plans/active/0004-storage-state-refactor.md)
+  - [api-server-storage-state-refactor.md](/Users/liangluo/code/weouc2026/.agent/PRDS/api-server-storage-state-refactor.md)
 
 ## 推荐结构
 
@@ -35,22 +45,33 @@ types -> config -> repo -> service -> runtime -> transport
 - 数据访问只走 `repo`
 - 外部系统只走 `providers`
 - 权限与状态机只保留在后端
+- `MySQL` 仓储统一使用 `GORM`
+
+## 安全基线
+
+- `MySQL` 只允许 `GORM` 参数绑定或受控 scope，禁止拼接 SQL
+- `MongoDB` 只允许后端构造白名单查询，禁止透传原始查询对象
+- 排序、筛选、分页字段必须白名单化
+- 客户端只能提交动作，不能直接写 `status`、角色、权限或敏感可见性字段
+- 登录、验证码、发布、审核、搜索接口需要限流、防刷和幂等控制
+- 错误响应禁止泄露 SQL、Mongo 查询、堆栈和密钥
 
 ## 当前已落地
 
 - `cmd/api-server`：服务启动入口
 - `internal/platform`：配置、日志、请求 ID、统一错误响应、Bearer Token / 头部双通道鉴权上下文
-- `internal/modules/system`：`/healthz`、`/readyz`、`/api/v1/system/profile`，以及 `postgres/redis` 依赖就绪探测
-- `internal/modules/iam`：`/api/auth/wechat/login`、`/api/student`、`/api/edu/send-captcha`，并支持 `PostgreSQL + Redis` 持久化
+- `internal/platform/bmfs`：BMFS 状态驱动引擎，声明式状态机定义、guard 守卫、onTransition 钩子、can_xxx 自动派生；6 类社区内容状态机已定义并接入 service 层
+- `internal/modules/system`：`/healthz`、`/readyz`、`/api/v1/system/profile`，以及 `mysql/mongo/redis` 依赖就绪探测
+- `internal/modules/iam`：`/api/auth/wechat/login`、`/api/student`、`/api/edu/send-captcha`，当前主链路为 `GORM + MySQL + Redis`
 - `internal/modules/academic`：`/api/academic/semesters`、`/api/academic/schedule`、`/api/academic/exams`、`/api/academic/grades`
-- `internal/modules/portal`：`/api/portal/home`、公告列表/详情、管理端轮播 CRUD、管理端公告发布/更新/删除接口，支持 `memory / postgres` 双后端
-- `internal/modules/notification`：站内通知列表、未读计数、已读回执，以及管理端通知发布接口，支持 `memory / postgres` 双后端
-- `internal/modules/analytics`：`/api/admin/analytics/dashboard`、`/api/admin/analytics/audit-logs`，以及统一审计日志读取能力，支持 `memory / postgres` 双后端
+- `internal/modules/portal`：`/api/portal/home`、公告列表/详情、管理端轮播 CRUD、管理端公告发布/更新/删除接口，当前主链路为 `MongoDB`
+- `internal/modules/notification`：站内通知列表、未读计数、已读回执，以及管理端通知发布接口，当前主链路为 `MongoDB`
+- `internal/modules/analytics`：`/api/admin/analytics/dashboard`、`/api/admin/analytics/audit-logs`，以及统一审计日志读取能力，当前主链路为 `MongoDB`
 - `internal/modules/campus_life`：`/api/feed/list`、二手/跑腿/资料/失物招领/拼车/组局列表与关键详情/交互接口，以及校园生活审核接口
 - `internal/modules/file_center`：`/api/upload/cos-sts`、`/api/upload/presigned-get`
 - `internal/providers/*_provider`：微信与教务 mock provider
 - `packages/contracts/openapi/api-server.yaml`：当前统一契约源文件
-- `migrations/*.sql`：当前已覆盖 IAM、校园生活、门户、通知与审计日志的最小迁移
+- `migrations/*.sql`：保留历史 PostgreSQL 迁移文件；当前主链路的 `IAM` 建表由 `GORM AutoMigrate` 承载
 
 ## 当前接口能力
 
@@ -67,24 +88,34 @@ types -> config -> repo -> service -> runtime -> transport
 - 失物招领列表、详情、发布
 - 拼车列表、详情、发布
 - 组局列表、详情、发布、报名、取消报名、取消组局
-- 校园生活审核列表、审核状态更新（覆盖二手、跑腿、资料、失物招领、拼车、组局）
+- 校园生活审核列表、审核状态更新（覆盖二手、跑腿、资料、失物招领、拼车、组局），审核接口已改为接收 Action 字段（`review_approve` / `review_reject`）
 - COS 临时上传凭证与对象下载预签名
 
 说明：
 
-- 当前阶段 `IAM` 已支持 `PostgreSQL + Redis` 持久化；`campus_life` 已支持 `memory / postgres` 双后端
-- `portal`、`notification`、`analytics` 当前也已支持 `memory / postgres` 双后端
-- `portal` 与 `notification` 在 `postgres` 模式下会自动写入最小种子数据；`memory` 模式仍保留内置联调数据
-- `analytics` 在 `postgres` 模式下会跨重启保留审计日志；`memory` 模式仍适合快速本地联调
+- 当前运行时主链路已切到 `MySQL + MongoDB + Redis`
+- `IAM` 通过 `GORM + MySQL` 持久化用户主资料，`Redis` 继续承载会话与验证码
+- `portal`、`notification`、`analytics` 已切到 `MongoDB`
 - 微信登录、教务绑定、教务课表/考试/成绩读取当前均通过 mock provider 模拟，不依赖真实外部系统
-- `/readyz` 已接入 `postgres`、`redis`、`object_storage` 健康探测；依赖未就绪时会返回 `503`
-- 当 `API_SERVER_IAM_BACKEND=postgres_redis` 时，登录会话与教务绑定资料会分别落到 `Redis` 和 `PostgreSQL`
-- 当 `API_SERVER_CAMPUS_LIFE_BACKEND=postgres` 时，二手、跑腿、资料、失物招领、拼车、组局会持久化到 `PostgreSQL`
-- 当 `API_SERVER_PORTAL_BACKEND=postgres` 时，门户轮播与公告会从 `PostgreSQL` 读取，公告发布结果也会持久化
-- 当 `API_SERVER_NOTIFICATION_BACKEND=postgres` 时，通知发布与已读状态会持久化到 `PostgreSQL`
-- 当 `API_SERVER_ANALYTICS_BACKEND=postgres` 时，统一审计日志会持久化到 `PostgreSQL`
+- `/readyz` 已接入 `mysql`、`mongo`、`redis`、`object_storage` 健康探测；依赖未就绪时会返回 `503`
+- 当 `API_SERVER_IAM_BACKEND=mysql_redis` 时，登录会话与验证码继续落到 `Redis`，用户主资料走 `GORM + MySQL`
+- 当 `API_SERVER_CAMPUS_LIFE_BACKEND=mongo` 时，二手、跑腿、资料、失物招领、拼车、组局会持久化到 `MongoDB`
+- 当 `API_SERVER_PORTAL_BACKEND=mongo` 时，门户轮播与公告会从 `MongoDB` 读取
+- 当 `API_SERVER_NOTIFICATION_BACKEND=mongo` 时，通知发布与已读状态会持久化到 `MongoDB`
+- 当 `API_SERVER_ANALYTICS_BACKEND=mongo` 时，统一审计日志会持久化到 `MongoDB`
 - 已支持腾讯 COS 直传；业务层只存对象路径，读取时由后端签发可访问 URL
 - 新发布的校园生活内容默认进入 `reviewing`；公开列表与详情只暴露 `published` 内容，发布者和具备 `campus_life:moderate` 权限的管理员可继续查看待审内容
+
+## 目标重构方向
+
+- `iam`：从 `PostgreSQL + Redis` 演进为 `MySQL + Redis`
+- `campus_life`：从 `memory / postgres` 演进为 `MongoDB + BMFS`（**BMFS 已落地**）
+- `portal`：从 `memory / postgres` 演进为 `MongoDB`
+- `notification`：通知内容与投放配置演进为 `MongoDB`；会话态与热点态仍可使用 `Redis`
+- `analytics`：统一审计、业务日志、状态迁移日志演进为 `MongoDB`
+- 所有状态规则收口到 `BMFS`，以单一 `status` 承载审核与业务阶段，`service` 只负责编排与权限裁决（**已落地**）
+- 本轮重构按新模型直切设计，不要求迁移历史数据或兼容旧链路
+- 新链路替换后可直接删除旧 `postgres/review_status/legacy service` 代码，不保留并存分支
 
 ## 本地运行
 
@@ -114,6 +145,14 @@ docker compose -f ops/docker/api-server/compose.yaml up --build
 - `API_SERVER_AUTH_PERMISSIONS_HEADER`
 - `API_SERVER_AUTH_ACADEMIC_BOUND_HEADER`
 - `API_SERVER_AUTH_ACCESS_TOKEN_TTL`
+- `API_SERVER_MYSQL_ENABLED`
+- `API_SERVER_MYSQL_HOST`
+- `API_SERVER_MYSQL_PORT`
+- `API_SERVER_MYSQL_DATABASE`
+- `API_SERVER_MYSQL_USER`
+- `API_SERVER_MYSQL_PASSWORD`
+- `API_SERVER_MYSQL_PARAMS`
+- `API_SERVER_MYSQL_HEALTHCHECK_TIMEOUT`
 - `API_SERVER_IAM_BACKEND`
 - `API_SERVER_CAMPUS_LIFE_BACKEND`
 - `API_SERVER_PORTAL_BACKEND`
@@ -152,25 +191,28 @@ cd services/api-server
 go test ./...
 ```
 
-如需本地使用持久化 IAM 和 `campus_life` 仓储，可配合 Docker 中间件启动：
+如需本地使用当前主链路，可配合 Docker 中间件启动：
 
 ```bash
 cd /Users/liangluo/code/weouc2026
-docker compose -f ops/docker/api-server/compose.yaml up -d postgres redis
+docker compose -f ops/docker/api-server/compose.yaml up -d mysql mongo redis
 
 cd /Users/liangluo/code/weouc2026/services/api-server
-API_SERVER_IAM_BACKEND=postgres_redis \
-API_SERVER_CAMPUS_LIFE_BACKEND=postgres \
-API_SERVER_PORTAL_BACKEND=postgres \
-API_SERVER_NOTIFICATION_BACKEND=postgres \
-API_SERVER_ANALYTICS_BACKEND=postgres \
+API_SERVER_IAM_BACKEND=mysql_redis \
+API_SERVER_CAMPUS_LIFE_BACKEND=mongo \
+API_SERVER_PORTAL_BACKEND=mongo \
+API_SERVER_NOTIFICATION_BACKEND=mongo \
+API_SERVER_ANALYTICS_BACKEND=mongo \
 API_SERVER_AUTO_MIGRATE=true \
-API_SERVER_POSTGRES_ENABLED=true \
-API_SERVER_POSTGRES_HOST=127.0.0.1 \
-API_SERVER_POSTGRES_PORT=5432 \
-API_SERVER_POSTGRES_DATABASE=weouc \
-API_SERVER_POSTGRES_USER=weouc \
-API_SERVER_POSTGRES_PASSWORD=weouc \
+API_SERVER_MYSQL_ENABLED=true \
+API_SERVER_MYSQL_HOST=127.0.0.1 \
+API_SERVER_MYSQL_PORT=3306 \
+API_SERVER_MYSQL_DATABASE=weouc \
+API_SERVER_MYSQL_USER=weouc \
+API_SERVER_MYSQL_PASSWORD=weouc \
+API_SERVER_MONGO_ENABLED=true \
+API_SERVER_MONGO_URI='mongodb://127.0.0.1:27017/?directConnection=true' \
+API_SERVER_MONGO_DATABASE=weouc \
 API_SERVER_REDIS_ENABLED=true \
 API_SERVER_REDIS_HOST=127.0.0.1 \
 API_SERVER_REDIS_PORT=6379 \
@@ -178,6 +220,28 @@ go run ./cmd/api-server
 ```
 
 如需本地启用 COS 文件管理，可继续补充：
+
+如需本地试验完整主链路，至少补齐：
+
+```bash
+API_SERVER_MYSQL_ENABLED=true \
+API_SERVER_MYSQL_HOST=127.0.0.1 \
+API_SERVER_MYSQL_PORT=3306 \
+API_SERVER_MYSQL_DATABASE=weouc \
+API_SERVER_MYSQL_USER=weouc \
+API_SERVER_MYSQL_PASSWORD=weouc \
+API_SERVER_MONGO_ENABLED=true \
+API_SERVER_MONGO_URI='mongodb://127.0.0.1:27017/?directConnection=true' \
+API_SERVER_MONGO_DATABASE=weouc \
+API_SERVER_REDIS_ENABLED=true \
+API_SERVER_REDIS_HOST=127.0.0.1 \
+API_SERVER_REDIS_PORT=6379 \
+API_SERVER_IAM_BACKEND=mysql_redis \
+API_SERVER_CAMPUS_LIFE_BACKEND=mongo \
+API_SERVER_PORTAL_BACKEND=mongo \
+API_SERVER_NOTIFICATION_BACKEND=mongo \
+API_SERVER_ANALYTICS_BACKEND=mongo
+```
 
 ```bash
 API_SERVER_COS_ENABLED=true \
@@ -202,8 +266,8 @@ curl -X POST http://localhost:8080/api/auth/wechat/login \
 
 说明：
 
-- 若使用 `memory` 后端，可直接访问内置示例详情如 `market-101`
-- 若使用 `postgres` 后端，首次启动默认无演示数据，需先发布后再访问详情
+- 当前不再提供 `memory / postgres` 兼容后端
+- 使用 `mongo` 主链路时，首次启动默认无演示数据，需先发布后再访问详情
 
 ```bash
 curl http://localhost:8080/api/market/list
@@ -260,5 +324,5 @@ curl -X POST http://localhost:8080/api/admin/campus-life/review/update \
   -H 'X-User-ID: admin-001' \
   -H 'X-User-Permissions: campus_life:moderate' \
   -H 'Content-Type: application/json' \
-  -d '{"content_type":"meetup","content_id":"meetup-101","review_status":"published"}'
+  -d '{"content_type":"meetup","content_id":"meetup-101","action":"review_approve"}'
 ```

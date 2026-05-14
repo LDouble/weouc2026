@@ -3,7 +3,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -41,9 +40,10 @@ type AuthConfig struct {
 }
 
 type DependenciesConfig struct {
-	Postgres PostgresConfig
-	Redis    RedisConfig
-	COS      COSConfig
+	MySQL MySQLConfig
+	Mongo MongoConfig
+	Redis RedisConfig
+	COS   COSConfig
 }
 
 type PersistenceConfig struct {
@@ -55,14 +55,21 @@ type PersistenceConfig struct {
 	AutoMigrate         bool
 }
 
-type PostgresConfig struct {
+type MySQLConfig struct {
 	Enabled            bool
 	Host               string
 	Port               int
 	Database           string
 	User               string
 	Password           string
-	SSLMode            string
+	Params             string
+	HealthCheckTimeout time.Duration
+}
+
+type MongoConfig struct {
+	Enabled            bool
+	URI                string
+	Database           string
 	HealthCheckTimeout time.Duration
 }
 
@@ -110,18 +117,24 @@ func Load() (AppConfig, error) {
 			AccessTokenTTL:      getenvDuration("API_SERVER_AUTH_ACCESS_TOKEN_TTL", 24*time.Hour),
 		},
 		Dependencies: DependenciesConfig{
-			Postgres: PostgresConfig{
-				Enabled:            getenvBool("API_SERVER_POSTGRES_ENABLED", false),
-				Host:               getenv("API_SERVER_POSTGRES_HOST", "127.0.0.1"),
-				Port:               getenvInt("API_SERVER_POSTGRES_PORT", 5432),
-				Database:           getenv("API_SERVER_POSTGRES_DATABASE", "weouc"),
-				User:               getenv("API_SERVER_POSTGRES_USER", "weouc"),
-				Password:           getenv("API_SERVER_POSTGRES_PASSWORD", "weouc"),
-				SSLMode:            getenv("API_SERVER_POSTGRES_SSL_MODE", "disable"),
-				HealthCheckTimeout: getenvDuration("API_SERVER_POSTGRES_HEALTHCHECK_TIMEOUT", 2*time.Second),
+			MySQL: MySQLConfig{
+				Enabled:            getenvBool("API_SERVER_MYSQL_ENABLED", true),
+				Host:               getenv("API_SERVER_MYSQL_HOST", "127.0.0.1"),
+				Port:               getenvInt("API_SERVER_MYSQL_PORT", 3306),
+				Database:           getenv("API_SERVER_MYSQL_DATABASE", "weouc"),
+				User:               getenv("API_SERVER_MYSQL_USER", "weouc"),
+				Password:           getenv("API_SERVER_MYSQL_PASSWORD", "weouc"),
+				Params:             getenv("API_SERVER_MYSQL_PARAMS", "charset=utf8mb4&parseTime=True&loc=Local"),
+				HealthCheckTimeout: getenvDuration("API_SERVER_MYSQL_HEALTHCHECK_TIMEOUT", 2*time.Second),
+			},
+			Mongo: MongoConfig{
+				Enabled:            getenvBool("API_SERVER_MONGO_ENABLED", true),
+				URI:                getenv("API_SERVER_MONGO_URI", "mongodb://127.0.0.1:27017/?directConnection=true"),
+				Database:           getenv("API_SERVER_MONGO_DATABASE", "weouc"),
+				HealthCheckTimeout: getenvDuration("API_SERVER_MONGO_HEALTHCHECK_TIMEOUT", 2*time.Second),
 			},
 			Redis: RedisConfig{
-				Enabled:            getenvBool("API_SERVER_REDIS_ENABLED", false),
+				Enabled:            getenvBool("API_SERVER_REDIS_ENABLED", true),
 				Host:               getenv("API_SERVER_REDIS_HOST", "127.0.0.1"),
 				Port:               getenvInt("API_SERVER_REDIS_PORT", 6379),
 				Username:           getenv("API_SERVER_REDIS_USERNAME", ""),
@@ -142,11 +155,11 @@ func Load() (AppConfig, error) {
 			},
 		},
 		Persistence: PersistenceConfig{
-			IAMBackend:          getenv("API_SERVER_IAM_BACKEND", "memory"),
-			CampusLifeBackend:   getenv("API_SERVER_CAMPUS_LIFE_BACKEND", "memory"),
-			PortalBackend:       getenv("API_SERVER_PORTAL_BACKEND", "memory"),
-			NotificationBackend: getenv("API_SERVER_NOTIFICATION_BACKEND", "memory"),
-			AnalyticsBackend:    getenv("API_SERVER_ANALYTICS_BACKEND", "memory"),
+			IAMBackend:          getenv("API_SERVER_IAM_BACKEND", "mysql_redis"),
+			CampusLifeBackend:   getenv("API_SERVER_CAMPUS_LIFE_BACKEND", "mongo"),
+			PortalBackend:       getenv("API_SERVER_PORTAL_BACKEND", "mongo"),
+			NotificationBackend: getenv("API_SERVER_NOTIFICATION_BACKEND", "mongo"),
+			AnalyticsBackend:    getenv("API_SERVER_ANALYTICS_BACKEND", "mongo"),
 			AutoMigrate:         getenvBool("API_SERVER_AUTO_MIGRATE", false),
 		},
 	}
@@ -173,7 +186,10 @@ func (c AppConfig) Validate() error {
 	if c.Auth.AccessTokenTTL <= 0 {
 		return errors.New("access token ttl must be positive")
 	}
-	if err := c.Dependencies.Postgres.Validate(); err != nil {
+	if err := c.Dependencies.MySQL.Validate(); err != nil {
+		return err
+	}
+	if err := c.Dependencies.Mongo.Validate(); err != nil {
 		return err
 	}
 	if err := c.Dependencies.Redis.Validate(); err != nil {
@@ -193,49 +209,54 @@ func (c ServerConfig) Address() string {
 	return fmt.Sprintf("%s:%d", c.Host, c.Port)
 }
 
-func (c PostgresConfig) Address() string {
+func (c MySQLConfig) Address() string {
 	return fmt.Sprintf("%s:%d", c.Host, c.Port)
 }
 
-func (c PostgresConfig) DSN() string {
-	timeoutSeconds := int(math.Ceil(c.HealthCheckTimeout.Seconds()))
-	if timeoutSeconds <= 0 {
-		timeoutSeconds = 1
+func (c MySQLConfig) DSN() string {
+	params := strings.TrimSpace(c.Params)
+	if params == "" {
+		params = "charset=utf8mb4&parseTime=True&loc=Local"
 	}
 
-	return fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s connect_timeout=%d",
-		c.Host,
-		c.Port,
-		c.User,
-		c.Password,
-		c.Database,
-		c.SSLMode,
-		timeoutSeconds,
-	)
+	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?%s", c.User, c.Password, c.Host, c.Port, c.Database, params)
 }
 
-func (c PostgresConfig) Validate() error {
+func (c MySQLConfig) Validate() error {
 	if !c.Enabled {
 		return nil
 	}
 	if c.Host == "" {
-		return errors.New("postgres host is required when enabled")
+		return errors.New("mysql host is required when enabled")
 	}
 	if c.Port <= 0 || c.Port > 65535 {
-		return fmt.Errorf("postgres port %d is invalid", c.Port)
+		return fmt.Errorf("mysql port %d is invalid", c.Port)
 	}
 	if c.Database == "" {
-		return errors.New("postgres database is required when enabled")
+		return errors.New("mysql database is required when enabled")
 	}
 	if c.User == "" {
-		return errors.New("postgres user is required when enabled")
-	}
-	if c.SSLMode == "" {
-		return errors.New("postgres ssl mode is required when enabled")
+		return errors.New("mysql user is required when enabled")
 	}
 	if c.HealthCheckTimeout <= 0 {
-		return errors.New("postgres health check timeout must be positive")
+		return errors.New("mysql health check timeout must be positive")
+	}
+
+	return nil
+}
+
+func (c MongoConfig) Validate() error {
+	if !c.Enabled {
+		return nil
+	}
+	if strings.TrimSpace(c.URI) == "" {
+		return errors.New("mongo uri is required when enabled")
+	}
+	if c.Database == "" {
+		return errors.New("mongo database is required when enabled")
+	}
+	if c.HealthCheckTimeout <= 0 {
+		return errors.New("mongo health check timeout must be positive")
 	}
 
 	return nil
@@ -318,7 +339,7 @@ func (c COSConfig) BucketAppID() string {
 
 func (c PersistenceConfig) IAMBackendOrDefault() string {
 	if c.IAMBackend == "" {
-		return "memory"
+		return "mysql_redis"
 	}
 
 	return c.IAMBackend
@@ -326,7 +347,7 @@ func (c PersistenceConfig) IAMBackendOrDefault() string {
 
 func (c PersistenceConfig) CampusLifeBackendOrDefault() string {
 	if c.CampusLifeBackend == "" {
-		return "memory"
+		return "mongo"
 	}
 
 	return c.CampusLifeBackend
@@ -334,7 +355,7 @@ func (c PersistenceConfig) CampusLifeBackendOrDefault() string {
 
 func (c PersistenceConfig) PortalBackendOrDefault() string {
 	if c.PortalBackend == "" {
-		return "memory"
+		return "mongo"
 	}
 
 	return c.PortalBackend
@@ -342,7 +363,7 @@ func (c PersistenceConfig) PortalBackendOrDefault() string {
 
 func (c PersistenceConfig) NotificationBackendOrDefault() string {
 	if c.NotificationBackend == "" {
-		return "memory"
+		return "mongo"
 	}
 
 	return c.NotificationBackend
@@ -350,7 +371,7 @@ func (c PersistenceConfig) NotificationBackendOrDefault() string {
 
 func (c PersistenceConfig) AnalyticsBackendOrDefault() string {
 	if c.AnalyticsBackend == "" {
-		return "memory"
+		return "mongo"
 	}
 
 	return c.AnalyticsBackend
@@ -358,53 +379,48 @@ func (c PersistenceConfig) AnalyticsBackendOrDefault() string {
 
 func (c PersistenceConfig) Validate(dependencies DependenciesConfig) error {
 	switch c.IAMBackendOrDefault() {
-	case "memory":
-	case "postgres_redis":
-		if !dependencies.Postgres.Enabled {
-			return errors.New("postgres must be enabled when iam backend is postgres_redis")
+	case "mysql_redis":
+		if !dependencies.MySQL.Enabled {
+			return errors.New("mysql must be enabled when iam backend is mysql_redis")
 		}
 		if !dependencies.Redis.Enabled {
-			return errors.New("redis must be enabled when iam backend is postgres_redis")
+			return errors.New("redis must be enabled when iam backend is mysql_redis")
 		}
 	default:
 		return fmt.Errorf("iam backend %q is invalid", c.IAMBackend)
 	}
 
 	switch c.CampusLifeBackendOrDefault() {
-	case "memory":
-	case "postgres":
-		if !dependencies.Postgres.Enabled {
-			return errors.New("postgres must be enabled when campus_life backend is postgres")
+	case "mongo":
+		if !dependencies.Mongo.Enabled {
+			return errors.New("mongo must be enabled when campus_life backend is mongo")
 		}
 	default:
 		return fmt.Errorf("campus_life backend %q is invalid", c.CampusLifeBackend)
 	}
 
 	switch c.PortalBackendOrDefault() {
-	case "memory":
-	case "postgres":
-		if !dependencies.Postgres.Enabled {
-			return errors.New("postgres must be enabled when portal backend is postgres")
+	case "mongo":
+		if !dependencies.Mongo.Enabled {
+			return errors.New("mongo must be enabled when portal backend is mongo")
 		}
 	default:
 		return fmt.Errorf("portal backend %q is invalid", c.PortalBackend)
 	}
 
 	switch c.NotificationBackendOrDefault() {
-	case "memory":
-	case "postgres":
-		if !dependencies.Postgres.Enabled {
-			return errors.New("postgres must be enabled when notification backend is postgres")
+	case "mongo":
+		if !dependencies.Mongo.Enabled {
+			return errors.New("mongo must be enabled when notification backend is mongo")
 		}
 	default:
 		return fmt.Errorf("notification backend %q is invalid", c.NotificationBackend)
 	}
 
 	switch c.AnalyticsBackendOrDefault() {
-	case "memory":
-	case "postgres":
-		if !dependencies.Postgres.Enabled {
-			return errors.New("postgres must be enabled when analytics backend is postgres")
+	case "mongo":
+		if !dependencies.Mongo.Enabled {
+			return errors.New("mongo must be enabled when analytics backend is mongo")
 		}
 	default:
 		return fmt.Errorf("analytics backend %q is invalid", c.AnalyticsBackend)

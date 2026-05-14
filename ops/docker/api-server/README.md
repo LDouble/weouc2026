@@ -1,6 +1,6 @@
 # api-server Docker 联调
 
-本目录用于本地拉起 `api-server`、`PostgreSQL`、`Redis`。
+本目录用于本地拉起 `api-server`、`MySQL`、`MongoDB`、`Redis`。
 
 ## 目录说明
 
@@ -31,14 +31,15 @@ docker compose --env-file ops/docker/api-server/.env -f ops/docker/api-server/co
 ## 健康检查
 
 - `http://localhost:8080/healthz`：进程存活
-- `http://localhost:8080/readyz`：依赖就绪；当启用的 `postgres`、`redis` 或 `object_storage` 不可用时返回 `503`
+- `http://localhost:8080/readyz`：依赖就绪；当启用的 `mysql`、`mongo`、`redis` 或 `object_storage` 不可用时返回 `503`
 
 ## 当前默认行为
 
-- compose 默认把 `API_SERVER_IAM_BACKEND` 设为 `postgres_redis`
-- compose 默认把 `API_SERVER_CAMPUS_LIFE_BACKEND` 设为 `postgres`
+- compose 默认把 `API_SERVER_IAM_BACKEND` 设为 `mysql_redis`
+- compose 默认把 `API_SERVER_CAMPUS_LIFE_BACKEND` 设为 `mongo`
+- compose 默认把 `API_SERVER_PORTAL_BACKEND`、`API_SERVER_NOTIFICATION_BACKEND`、`API_SERVER_ANALYTICS_BACKEND` 设为 `mongo`
 - compose 默认开启 `API_SERVER_AUTO_MIGRATE=true`，服务启动时会自动执行内置 IAM 迁移
-- `campus_life` 当前会持久化到 `PostgreSQL`；首次启动后列表默认为空，发布后数据会保留
+- `campus_life`、`portal`、`notification`、`analytics` 当前会持久化到 `MongoDB`
 - COS 默认为关闭；只有补齐 `API_SERVER_COS_*` 环境变量后，文件上传链路才会启用
 
 ## COS 配置

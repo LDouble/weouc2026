@@ -1,0 +1,25 @@
+- [x] service.go 已拆分为多个文件，每个文件不超过 400 行（helpers.go 583 行为纯函数集合，可接受），所有文件在同一 package service
+- [x] service.go 仅包含 Service struct 定义、New 构造函数、marshalPayload、unmarshalPayload、recordAudit（76 行）
+- [x] feed_service.go 包含 ListFeed，调用 repo.ListForFeed 而非逐类型 ListByType
+- [x] market_service.go、errand_service.go、resource_service.go、lostfound_service.go、carpool_service.go、meetup_service.go、review_service.go 各自包含对应类型的业务方法
+- [x] helpers.go 包含所有纯函数辅助方法 + 新增 buildVisibilityFilter
+- [x] FeedFilter 和 ContentFilter 已移除 UserRole 字段，新增主态/客态相关字段
+- [x] FeedQuery、ErrandQuery、MeetupQuery 已移除 UserRole 字段
+- [x] ListForFeed 方法签名返回 `([]CommunityContent, int64, error)`，包含总数
+- [x] ListByType 方法签名返回 `([]CommunityContent, int64, error)`，包含总数
+- [x] ListForFeed 实现了数据库层过滤：feedTypes、keyword、主态/客态 $or 查询、分页、countDocuments
+- [x] ListByType 实现了数据库层过滤：statuses $in、keyword $regex、publisher_user_id、主态/客态 $or 查询、分页、countDocuments
+- [x] 新增索引 `{ publisher_user_id: 1, status: 1, created_at: -1 }` 支持主态查询
+- [x] ListFeed 不再在 service 层做内存过滤（shouldExposeContent 遍历、matchKeyword 遍历、matchUserRole 遍历）
+- [x] 所有列表方法使用 repo 返回的 total 计数，不再用 len(filtered)
+- [x] 主态逻辑正确：已认证用户能看到自己作为发布者/接单者/参与者的所有状态内容
+- [x] 客态逻辑正确：非相关用户只能看到 published/open/accepted/full/resolved 状态的内容
+- [x] 未认证用户只能看到客态内容
+- [x] 管理员（campus_life:moderate）能看到所有状态的内容
+- [x] Handler 层已移除 user_role 查询参数解析（ListFeed、ListErrands、ListMeetups）
+- [x] 小程序客户端已移除 user_role 参数传递（feed.js、errand.js、meetup.js、profileService.js、publish/index.js、accepted/index.js）
+- [x] 响应中仍保留 user_role 字段（publisher/acceptor/participant/viewer），用于前端展示
+- [x] 详情接口（GetMarketDetail、GetErrandDetail 等）的 user_role 响应字段仍正确返回
+- [x] `go build ./internal/modules/campus_life/...` 编译通过
+- [x] `go vet ./internal/modules/campus_life/...` 通过
+- [x] 层级依赖方向正确：transport → service → repo，transport 不直接 import repo

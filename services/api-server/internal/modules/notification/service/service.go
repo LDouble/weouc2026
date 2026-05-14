@@ -20,9 +20,6 @@ type Service struct {
 }
 
 func New(repository notificationrepo.Repository, recorder audit.Recorder) *Service {
-	if repository == nil {
-		repository = notificationrepo.NewInMemoryRepository()
-	}
 	return &Service{repository: repository, recorder: recorder}
 }
 

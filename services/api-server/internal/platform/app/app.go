@@ -73,13 +73,9 @@ func buildRouter(cfg appconfig.AppConfig, logger *slog.Logger) (*gin.Engine, []i
 		return nil, nil, fmt.Errorf("ensure runtime backends ready failed: %w", err)
 	}
 	if cfg.Persistence.AutoMigrate {
-		if clients.Postgres == nil {
+		if err := migrate.Bootstrap(context.Background(), cfg, clients); err != nil {
 			closeClosers(closers)
-			return nil, nil, fmt.Errorf("postgres client is required when auto migrate is enabled")
-		}
-		if err := migrate.Run(context.Background(), clients.Postgres); err != nil {
-			closeClosers(closers)
-			return nil, nil, fmt.Errorf("run migrations failed: %w", err)
+			return nil, nil, fmt.Errorf("bootstrap storages failed: %w", err)
 		}
 	}
 
@@ -161,7 +157,8 @@ func buildRouter(cfg appconfig.AppConfig, logger *slog.Logger) (*gin.Engine, []i
 	}).RegisterRoutes(engine)
 	systemModule := system.NewModule(cfg, system.Dependencies{
 		StatusRepository: systemrepo.NewRuntimeStatusRepository(
-			systemrepo.NewPostgresProbe(cfg.Dependencies.Postgres, clients.Postgres),
+			systemrepo.NewMySQLProbe(cfg.Dependencies.MySQL, clients.MySQLSQLDB),
+			systemrepo.NewMongoProbe(cfg.Dependencies.Mongo, clients.MongoClient),
 			systemrepo.NewRedisProbe(cfg.Dependencies.Redis, clients.Redis),
 			systemrepo.NewObjectStorageProbe(cfg.Dependencies.COS, storageProvider),
 		),
@@ -214,13 +211,11 @@ func newIAMRepositories(
 	clients *persistence.Clients,
 ) (iamrepo.UserRepository, iamrepo.SessionRepository, iamrepo.CaptchaRepository, error) {
 	switch cfg.Persistence.IAMBackendOrDefault() {
-	case "memory":
-		return iamrepo.NewInMemoryUserRepository(), iamrepo.NewInMemorySessionRepository(), iamrepo.NewInMemoryCaptchaRepository(), nil
-	case "postgres_redis":
-		if clients == nil || clients.Postgres == nil || clients.Redis == nil {
-			return nil, nil, nil, fmt.Errorf("postgres_redis backend requires postgres and redis clients")
+	case "mysql_redis":
+		if clients == nil || clients.MySQL == nil || clients.Redis == nil {
+			return nil, nil, nil, fmt.Errorf("mysql_redis backend requires mysql and redis clients")
 		}
-		return iamrepo.NewPostgresUserRepository(clients.Postgres), iamrepo.NewRedisSessionRepository(clients.Redis), iamrepo.NewRedisCaptchaRepository(clients.Redis), nil
+		return iamrepo.NewMySQLUserRepository(clients.MySQL), iamrepo.NewRedisSessionRepository(clients.Redis), iamrepo.NewRedisCaptchaRepository(clients.Redis), nil
 	default:
 		return nil, nil, nil, fmt.Errorf("unsupported iam backend %q", cfg.Persistence.IAMBackendOrDefault())
 	}
@@ -228,13 +223,11 @@ func newIAMRepositories(
 
 func newCampusLifeRepository(cfg appconfig.AppConfig, clients *persistence.Clients) (clrepo.Repository, error) {
 	switch cfg.Persistence.CampusLifeBackendOrDefault() {
-	case "memory":
-		return clrepo.NewInMemoryRepository(), nil
-	case "postgres":
-		if clients == nil || clients.Postgres == nil {
-			return nil, fmt.Errorf("postgres campus_life backend requires postgres client")
+	case "mongo":
+		if clients == nil || clients.Mongo == nil {
+			return nil, fmt.Errorf("mongo campus_life backend requires mongo client")
 		}
-		return clrepo.NewPostgresRepository(clients.Postgres), nil
+		return clrepo.NewMongoRepository(clients.Mongo), nil
 	default:
 		return nil, fmt.Errorf("unsupported campus_life backend %q", cfg.Persistence.CampusLifeBackendOrDefault())
 	}
@@ -242,13 +235,11 @@ func newCampusLifeRepository(cfg appconfig.AppConfig, clients *persistence.Clien
 
 func newPortalRepository(cfg appconfig.AppConfig, clients *persistence.Clients) (portalrepo.Repository, error) {
 	switch cfg.Persistence.PortalBackendOrDefault() {
-	case "memory":
-		return portalrepo.NewInMemoryRepository(), nil
-	case "postgres":
-		if clients == nil || clients.Postgres == nil {
-			return nil, fmt.Errorf("postgres portal backend requires postgres client")
+	case "mongo":
+		if clients == nil || clients.Mongo == nil {
+			return nil, fmt.Errorf("mongo portal backend requires mongo client")
 		}
-		return portalrepo.NewPostgresRepository(clients.Postgres), nil
+		return portalrepo.NewMongoRepository(clients.Mongo), nil
 	default:
 		return nil, fmt.Errorf("unsupported portal backend %q", cfg.Persistence.PortalBackendOrDefault())
 	}
@@ -259,13 +250,11 @@ func newNotificationRepository(
 	clients *persistence.Clients,
 ) (notificationrepo.Repository, error) {
 	switch cfg.Persistence.NotificationBackendOrDefault() {
-	case "memory":
-		return notificationrepo.NewInMemoryRepository(), nil
-	case "postgres":
-		if clients == nil || clients.Postgres == nil {
-			return nil, fmt.Errorf("postgres notification backend requires postgres client")
+	case "mongo":
+		if clients == nil || clients.Mongo == nil {
+			return nil, fmt.Errorf("mongo notification backend requires mongo client")
 		}
-		return notificationrepo.NewPostgresRepository(clients.Postgres), nil
+		return notificationrepo.NewMongoRepository(clients.Mongo), nil
 	default:
 		return nil, fmt.Errorf("unsupported notification backend %q", cfg.Persistence.NotificationBackendOrDefault())
 	}
@@ -273,13 +262,11 @@ func newNotificationRepository(
 
 func newAuditStore(cfg appconfig.AppConfig, clients *persistence.Clients) (audit.Store, error) {
 	switch cfg.Persistence.AnalyticsBackendOrDefault() {
-	case "memory":
-		return audit.NewInMemoryStore(), nil
-	case "postgres":
-		if clients == nil || clients.Postgres == nil {
-			return nil, fmt.Errorf("postgres analytics backend requires postgres client")
+	case "mongo":
+		if clients == nil || clients.Mongo == nil {
+			return nil, fmt.Errorf("mongo analytics backend requires mongo client")
 		}
-		return audit.NewPostgresStore(clients.Postgres), nil
+		return audit.NewMongoStore(clients.Mongo), nil
 	default:
 		return nil, fmt.Errorf("unsupported analytics backend %q", cfg.Persistence.AnalyticsBackendOrDefault())
 	}

@@ -24,7 +24,6 @@ func (h *Handler) ListFeed(c *gin.Context) {
 		Pagination: paginationFromContext(c),
 		FeedTypes:  queryArray(c, "feed_types"),
 		Keyword:    strings.TrimSpace(c.Query("keyword")),
-		UserRole:   strings.TrimSpace(c.Query("user_role")),
 	}
 	response, err := h.service.ListFeed(c.Request.Context(), auth.PrincipalFromContext(c), query)
 	if err != nil {
@@ -98,7 +97,6 @@ func (h *Handler) ListErrands(c *gin.Context) {
 		Pagination: paginationFromContext(c),
 		Category:   strings.TrimSpace(c.Query("category")),
 		Keyword:    strings.TrimSpace(c.Query("keyword")),
-		UserRole:   strings.TrimSpace(c.Query("user_role")),
 	}
 	response, err := h.service.ListErrands(c.Request.Context(), auth.PrincipalFromContext(c), query)
 	if err != nil {
@@ -176,7 +174,7 @@ func (h *Handler) ListResources(c *gin.Context) {
 		Category:   strings.TrimSpace(c.Query("category")),
 		Keyword:    strings.TrimSpace(c.Query("keyword")),
 	}
-	response, err := h.service.ListResources(c.Request.Context(), query)
+	response, err := h.service.ListResources(c.Request.Context(), auth.PrincipalFromContext(c), query)
 	if err != nil {
 		httpx.AbortWithError(c, err)
 		return
@@ -291,7 +289,6 @@ func (h *Handler) ListMeetups(c *gin.Context) {
 		Pagination: paginationFromContext(c),
 		Category:   strings.TrimSpace(c.Query("category")),
 		Keyword:    strings.TrimSpace(c.Query("keyword")),
-		UserRole:   strings.TrimSpace(c.Query("user_role")),
 	}
 	response, err := h.service.ListMeetups(c.Request.Context(), auth.PrincipalFromContext(c), query)
 	if err != nil {

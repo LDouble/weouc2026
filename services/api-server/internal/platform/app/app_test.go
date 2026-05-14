@@ -1,10 +1,8 @@
 package app
 
 import (
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
-	"strings"
+	"errors"
+	"io"
 	"testing"
 	"time"
 
@@ -12,7 +10,7 @@ import (
 	applogger "github.com/liangluo/weouc2026/services/api-server/internal/platform/logger"
 )
 
-func TestSystemRoutes(t *testing.T) {
+func TestNewRouterFailsWhenRequiredBackendsAreUnavailable(t *testing.T) {
 	cfg := appconfig.AppConfig{
 		Service: appconfig.ServiceConfig{
 			Name:        "api-server",
@@ -31,146 +29,79 @@ func TestSystemRoutes(t *testing.T) {
 			RolesHeader:         "X-User-Roles",
 			PermissionsHeader:   "X-User-Permissions",
 			AcademicBoundHeader: "X-Academic-Bound",
+			AccessTokenTTL:      time.Hour,
+		},
+		Dependencies: appconfig.DependenciesConfig{
+			MySQL: appconfig.MySQLConfig{
+				Enabled:            true,
+				Host:               "127.0.0.1",
+				Port:               1,
+				Database:           "weouc",
+				User:               "weouc",
+				Password:           "weouc",
+				Params:             "charset=utf8mb4&parseTime=True&loc=Local",
+				HealthCheckTimeout: 100 * time.Millisecond,
+			},
+			Mongo: appconfig.MongoConfig{
+				Enabled:            true,
+				URI:                "mongodb://127.0.0.1:1/?directConnection=true",
+				Database:           "weouc",
+				HealthCheckTimeout: 100 * time.Millisecond,
+			},
+			Redis: appconfig.RedisConfig{
+				Enabled:            true,
+				Host:               "127.0.0.1",
+				Port:               1,
+				HealthCheckTimeout: 100 * time.Millisecond,
+			},
+		},
+		Persistence: appconfig.PersistenceConfig{
+			IAMBackend:          "mysql_redis",
+			CampusLifeBackend:   "mongo",
+			PortalBackend:       "mongo",
+			NotificationBackend: "mongo",
+			AnalyticsBackend:    "mongo",
 		},
 	}
 
-	router, err := NewRouter(cfg, applogger.New(cfg))
-	if err != nil {
-		t.Fatalf("NewRouter() returned error: %v", err)
+	if _, err := NewRouter(cfg, applogger.New(cfg)); err == nil {
+		t.Fatal("expected NewRouter to fail when required backends are unavailable")
 	}
+}
 
-	t.Run("healthz is public", func(t *testing.T) {
-		recorder := httptest.NewRecorder()
-		request := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+func TestResolveGinMode(t *testing.T) {
+	if mode := resolveGinMode("production"); mode != "release" {
+		t.Fatalf("expected release mode, got %q", mode)
+	}
+	if mode := resolveGinMode("test"); mode != "test" {
+		t.Fatalf("expected test mode, got %q", mode)
+	}
+	if mode := resolveGinMode("local"); mode != "debug" {
+		t.Fatalf("expected debug mode, got %q", mode)
+	}
+}
 
-		router.ServeHTTP(recorder, request)
+func TestCloseClosersAggregatesErrors(t *testing.T) {
+	errOne := errors.New("close one failed")
+	errTwo := errors.New("close two failed")
 
-		if recorder.Code != http.StatusOK {
-			t.Fatalf("expected 200, got %d", recorder.Code)
-		}
+	err := closeClosers([]io.Closer{
+		closerStub{err: errOne},
+		nil,
+		closerStub{err: errTwo},
 	})
+	if err == nil {
+		t.Fatal("expected closeClosers to return aggregated error")
+	}
+	if !errors.Is(err, errOne) || !errors.Is(err, errTwo) {
+		t.Fatalf("expected aggregated error to contain both failures, got %v", err)
+	}
+}
 
-	t.Run("readyz stays ready when probes are disabled", func(t *testing.T) {
-		recorder := httptest.NewRecorder()
-		request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
+type closerStub struct {
+	err error
+}
 
-		router.ServeHTTP(recorder, request)
-
-		if recorder.Code != http.StatusOK {
-			t.Fatalf("expected 200, got %d: %s", recorder.Code, recorder.Body.String())
-		}
-		if !strings.Contains(recorder.Body.String(), "\"status\":\"ready\"") {
-			t.Fatalf("expected readiness response to be ready, got %s", recorder.Body.String())
-		}
-	})
-
-	t.Run("profile requires auth", func(t *testing.T) {
-		recorder := httptest.NewRecorder()
-		request := httptest.NewRequest(http.MethodGet, "/api/v1/system/profile", nil)
-
-		router.ServeHTTP(recorder, request)
-
-		if recorder.Code != http.StatusUnauthorized {
-			t.Fatalf("expected 401, got %d", recorder.Code)
-		}
-	})
-
-	t.Run("profile returns principal after auth", func(t *testing.T) {
-		recorder := httptest.NewRecorder()
-		request := httptest.NewRequest(http.MethodGet, "/api/v1/system/profile", nil)
-		request.Header.Set("X-User-ID", "student-001")
-		request.Header.Set("X-User-Roles", "student")
-		request.Header.Set("X-User-Permissions", "contact:view")
-		request.Header.Set("X-Academic-Bound", "true")
-
-		router.ServeHTTP(recorder, request)
-
-		if recorder.Code != http.StatusOK {
-			t.Fatalf("expected 200, got %d", recorder.Code)
-		}
-
-		var payload struct {
-			Data struct {
-				Auth struct {
-					UserID        string `json:"user_id"`
-					AcademicBound bool   `json:"academic_bound"`
-				} `json:"auth"`
-			} `json:"data"`
-		}
-		if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
-			t.Fatalf("unmarshal response failed: %v", err)
-		}
-		if payload.Data.Auth.UserID != "student-001" || !payload.Data.Auth.AcademicBound {
-			t.Fatalf("unexpected payload: %s", recorder.Body.String())
-		}
-	})
-
-	t.Run("readyz returns 503 when required dependency is unavailable", func(t *testing.T) {
-		unavailableCfg := cfg
-		unavailableCfg.Dependencies.Redis.Enabled = true
-		unavailableCfg.Dependencies.Redis.Host = "127.0.0.1"
-		unavailableCfg.Dependencies.Redis.Port = 1
-		unavailableCfg.Dependencies.Redis.HealthCheckTimeout = 100 * time.Millisecond
-
-		unavailableRouter, err := NewRouter(unavailableCfg, applogger.New(unavailableCfg))
-		if err != nil {
-			t.Fatalf("NewRouter() with unavailable dependency config returned error: %v", err)
-		}
-		recorder := httptest.NewRecorder()
-		request := httptest.NewRequest(http.MethodGet, "/readyz", nil)
-
-		unavailableRouter.ServeHTTP(recorder, request)
-
-		if recorder.Code != http.StatusServiceUnavailable {
-			t.Fatalf("expected 503, got %d: %s", recorder.Code, recorder.Body.String())
-		}
-		if !strings.Contains(recorder.Body.String(), "\"status\":\"not_ready\"") {
-			t.Fatalf("expected readiness response to be not_ready, got %s", recorder.Body.String())
-		}
-	})
-
-	t.Run("persistent iam backend fails fast without runtime dependencies", func(t *testing.T) {
-		persistentCfg := cfg
-		persistentCfg.Persistence.IAMBackend = "postgres_redis"
-
-		if _, err := NewRouter(persistentCfg, applogger.New(persistentCfg)); err == nil {
-			t.Fatal("expected NewRouter to fail when persistent iam backend has no runtime dependencies")
-		}
-	})
-
-	t.Run("persistent campus_life backend fails fast without postgres", func(t *testing.T) {
-		persistentCfg := cfg
-		persistentCfg.Persistence.CampusLifeBackend = "postgres"
-
-		if _, err := NewRouter(persistentCfg, applogger.New(persistentCfg)); err == nil {
-			t.Fatal("expected NewRouter to fail when postgres campus_life backend has no runtime dependencies")
-		}
-	})
-
-	t.Run("persistent portal backend fails fast without postgres", func(t *testing.T) {
-		persistentCfg := cfg
-		persistentCfg.Persistence.PortalBackend = "postgres"
-
-		if _, err := NewRouter(persistentCfg, applogger.New(persistentCfg)); err == nil {
-			t.Fatal("expected NewRouter to fail when postgres portal backend has no runtime dependencies")
-		}
-	})
-
-	t.Run("persistent notification backend fails fast without postgres", func(t *testing.T) {
-		persistentCfg := cfg
-		persistentCfg.Persistence.NotificationBackend = "postgres"
-
-		if _, err := NewRouter(persistentCfg, applogger.New(persistentCfg)); err == nil {
-			t.Fatal("expected NewRouter to fail when postgres notification backend has no runtime dependencies")
-		}
-	})
-
-	t.Run("persistent analytics backend fails fast without postgres", func(t *testing.T) {
-		persistentCfg := cfg
-		persistentCfg.Persistence.AnalyticsBackend = "postgres"
-
-		if _, err := NewRouter(persistentCfg, applogger.New(persistentCfg)); err == nil {
-			t.Fatal("expected NewRouter to fail when postgres analytics backend has no runtime dependencies")
-		}
-	})
+func (c closerStub) Close() error {
+	return c.err
 }

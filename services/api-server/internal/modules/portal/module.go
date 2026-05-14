@@ -18,11 +18,7 @@ type Module struct {
 }
 
 func NewModule(dependencies Dependencies) *Module {
-	repository := dependencies.Repository
-	if repository == nil {
-		repository = portalrepo.NewInMemoryRepository()
-	}
-	service := portalservice.New(repository, dependencies.AuditRecorder)
+	service := portalservice.New(dependencies.Repository, dependencies.AuditRecorder)
 	handler := transport.NewHandler(service)
 	return &Module{handler: handler}
 }

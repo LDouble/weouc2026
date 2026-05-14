@@ -7,7 +7,8 @@ type ModuleConfig struct {
 func DefaultModuleConfig() ModuleConfig {
 	return ModuleConfig{
 		DependencyNames: []string{
-			"postgres",
+			"mysql",
+			"mongo",
 			"redis",
 			"object_storage",
 		},

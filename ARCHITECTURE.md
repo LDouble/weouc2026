@@ -4,6 +4,12 @@
 
 本项目采用“`单仓库 + Go 模块化单体后端 + 多客户端 + 契约驱动`”方案。
 
+补充说明（`2026-05-13`）：
+
+- 当前仓库代码实现仍以 `PostgreSQL + Redis` 为主
+- 从本次设计重构开始，目标架构调整为 `MySQL + MongoDB + Redis + BMFS`
+- 在迁移完成前，文档会明确区分“当前实现”和“目标架构”，避免把尚未落地的设计写成已完成事实
+
 核心判断如下：
 
 - 对于校园综合应用，业务域多、角色多、系统集成多，但早期团队规模通常有限。
@@ -29,8 +35,10 @@ graph TD
     B["Flutter App"] --> G
     C["管理员后台"] --> G
 
-    G --> D["PostgreSQL"]
-    G --> E["Redis"]
+    G --> D["MySQL（核心主数据）"]
+    G --> M["MongoDB（社区内容 / 审核 / 审计 / 配置）"]
+    G --> E["Redis（会话 / 验证码 / 热点缓存）"]
+    G --> N["BMFS（状态驱动引擎）"]
     G --> F["对象存储"]
 
     G --> H["微信开放平台"]
@@ -84,7 +92,7 @@ graph TD
 | -------------- | ---------------- | ----------------------------- |
 | `iam`          | 统一身份、角色、组织、租户/校区 | user、role、permission、org                                  |
 | `portal`       | 首页内容、公告、轮播、资讯    | article、banner、notice                                     |
-| `campus_life`  | 跑腿、组局、二手交易、资料、失物招领 | errand、meetup、listing、resource、lost_item、claim、contact_acl |
+| `campus_life`  | 跑腿、组局、二手交易、资料、失物招领、拼车 | community_content（统一集合 + 类型载荷）、contact_acl |
 | `academic`     | 后续教务能力：课程表、考试、成绩、学期信息 | course、schedule、exam、grade                                |
 | `notification` | 站内信、短信、微信订阅消息、推送 | message、template、delivery                                 |
 | `file_center`  | 文件上传、附件引用、媒体资源   | file、bucket、attachment                                    |
@@ -103,11 +111,13 @@ graph TD
 
 - 语言：`Go`
 - Web：`Gin` 或 `Fiber` 二选一；如果追求保守稳定，优先 `Gin`
-- 数据库：`PostgreSQL`
-- 缓存：`Redis`
+- 核心主数据：`MySQL + GORM`
+- 社区内容与审计配置：`MongoDB`
+- 缓存与短期状态：`Redis`
 - 对象存储：`COS`
+- 状态驱动：`BMFS`
 - 接口文档：`OpenAPI`
-- 异步任务：先用 `PostgreSQL Outbox + worker`，后续再评估消息队列
+- 异步任务：先用 `outbox + worker`，跨存储同步优先事件投影，后续再评估消息队列
 - 可观测性：`OpenTelemetry + Prometheus + Grafana + Loki`
 
 ### 7.2 目录与分层
@@ -169,11 +179,12 @@ types -> config -> repo -> service -> runtime -> transport
 
 ### 7.4 数据一致性策略
 
-- 同步业务走数据库事务
+- 单存储内同步业务走本地事务或单文档原子操作
 - 跨模块通知采用领域事件
-- 事件投递采用 `outbox`，保证“写库成功后可重放”
+- 跨存储同步采用 `outbox`，保证“主写成功后可重放”
 - 外部回调必须支持幂等
 - 关键写操作增加 `request_id` 或幂等键
+- 不引入分布式事务，`MySQL` 与 `MongoDB` 之间通过异步投影保持最终一致
 
 ### 7.5 权限模型
 
@@ -328,13 +339,23 @@ apps/mobile-flutter/
 
 ### 12.1 数据存储
 
-- `PostgreSQL`：事务型主存储
+- `MySQL`：用户、账号、角色、组织、教务绑定等核心主数据
+- `MongoDB`：社区内容、审核单、审计日志、业务日志、门户内容、运营配置
 - `Redis`：缓存、验证码、会话、短期热点数据
 - `对象存储`：文件、图片、活动海报、导出报表
+- 当前 `api-server` 已开始移除 `PostgreSQL / memory` 运行时依赖，新的装配主线按 `MySQL + MongoDB + Redis` 收口
 
 ### 12.2 表设计建议
 
-- 按业务域分表前缀或 schema
+- `MySQL`：
+  - 按业务域分表前缀或 schema
+  - 通过 `GORM` 管理模型映射、参数绑定和事务边界
+  - 只保留强事务、强关系主数据
+- `MongoDB`：
+  - 以聚合根组织集合，不按"关系表拆分"平移设计
+  - 统一 `community_content` 集合采用"公共字段 + 类型载荷"模型：公共字段（_id, content_type, title, desc, status, publisher_user_id, contact, images, tags, 审计字段）+ `type_payload`（6 种结构化载荷）
+  - 单一 `status` 字段统一状态模型，包含 reviewing/published/rejected/offline/cancelled/accepted/open/full/resolved
+  - 辅助集合用于审核单、审计日志等，不与主内容混合
 - 审计字段统一：
   - `created_at`
   - `updated_at`
@@ -343,7 +364,39 @@ apps/mobile-flutter/
   - `deleted_at`
 - 可扩展对象保留 `ext_json`，但不能滥用成“万能黑盒”
 
-### 12.3 外部系统同步
+### 12.3 状态驱动
+
+- `BMFS` 是唯一允许承载核心业务状态流转的入口
+- 每类社区内容只有一个权威 `status`；审核只是状态机中的一个阶段，不单独维护 `review_status`
+- `service` 层通过 `BMFS` 执行动作、读取允许操作、产出 `can_xxx` 派生语义
+- 客户端不得复写状态机规则，只消费后端返回的状态和动作能力
+- 本轮重构不要求迁移历史数据，也不要求兼容旧状态链路
+- 新架构切换后，旧仓储、旧状态判断和旧 DTO 映射代码允许直接删除，不保留 legacy 实现
+
+BMFS 已落地实现（`internal/platform/bmfs`），当前覆盖：
+
+- **通用状态机引擎**：声明式定义状态、动作、转换规则；支持 guard 守卫条件和 onTransition 副作用钩子；自动派生 `can_xxx` 布尔值
+- **6 类社区内容状态机**：errand / meetup / market / lost_found / carpool / resource 各自定义独立状态机，通过 `GetMachine(contentType)` 工厂获取
+- **service 层接入**：所有状态变更操作已改为 `bmfs.Execute()` 调用；`can_xxx` 从 `bmfs.AvailableActions()` 派生；审核接口改为接收 Action 字段（`review_approve` / `review_reject`）
+- **状态转换日志**：每次 BMFS 执行成功后写入 MongoDB `state_transition_logs` 集合
+
+动作命令列表：
+
+| 动作 | 说明 | 典型守卫 |
+|------|------|----------|
+| `review_approve` | 审核通过 | 审核员 |
+| `review_reject` | 审核拒绝 | 审核员 |
+| `review_reapprove` | 重新提交审核 | 发布者 |
+| `cancel` | 取消发布 | 发布者 |
+| `accept` | 接单（跑腿） | 已认证非发布者 |
+| `cancel_accept` | 取消接单（跑腿） | 接单者 |
+| `join` | 报名（组局） | 已认证非发布者 |
+| `cancel_join` | 取消报名（组局） | 参与者 |
+| `delete` | 下架/删除 | 发布者 |
+| `mark_resolved` | 标记已找到（失物招领） | 发布者 |
+| `offline_by_admin` | 管理员下线 | 审核员 |
+
+### 12.4 外部系统同步
 
 对教务、学工等系统采用“双轨”策略：
 
@@ -351,6 +404,25 @@ apps/mobile-flutter/
 - 定时同步：适合课程表、成绩、考试安排等稳定数据
 
 同步任务统一放在 `runtime` 层，不直接放业务 handler。
+
+### 12.5 为什么调整为 MySQL + MongoDB + BMFS
+
+#### 12.5.1 为什么核心主数据用 MySQL
+
+- 用户、账号、角色、组织、绑定关系更适合强事务和明确关系约束
+- 这类数据会成为权限裁决与身份事实源，不适合混入灵活文档模型
+
+#### 12.5.2 为什么社区内容与审计配置用 MongoDB
+
+- 跑腿、二手、资料、失物招领、拼车、组局的字段差异大、演进快
+- 审核、审计、日志、运营配置天然带上下文快照，文档模型更自然
+- 后续做首页流、审核列表、运营编排时，更适合围绕聚合和投影建模
+
+#### 12.5.3 为什么引入 BMFS
+
+- 当前多个模块都有状态流转，但规则还未统一抽象
+- 后续新增内容类型时，如果继续手写条件分支，状态漂移会越来越严重
+- 通过 `BMFS` 收口状态机，才能保证多端只消费同一套业务语义
 
 ## 13. 安全与合规
 
@@ -363,6 +435,43 @@ apps/mobile-flutter/
 - 文件上传安全校验
 - 敏感配置通过密钥管理系统注入
 - 管理员关键操作二次确认和操作留痕
+
+### 13.1 注入防护
+
+- `MySQL` 查询只能在 `repo` 层构造，禁止在 `service`、`transport`、`runtime` 中拼接 SQL
+- `MySQL` 侧统一使用 `GORM`；所有条件、分页、事务都通过参数绑定或受控 scope 构造，禁止字符串拼接 `WHERE`、`ORDER BY`、`LIMIT`
+- 用户可控的排序字段、筛选字段、聚合维度必须走白名单映射，不能把前端传入值直接当列名或表达式
+- 模糊搜索必须统一走受控搜索构造器；如果使用 `LIKE`，需统一转义 `%`、`_` 等通配符
+- 禁止把客户端输入直接拼入原生 Mongo 查询文档、聚合管道或操作符
+- `MongoDB` 查询只能由后端用强类型 DTO 和白名单 builder 生成，不能透传任意 JSON/BSON
+- 禁止使用用户可控的 `$where`、动态 `$expr`、任意 `$regex`、未受控的聚合 pipeline
+
+### 13.2 输入与边界校验
+
+- `transport` 层先做请求 DTO 校验：必填、类型、长度、枚举、时间范围、ID 格式
+- 超长文本、超大分页、非法排序字段、非法筛选组合直接拒绝，不进入 `repo`
+- 状态流转命令只允许传“动作”，不允许客户端直接写最终 `status`
+- 角色、权限、联系方式可见性、审核权限等敏感字段只能由后端派生，不能接受客户端覆盖
+
+### 13.3 权限与最小授权
+
+- 应用访问数据库使用最小权限账号，迁移账号与运行账号分离
+- `MySQL` 与 `MongoDB` 分别使用独立凭据，按模块或环境隔离
+- 管理端、高风险接口、导出接口、审核接口必须有更严格的权限码和审计
+- 联系方式、实名信息、教务绑定信息默认最小可见；读取时由后端二次裁剪
+
+### 13.4 运行时保护
+
+- 登录、验证码、发布、审核、搜索等高频入口需要限流、防刷和幂等控制
+- 请求体大小、上传文件大小、文件类型、图片/附件 MIME 必须校验
+- 数据库访问必须配置超时、连接池上限和慢查询日志
+- 错误响应不能回显 SQL、Mongo 查询、堆栈或密钥信息
+
+### 13.5 安全测试与审计
+
+- 为 `repo` 与接口层补注入测试用例，覆盖 SQL 注入、NoSQL 注入、排序字段穿透、分页滥用
+- 安全敏感操作必须记录审计：登录、绑定、权限变更、审核、配置变更、敏感字段读取
+- 上线前至少完成一次注入与越权回归清单校验
 
 ## 14. 可观测性与运维
 

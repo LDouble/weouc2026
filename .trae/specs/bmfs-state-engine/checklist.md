@@ -1,0 +1,28 @@
+# BMFS 状态驱动引擎 - 验证清单
+
+- [x] BMFS 核心包 `internal/platform/bmfs` 已实现，包含 Machine、Execute、AvailableActions 等核心 API
+- [x] BMFS 支持 guard 守卫条件和 onTransition 副作用钩子
+- [x] 6 类社区内容状态机已声明式定义（errand / meetup / market / lost_found / carpool / resource）
+- [x] errand 状态机覆盖：reviewing→published/rejected/cancelled, published→accepted/cancelled, accepted→published 等全部转换
+- [x] meetup 状态机覆盖：reviewing→open/rejected/cancelled, open→join→open, full→cancel_join→open 等全部转换
+- [x] meetup join 动作的 guard 包含认证和角色检查（截止时间/名额/开始时间等业务规则由 service 层保留检查）
+- [x] market/lostfound/carpool/resource 状态机覆盖：reviewing→published/rejected/offline, published→offline 等全部转换
+- [x] lostfound 状态机包含 mark_resolved 动作（published→resolved）
+- [x] errand_service 中 AcceptErrand/CancelErrandPublish/CancelErrandAccept 已改为 bmfs.Execute 调用
+- [x] meetup_service 中 JoinMeetup/CancelMeetupJoin/CancelMeetupPublish 已改为 bmfs.Execute 调用
+- [x] market/lostfound/carpool/resource service 中的删除/下架操作已改为 bmfs.Execute 调用
+- [x] review_service 中 UpdateReviewStatus 已改为接收 Action 字段，通过 BMFS 执行 review_approve/review_reject
+- [x] meetup 审核通过后的 open/full 判断在 service 层根据参与人数动态调整（BMFS 返回 open，service 层检查是否满员后调整为 full）
+- [x] helpers.go 中 canDeleteContent 已移除改用 BMFS 派生；canEditContent 保留（edit 不是状态转换，是 UI 功能）
+- [x] buildMeetupPayload/buildErrandPayload 等 payload 构建函数中 can_xxx 从 bmfs.AvailableActions 派生
+- [x] shouldExposeContent/shouldExposeMeetupState 保留（可见性判断不属于状态机职责）
+- [x] ReviewUpdateRequest.ReviewStatus 字段已改为 Action 字段
+- [x] review_service 内部将 action 映射为 BMFS 动作名，transport 层 handler 无需修改（透传 Action 字段）
+- [x] 状态转换日志在 service 层每次 BMFS Execute 成功后写入 MongoDB state_transition_logs 集合
+- [x] service 层不再出现直接设置 item.Status 的代码（发布创建初始状态 reviewing 和 meetup open/full 动态调整除外）
+- [x] 客户端无法直接提交目标状态，只能提交动作命令（ReviewUpdateRequest.Action 仅接受 review_approve/review_reject/offline_by_admin）
+- [x] BMFS 核心单元测试通过（15 个测试：正常转换、guard 拒绝、无效动作、can_xxx 派生）
+- [x] 6 类内容完整状态流转集成测试通过（26 个测试覆盖全部状态机）
+- [x] guard 条件拒绝非法操作的测试通过
+- [x] can_xxx 派生结果测试通过（errand/meetup/market 从不同状态和角色上下文派生）
+- [x] GetMachine 工厂函数和 guard 函数单元测试通过
