@@ -9,6 +9,7 @@ import (
 	clrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/repo"
 	cltypes "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/types"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/auth"
+	"github.com/liangluo/weouc2026/services/api-server/internal/platform/bmfs"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/httpx"
 )
 
@@ -28,9 +29,18 @@ func (s *Service) ListMarket(ctx context.Context, principal auth.Principal, quer
 	}
 
 	list := make([]map[string]any, 0, len(items))
+	machine := cltypes.GetMachine(cltypes.ContentTypeMarket)
+	now := time.Now()
 	for _, item := range items {
 		canView := canViewContact(principal, item.PublisherUserID)
 		isOwner := item.PublisherUserID == principal.UserID
+		actx := bmfs.ActionContext{
+			Principal: principal,
+			IsOwner:   isOwner,
+			UserRole:  simpleUserRole(item.PublisherUserID, principal),
+			Now:       now,
+		}
+		actions := machine.AvailableActions(item.Status, actx)
 		mp, _ := unmarshalPayload[cltypes.MarketPayload](item.TypePayload)
 		resolvedImages := resolveManagedURLs(ctx, s.storageProvider, item.Images)
 		resolvedImage := resolveManagedURL(ctx, s.storageProvider, firstNonEmpty(item.Images...))
@@ -50,7 +60,7 @@ func (s *Service) ListMarket(ctx context.Context, principal auth.Principal, quer
 			"status":            item.Status,
 			"is_owner":          isOwner,
 			"can_edit":          canEditContent(isOwner, item.Status),
-			"can_delete":        canDeleteContent(isOwner, item.Status),
+			"can_delete":        actions["can_delete"],
 			"can_favorite":      !isOwner && principal.Authenticated,
 			"extra": map[string]any{
 				"category":       mp.Category,
@@ -87,6 +97,13 @@ func (s *Service) GetMarketDetail(ctx context.Context, principal auth.Principal,
 	canView := canViewContact(principal, item.PublisherUserID)
 	role := simpleUserRole(item.PublisherUserID, principal)
 	isOwner := role == "publisher"
+	actx := bmfs.ActionContext{
+		Principal: principal,
+		IsOwner:   isOwner,
+		UserRole:  role,
+		Now:       time.Now(),
+	}
+	actions := cltypes.GetMachine(cltypes.ContentTypeMarket).AvailableActions(item.Status, actx)
 	mp, _ := unmarshalPayload[cltypes.MarketPayload](item.TypePayload)
 	resolvedImages := resolveManagedURLs(ctx, s.storageProvider, item.Images)
 	resolvedImage := resolveManagedURL(ctx, s.storageProvider, firstNonEmpty(item.Images...))
@@ -108,7 +125,7 @@ func (s *Service) GetMarketDetail(ctx context.Context, principal auth.Principal,
 		"is_owner":          isOwner,
 		"can_view_contact":  canView,
 		"can_edit":          canEditContent(isOwner, item.Status),
-		"can_delete":        canDeleteContent(isOwner, item.Status),
+		"can_delete":        actions["can_delete"],
 		"can_favorite":      !isOwner && principal.Authenticated,
 		"extra": map[string]any{
 			"category":       mp.Category,
@@ -201,14 +218,25 @@ func (s *Service) FavoriteMarket(ctx context.Context, principal auth.Principal, 
 }
 
 func (s *Service) DeleteMarket(ctx context.Context, principal auth.Principal, id string) error {
+	var result *bmfs.ExecuteResult
 	_, err := s.repository.Update(ctx, id, func(item *cltypes.CommunityContent) error {
-		if item.PublisherUserID != principal.UserID {
-			return httpx.Forbidden("只有发布者可以下架", nil)
+		isOwner := item.PublisherUserID == principal.UserID
+		actx := bmfs.ActionContext{
+			Principal: principal,
+			IsOwner:   isOwner,
+			UserRole:  simpleUserRole(item.PublisherUserID, principal),
+			Now:       time.Now(),
 		}
-		if item.Status != cltypes.StatusPublished && item.Status != cltypes.StatusReviewing && item.Status != cltypes.StatusRejected {
+		machine := cltypes.GetMachine(cltypes.ContentTypeMarket)
+		var execErr error
+		result, execErr = machine.Execute(item.Status, cltypes.ActionDelete, actx)
+		if execErr != nil {
+			if !isOwner {
+				return httpx.Forbidden("只有发布者可以下架", nil)
+			}
 			return httpx.BadRequest("当前状态不允许下架", nil)
 		}
-		item.Status = cltypes.StatusOffline
+		item.Status = result.ToStatus
 		item.UpdatedBy = principal.UserID
 		return nil
 	})
@@ -221,6 +249,14 @@ func (s *Service) DeleteMarket(ctx context.Context, principal auth.Principal, id
 		}
 		return httpx.Internal("下架二手商品失败", err)
 	}
+	_ = s.repository.WriteTransitionLog(ctx, cltypes.StateTransitionLog{
+		ContentType: cltypes.ContentTypeMarket,
+		ContentID:   id,
+		FromStatus:  result.FromStatus,
+		ToStatus:    result.ToStatus,
+		Action:      cltypes.ActionDelete,
+		ActorUserID: principal.UserID,
+	})
 	s.recordAudit(ctx, principal, "campus_life.market.delete", "market", id, "二手商品下架成功", nil)
 	return nil
 }

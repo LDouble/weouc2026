@@ -60,6 +60,7 @@ types -> config -> repo -> service -> runtime -> transport
 
 - `cmd/api-server`：服务启动入口
 - `internal/platform`：配置、日志、请求 ID、统一错误响应、Bearer Token / 头部双通道鉴权上下文
+- `internal/platform/bmfs`：BMFS 状态驱动引擎，声明式状态机定义、guard 守卫、onTransition 钩子、can_xxx 自动派生；6 类社区内容状态机已定义并接入 service 层
 - `internal/modules/system`：`/healthz`、`/readyz`、`/api/v1/system/profile`，以及 `mysql/mongo/redis` 依赖就绪探测
 - `internal/modules/iam`：`/api/auth/wechat/login`、`/api/student`、`/api/edu/send-captcha`，当前主链路为 `GORM + MySQL + Redis`
 - `internal/modules/academic`：`/api/academic/semesters`、`/api/academic/schedule`、`/api/academic/exams`、`/api/academic/grades`
@@ -87,7 +88,7 @@ types -> config -> repo -> service -> runtime -> transport
 - 失物招领列表、详情、发布
 - 拼车列表、详情、发布
 - 组局列表、详情、发布、报名、取消报名、取消组局
-- 校园生活审核列表、审核状态更新（覆盖二手、跑腿、资料、失物招领、拼车、组局）
+- 校园生活审核列表、审核状态更新（覆盖二手、跑腿、资料、失物招领、拼车、组局），审核接口已改为接收 Action 字段（`review_approve` / `review_reject`）
 - COS 临时上传凭证与对象下载预签名
 
 说明：
@@ -108,11 +109,11 @@ types -> config -> repo -> service -> runtime -> transport
 ## 目标重构方向
 
 - `iam`：从 `PostgreSQL + Redis` 演进为 `MySQL + Redis`
-- `campus_life`：从 `memory / postgres` 演进为 `MongoDB + BMFS`
+- `campus_life`：从 `memory / postgres` 演进为 `MongoDB + BMFS`（**BMFS 已落地**）
 - `portal`：从 `memory / postgres` 演进为 `MongoDB`
 - `notification`：通知内容与投放配置演进为 `MongoDB`；会话态与热点态仍可使用 `Redis`
 - `analytics`：统一审计、业务日志、状态迁移日志演进为 `MongoDB`
-- 所有状态规则收口到 `BMFS`，以单一 `status` 承载审核与业务阶段，`service` 只负责编排与权限裁决
+- 所有状态规则收口到 `BMFS`，以单一 `status` 承载审核与业务阶段，`service` 只负责编排与权限裁决（**已落地**）
 - 本轮重构按新模型直切设计，不要求迁移历史数据或兼容旧链路
 - 新链路替换后可直接删除旧 `postgres/review_status/legacy service` 代码，不保留并存分支
 
@@ -323,5 +324,5 @@ curl -X POST http://localhost:8080/api/admin/campus-life/review/update \
   -H 'X-User-ID: admin-001' \
   -H 'X-User-Permissions: campus_life:moderate' \
   -H 'Content-Type: application/json' \
-  -d '{"content_type":"meetup","content_id":"meetup-101","review_status":"published"}'
+  -d '{"content_type":"meetup","content_id":"meetup-101","action":"review_approve"}'
 ```

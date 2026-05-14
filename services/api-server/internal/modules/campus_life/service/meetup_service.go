@@ -10,7 +10,9 @@ import (
 	clrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/repo"
 	cltypes "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/types"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/auth"
+	"github.com/liangluo/weouc2026/services/api-server/internal/platform/bmfs"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/httpx"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func (s *Service) ListMeetups(ctx context.Context, principal auth.Principal, query cltypes.MeetupQuery) (map[string]any, error) {
@@ -31,13 +33,17 @@ func (s *Service) ListMeetups(ctx context.Context, principal auth.Principal, que
 
 	list := make([]map[string]any, 0, len(items))
 	now := time.Now().In(chinaLocation)
+	machine := cltypes.MeetupStateMachine()
 	for _, item := range items {
 		mp, _ := unmarshalPayload[cltypes.MeetupPayload](item.TypePayload)
 		payload := buildMeetupPayload(item, mp, principal, now)
 		role := meetupUserRole(item, principal)
-		payload["is_owner"] = role == "publisher"
-		payload["can_edit"] = canEditContent(role == "publisher", item.Status) && item.Status != cltypes.StatusCancelled
-		payload["can_delete"] = role == "publisher" && item.Status != cltypes.StatusCancelled
+		isOwner := role == "publisher"
+		actx := bmfs.ActionContext{Principal: principal, IsOwner: isOwner, UserRole: role, Now: now}
+		canActions := machine.AvailableActions(item.Status, actx)
+		payload["is_owner"] = isOwner
+		payload["can_edit"] = canEditContent(isOwner, item.Status) && item.Status != cltypes.StatusCancelled
+		payload["can_delete"] = canActions["can_cancel"]
 		list = append(list, payload)
 	}
 
@@ -63,11 +69,15 @@ func (s *Service) GetMeetupDetail(ctx context.Context, principal auth.Principal,
 	}
 
 	mp, _ := unmarshalPayload[cltypes.MeetupPayload](item.TypePayload)
-	payload := buildMeetupPayload(item, mp, principal, time.Now().In(chinaLocation))
+	now := time.Now().In(chinaLocation)
+	payload := buildMeetupPayload(item, mp, principal, now)
 	payload["can_view_contact"] = canViewContact(principal, item.PublisherUserID)
 	role := meetupUserRole(item, principal)
-	payload["can_edit"] = canEditContent(role == "publisher", item.Status) && item.Status != cltypes.StatusCancelled
-	payload["can_delete"] = role == "publisher" && item.Status != cltypes.StatusCancelled
+	isOwner := role == "publisher"
+	actx := bmfs.ActionContext{Principal: principal, IsOwner: isOwner, UserRole: role, Now: now}
+	canActions := cltypes.MeetupStateMachine().AvailableActions(item.Status, actx)
+	payload["can_edit"] = canEditContent(isOwner, item.Status) && item.Status != cltypes.StatusCancelled
+	payload["can_delete"] = canActions["can_cancel"]
 	return payload, nil
 }
 
@@ -132,6 +142,7 @@ func (s *Service) PublishMeetup(ctx context.Context, principal auth.Principal, r
 }
 
 func (s *Service) JoinMeetup(ctx context.Context, principal auth.Principal, meetupID string) error {
+	var execResult *bmfs.ExecuteResult
 	_, err := s.repository.Update(ctx, meetupID, func(item *cltypes.CommunityContent) error {
 		if item.ContentType != cltypes.ContentTypeMeetup {
 			return httpx.NotFound("组局不存在", nil)
@@ -139,20 +150,25 @@ func (s *Service) JoinMeetup(ctx context.Context, principal auth.Principal, meet
 		if item.PublisherUserID == principal.UserID {
 			return httpx.BadRequest("不能报名自己发起的组局", nil)
 		}
-		switch item.Status {
-		case cltypes.StatusOpen:
-		case cltypes.StatusReviewing:
-			return httpx.BadRequest("该组局仍在审核中，暂不可报名", nil)
-		case cltypes.StatusRejected:
-			return httpx.BadRequest("该组局审核未通过，无法报名", nil)
-		case cltypes.StatusOffline:
-			return httpx.BadRequest("该组局已下线，无法报名", nil)
-		case cltypes.StatusCancelled:
-			return httpx.BadRequest("该组局已取消", nil)
-		case cltypes.StatusFull:
-			return httpx.BadRequest("该组局人数已满", nil)
-		default:
-			return httpx.BadRequest("该组局当前状态无法报名", nil)
+		isOwner := item.PublisherUserID == principal.UserID
+		role := meetupUserRole(*item, principal)
+		actx := bmfs.ActionContext{Principal: principal, IsOwner: isOwner, UserRole: role, Now: time.Now()}
+		result, err := cltypes.MeetupStateMachine().Execute(item.Status, cltypes.ActionJoin, actx)
+		if err != nil {
+			switch item.Status {
+			case cltypes.StatusReviewing:
+				return httpx.BadRequest("该组局仍在审核中，暂不可报名", nil)
+			case cltypes.StatusRejected:
+				return httpx.BadRequest("该组局审核未通过，无法报名", nil)
+			case cltypes.StatusOffline:
+				return httpx.BadRequest("该组局已下线，无法报名", nil)
+			case cltypes.StatusCancelled:
+				return httpx.BadRequest("该组局已取消", nil)
+			case cltypes.StatusFull:
+				return httpx.BadRequest("该组局人数已满", nil)
+			default:
+				return httpx.BadRequest("该组局当前状态无法报名", nil)
+			}
 		}
 		mp, _ := unmarshalPayload[cltypes.MeetupPayload](item.TypePayload)
 		now := time.Now().UTC()
@@ -165,13 +181,14 @@ func (s *Service) JoinMeetup(ctx context.Context, principal auth.Principal, meet
 		if slices.Contains(mp.ParticipantUserIDs, principal.UserID) {
 			return httpx.BadRequest("你已经报名过该组局", nil)
 		}
+		execResult = result
 		mp.ParticipantUserIDs = append(mp.ParticipantUserIDs, principal.UserID)
 		mp = refreshMeetupPayloadStatus(mp)
 		item.TypePayload = marshalPayload(mp)
 		if mp.MaxParticipants > 0 && len(mp.ParticipantUserIDs)+1 >= mp.MaxParticipants {
 			item.Status = cltypes.StatusFull
 		} else {
-			item.Status = cltypes.StatusOpen
+			item.Status = result.ToStatus
 		}
 		item.UpdatedBy = principal.UserID
 		return nil
@@ -186,10 +203,24 @@ func (s *Service) JoinMeetup(ctx context.Context, principal auth.Principal, meet
 		return httpx.Internal("报名组局失败", err)
 	}
 
+	if execResult != nil {
+		_ = s.repository.WriteTransitionLog(ctx, cltypes.StateTransitionLog{
+			ID:          primitive.NewObjectID(),
+			ContentType: cltypes.ContentTypeMeetup,
+			ContentID:   meetupID,
+			FromStatus:  execResult.FromStatus,
+			ToStatus:    cltypes.StatusOpen,
+			Action:      execResult.Action,
+			ActorUserID: principal.UserID,
+			CreatedAt:   time.Now(),
+		})
+	}
+
 	return nil
 }
 
 func (s *Service) CancelMeetupJoin(ctx context.Context, principal auth.Principal, meetupID string) error {
+	var execResult *bmfs.ExecuteResult
 	_, err := s.repository.Update(ctx, meetupID, func(item *cltypes.CommunityContent) error {
 		if item.ContentType != cltypes.ContentTypeMeetup {
 			return httpx.NotFound("组局不存在", nil)
@@ -199,12 +230,18 @@ func (s *Service) CancelMeetupJoin(ctx context.Context, principal auth.Principal
 		if index < 0 {
 			return httpx.BadRequest("你尚未报名该组局", nil)
 		}
+		isOwner := item.PublisherUserID == principal.UserID
+		role := meetupUserRole(*item, principal)
+		actx := bmfs.ActionContext{Principal: principal, IsOwner: isOwner, UserRole: role, Now: time.Now()}
+		result, err := cltypes.MeetupStateMachine().Execute(item.Status, cltypes.ActionCancelJoin, actx)
+		if err != nil {
+			return httpx.BadRequest("该组局当前状态无法取消报名", nil)
+		}
+		execResult = result
 		mp.ParticipantUserIDs = append(mp.ParticipantUserIDs[:index], mp.ParticipantUserIDs[index+1:]...)
 		mp = refreshMeetupPayloadStatus(mp)
 		item.TypePayload = marshalPayload(mp)
-		if item.Status == cltypes.StatusFull {
-			item.Status = cltypes.StatusOpen
-		}
+		item.Status = result.ToStatus
 		item.UpdatedBy = principal.UserID
 		return nil
 	})
@@ -218,10 +255,24 @@ func (s *Service) CancelMeetupJoin(ctx context.Context, principal auth.Principal
 		return httpx.Internal("取消报名组局失败", err)
 	}
 
+	if execResult != nil {
+		_ = s.repository.WriteTransitionLog(ctx, cltypes.StateTransitionLog{
+			ID:          primitive.NewObjectID(),
+			ContentType: cltypes.ContentTypeMeetup,
+			ContentID:   meetupID,
+			FromStatus:  execResult.FromStatus,
+			ToStatus:    execResult.ToStatus,
+			Action:      execResult.Action,
+			ActorUserID: principal.UserID,
+			CreatedAt:   time.Now(),
+		})
+	}
+
 	return nil
 }
 
 func (s *Service) CancelMeetupPublish(ctx context.Context, principal auth.Principal, meetupID string) error {
+	var execResult *bmfs.ExecuteResult
 	_, err := s.repository.Update(ctx, meetupID, func(item *cltypes.CommunityContent) error {
 		if item.ContentType != cltypes.ContentTypeMeetup {
 			return httpx.NotFound("组局不存在", nil)
@@ -229,7 +280,15 @@ func (s *Service) CancelMeetupPublish(ctx context.Context, principal auth.Princi
 		if item.PublisherUserID != principal.UserID {
 			return httpx.Forbidden("只有发起人可以取消组局", nil)
 		}
-		item.Status = cltypes.StatusCancelled
+		isOwner := item.PublisherUserID == principal.UserID
+		role := meetupUserRole(*item, principal)
+		actx := bmfs.ActionContext{Principal: principal, IsOwner: isOwner, UserRole: role, Now: time.Now()}
+		result, err := cltypes.MeetupStateMachine().Execute(item.Status, cltypes.ActionCancel, actx)
+		if err != nil {
+			return httpx.BadRequest("该组局当前状态无法取消", nil)
+		}
+		execResult = result
+		item.Status = result.ToStatus
 		item.UpdatedBy = principal.UserID
 		return nil
 	})
@@ -241,6 +300,19 @@ func (s *Service) CancelMeetupPublish(ctx context.Context, principal auth.Princi
 			return err
 		}
 		return httpx.Internal("取消组局失败", err)
+	}
+
+	if execResult != nil {
+		_ = s.repository.WriteTransitionLog(ctx, cltypes.StateTransitionLog{
+			ID:          primitive.NewObjectID(),
+			ContentType: cltypes.ContentTypeMeetup,
+			ContentID:   meetupID,
+			FromStatus:  execResult.FromStatus,
+			ToStatus:    execResult.ToStatus,
+			Action:      execResult.Action,
+			ActorUserID: principal.UserID,
+			CreatedAt:   time.Now(),
+		})
 	}
 
 	return nil

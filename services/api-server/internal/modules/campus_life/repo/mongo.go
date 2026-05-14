@@ -13,7 +13,8 @@ import (
 )
 
 type MongoRepository struct {
-	collection *mongo.Collection
+	collection     *mongo.Collection
+	transitionLogs *mongo.Collection
 }
 
 func NewMongoRepository(database *mongo.Database) *MongoRepository {
@@ -21,7 +22,8 @@ func NewMongoRepository(database *mongo.Database) *MongoRepository {
 		return &MongoRepository{}
 	}
 	coll := database.Collection("community_content")
-	return &MongoRepository{collection: coll}
+	tlColl := database.Collection("state_transition_logs")
+	return &MongoRepository{collection: coll, transitionLogs: tlColl}
 }
 
 func (r *MongoRepository) EnsureIndexes(ctx context.Context) error {
@@ -36,7 +38,19 @@ func (r *MongoRepository) EnsureIndexes(ctx context.Context) error {
 		{Keys: bson.D{{Key: "deleted_at", Value: 1}}, Options: options.Index().SetSparse(true)},
 	}
 	_, err := r.collection.Indexes().CreateMany(ctx, indexes)
-	return err
+	if err != nil {
+		return err
+	}
+	if r.transitionLogs != nil {
+		tlIndexes := []mongo.IndexModel{
+			{Keys: bson.D{{Key: "content_type", Value: 1}, {Key: "content_id", Value: 1}, {Key: "created_at", Value: -1}}},
+			{Keys: bson.D{{Key: "actor_user_id", Value: 1}, {Key: "created_at", Value: -1}}},
+		}
+		if _, err := r.transitionLogs.Indexes().CreateMany(ctx, tlIndexes); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *MongoRepository) Save(ctx context.Context, item cltypes.CommunityContent) (cltypes.CommunityContent, error) {
@@ -199,6 +213,22 @@ func (r *MongoRepository) ListByType(ctx context.Context, contentType string, fi
 		return nil, 0, fmt.Errorf("cursor error: %w", err)
 	}
 	return items, total, nil
+}
+
+func (r *MongoRepository) WriteTransitionLog(ctx context.Context, log cltypes.StateTransitionLog) error {
+	if r.transitionLogs == nil {
+		return fmt.Errorf("mongo transition_logs collection is nil")
+	}
+	if log.ID.IsZero() {
+		log.ID = primitive.NewObjectID()
+	}
+	if log.CreatedAt.IsZero() {
+		log.CreatedAt = time.Now().UTC()
+	}
+	if _, err := r.transitionLogs.InsertOne(ctx, log); err != nil {
+		return fmt.Errorf("insert state_transition_log failed: %w", err)
+	}
+	return nil
 }
 
 func (r *MongoRepository) ListForFeed(ctx context.Context, filter cltypes.FeedFilter) ([]cltypes.CommunityContent, int64, error) {

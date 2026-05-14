@@ -9,6 +9,7 @@ import (
 
 	cltypes "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/types"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/auth"
+	"github.com/liangluo/weouc2026/services/api-server/internal/platform/bmfs"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/httpx"
 )
 
@@ -65,21 +66,6 @@ func canEditContent(isOwner bool, status string) bool {
 		return false
 	}
 	return status == cltypes.StatusPublished || status == cltypes.StatusReviewing
-}
-
-func canDeleteContent(isOwner bool, status string, extraConditions ...bool) bool {
-	if !isOwner {
-		return false
-	}
-	if status != cltypes.StatusPublished && status != cltypes.StatusReviewing && status != cltypes.StatusRejected {
-		return false
-	}
-	for _, cond := range extraConditions {
-		if !cond {
-			return false
-		}
-	}
-	return true
 }
 
 func matchFeedType(allowed []string, value string) bool {
@@ -306,15 +292,6 @@ func canModerateCampusLife(principal auth.Principal) bool {
 	return principal.HasPermission(campusLifeModeratePermission)
 }
 
-func isSupportedReviewStatus(status string) bool {
-	switch status {
-	case cltypes.StatusReviewing, cltypes.StatusPublished, cltypes.StatusRejected, cltypes.StatusOffline:
-		return true
-	default:
-		return false
-	}
-}
-
 func matchReviewQuery(query cltypes.ReviewQuery, contentType, status string, values ...string) bool {
 	if query.ContentType != "" && query.ContentType != contentType {
 		return false
@@ -502,14 +479,11 @@ func buildCarpoolPayload(item cltypes.CommunityContent, cp cltypes.CarpoolPayloa
 func buildMeetupPayload(item cltypes.CommunityContent, mp cltypes.MeetupPayload, principal auth.Principal, now time.Time) map[string]any {
 	canView := canViewContact(principal, item.PublisherUserID)
 	userRole := meetupUserRole(item, principal)
+	isOwner := userRole == "publisher"
 	joinedCount := meetupJoinedCountFromPayload(mp)
 	remainingSeats := meetupRemainingSeatsFromPayload(mp)
-	canJoin := principal.Authenticated &&
-		userRole == "viewer" &&
-		item.Status == cltypes.StatusOpen &&
-		remainingSeats > 0 &&
-		(mp.DeadlineAt.IsZero() || mp.DeadlineAt.After(now.UTC())) &&
-		(mp.StartAt.IsZero() || mp.StartAt.After(now.UTC()))
+	actx := bmfs.ActionContext{Principal: principal, IsOwner: isOwner, UserRole: userRole, Now: now}
+	canActions := cltypes.MeetupStateMachine().AvailableActions(item.Status, actx)
 
 	return map[string]any{
 		"id":                 item.ID.Hex(),
@@ -531,9 +505,9 @@ func buildMeetupPayload(item cltypes.CommunityContent, mp cltypes.MeetupPayload,
 		"created_at":         item.CreatedAt.Format(time.RFC3339),
 		"user_role":          userRole,
 		"joined":             userRole == "participant",
-		"can_join":           canJoin,
-		"can_cancel_join":    userRole == "participant" && item.Status != cltypes.StatusCancelled,
-		"can_cancel_publish": userRole == "publisher" && item.Status != cltypes.StatusCancelled,
+		"can_join":           canActions["can_join"],
+		"can_cancel_join":    canActions["can_cancel_join"],
+		"can_cancel_publish": canActions["can_cancel"],
 		"extra": map[string]any{
 			"category":         mp.Category,
 			"location":         mp.Location,

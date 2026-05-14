@@ -9,7 +9,9 @@ import (
 	clrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/repo"
 	cltypes "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/types"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/auth"
+	"github.com/liangluo/weouc2026/services/api-server/internal/platform/bmfs"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/httpx"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func (s *Service) ListReviewQueue(ctx context.Context, query cltypes.ReviewQuery) (map[string]any, error) {
@@ -125,38 +127,43 @@ func (s *Service) ListReviewQueue(ctx context.Context, query cltypes.ReviewQuery
 func (s *Service) UpdateReviewStatus(ctx context.Context, principal auth.Principal, request cltypes.ReviewUpdateRequest) error {
 	contentType := strings.TrimSpace(request.ContentType)
 	contentID := strings.TrimSpace(request.ContentID)
-	reviewStatus := strings.TrimSpace(strings.ToLower(request.ReviewStatus))
+	action := strings.TrimSpace(strings.ToLower(request.Action))
 
 	if contentType == "" || contentID == "" {
 		return httpx.BadRequest("content_type 和 content_id 不能为空", nil)
 	}
-	if !isSupportedReviewStatus(reviewStatus) {
-		return httpx.BadRequest("review_status 仅支持 reviewing/published/rejected/offline", nil)
+	if action != cltypes.ActionReviewApprove && action != cltypes.ActionReviewReject && action != cltypes.ActionOfflineByAdmin {
+		return httpx.BadRequest("action 仅支持 review_approve / review_reject / offline_by_admin", nil)
 	}
 
+	var execResult *bmfs.ExecuteResult
 	_, err := s.repository.Update(ctx, contentID, func(item *cltypes.CommunityContent) error {
-		switch contentType {
-		case "market", "errand", "resource", "lostFound", "carpool":
-			if reviewStatus == cltypes.StatusPublished {
-				item.Status = cltypes.StatusPublished
-			} else {
-				item.Status = reviewStatus
-			}
-		case "meetup":
-			if reviewStatus == cltypes.StatusPublished {
-				mp, _ := unmarshalPayload[cltypes.MeetupPayload](item.TypePayload)
-				mp = refreshMeetupPayloadStatus(mp)
-				item.TypePayload = marshalPayload(mp)
-				if mp.MaxParticipants > 0 && len(mp.ParticipantUserIDs)+1 >= mp.MaxParticipants {
-					item.Status = cltypes.StatusFull
-				} else {
-					item.Status = cltypes.StatusOpen
-				}
-			} else {
-				item.Status = reviewStatus
-			}
-		default:
+		machine := cltypes.GetMachine(contentType)
+		if machine == nil {
 			return httpx.BadRequest("content_type 仅支持 market/errand/resource/lostFound/carpool/meetup", nil)
+		}
+		actx := bmfs.ActionContext{
+			Principal: principal,
+			IsOwner:   item.PublisherUserID == principal.UserID,
+			UserRole:  simpleUserRole(item.PublisherUserID, principal),
+			Now:       time.Now(),
+		}
+		result, err := machine.Execute(item.Status, action, actx)
+		if err != nil {
+			return httpx.BadRequest("当前状态不允许该审核操作", nil)
+		}
+		execResult = result
+		if contentType == cltypes.ContentTypeMeetup && result.ToStatus == cltypes.StatusOpen {
+			mp, _ := unmarshalPayload[cltypes.MeetupPayload](item.TypePayload)
+			mp = refreshMeetupPayloadStatus(mp)
+			item.TypePayload = marshalPayload(mp)
+			if mp.MaxParticipants > 0 && len(mp.ParticipantUserIDs)+1 >= mp.MaxParticipants {
+				item.Status = cltypes.StatusFull
+			} else {
+				item.Status = cltypes.StatusOpen
+			}
+		} else {
+			item.Status = result.ToStatus
 		}
 		item.UpdatedBy = principal.UserID
 		return nil
@@ -172,8 +179,21 @@ func (s *Service) UpdateReviewStatus(ctx context.Context, principal auth.Princip
 		return httpx.Internal("更新审核状态失败", err)
 	}
 
+	if execResult != nil {
+		_ = s.repository.WriteTransitionLog(ctx, cltypes.StateTransitionLog{
+			ID:          primitive.NewObjectID(),
+			ContentType: contentType,
+			ContentID:   contentID,
+			FromStatus:  execResult.FromStatus,
+			ToStatus:    execResult.ToStatus,
+			Action:      execResult.Action,
+			ActorUserID: principal.UserID,
+			CreatedAt:   time.Now(),
+		})
+	}
+
 	s.recordAudit(ctx, principal, "campus_life.review.update", contentType, contentID, "校园生活审核状态更新成功", map[string]any{
-		"review_status": reviewStatus,
+		"action": action,
 	})
 
 	return nil

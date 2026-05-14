@@ -1,0 +1,25 @@
+# 校园生活统一集合设计 - 验证清单
+
+- [x] `CommunityContent` 结构体包含所有公共字段（_id, content_type, title, desc, status, publisher_user_id, contact, images, tags, created_at, updated_at, created_by, updated_by, deleted_at, type_payload, ext_json）
+- [x] `CommunityContent` 不冗余存储 `publisher`（昵称）和 `publisher_initial`（首字母）
+- [x] `_id` 使用 MongoDB 自动生成的 ObjectID，不使用自定义序号
+- [x] 六种类型载荷结构体定义完整且字段明确（MarketPayload / ErrandPayload / ResourcePayload / LostFoundPayload / CarpoolPayload / MeetupPayload）
+- [x] `status` 枚举包含所有状态值（reviewing / published / rejected / offline / cancelled / accepted / open / full / resolved）
+- [x] 不存在独立的 `review_status` 字段
+- [x] `ext_json` 使用范围受限，不包含本应属于 `type_payload` 的业务字段
+- [x] Repository 接口为统一方法（Save / GetByID / Update / ListByType / ListForFeed），无类型特化方法，无 NextID
+- [x] MongoDB 只使用 `community_content` 集合，无 `campus_life_sequences` 辅助集合
+- [x] 文档扁平存储，无 `mongoEnvelope` 信封包装
+- [x] 软删除通过 `deleted_at` 字段实现，查询默认过滤 `deleted_at == null`
+- [x] MongoDB 索引已创建（content_type+status+created_at / status+created_at / publisher_user_id+created_at / deleted_at sparse）
+- [x] Service 层状态流转使用单一 `status` 字段，无 `mergeErrandStatus` / `mergeMeetupStatus` / `normalizeReviewStatus` 合并函数
+- [x] 可见性判断检查 `status` 是否为可见状态（published/open/accepted/full/resolved）
+- [x] 联系方式裁剪从公共 `contact` 字段读取
+- [x] 审核操作直接修改 `status` 字段
+- [x] Feed 流通过 `ListByType` 按类型查询实现（后续可优化为 `ListForFeed` 单次查询）
+- [x] 发布者信息（昵称、首字母）在读取时从 principal 实时解析，不冗余存储
+- [x] API 路径保持不变，响应结构与现有行为一致（ID 格式除外）
+- [x] 审计字段在创建和更新时自动设置
+- [x] 数据迁移脚本可将六个旧集合数据正确转换到 `community_content`
+- [x] OpenAPI 契约已更新，`status` 替代 `review_status`，`id` 格式改为 ObjectID
+- [x] 模块 README.md 和 ARCHITECTURE.md 已同步更新

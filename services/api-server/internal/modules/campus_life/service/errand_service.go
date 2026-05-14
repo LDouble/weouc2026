@@ -9,7 +9,9 @@ import (
 	clrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/repo"
 	cltypes "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/types"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/auth"
+	"github.com/liangluo/weouc2026/services/api-server/internal/platform/bmfs"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/httpx"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func (s *Service) ListErrands(ctx context.Context, principal auth.Principal, query cltypes.ErrandQuery) (map[string]any, error) {
@@ -33,6 +35,8 @@ func (s *Service) ListErrands(ctx context.Context, principal auth.Principal, que
 		ep, _ := unmarshalPayload[cltypes.ErrandPayload](item.TypePayload)
 		role := errandUserRole(item, principal)
 		isOwner := role == "publisher"
+		actx := bmfs.ActionContext{Principal: principal, IsOwner: isOwner, UserRole: role, Now: time.Now()}
+		canActions := cltypes.ErrandStateMachine().AvailableActions(item.Status, actx)
 		list = append(list, map[string]any{
 			"id":                item.ID.Hex(),
 			"category":          ep.Category,
@@ -51,9 +55,10 @@ func (s *Service) ListErrands(ctx context.Context, principal auth.Principal, que
 			"publisher_initial": initialOf(publisherName(item, principal)),
 			"created_at":        item.CreatedAt.Format(time.RFC3339),
 			"can_edit":          canEditContent(isOwner, item.Status),
-			"can_delete":        canDeleteContent(isOwner, item.Status),
-			"can_accept":        !isOwner && item.Status == cltypes.StatusPublished && principal.Authenticated,
-			"can_cancel_accept": role == "acceptor" && item.Status == cltypes.StatusAccepted,
+			"can_delete":        canActions["can_cancel"],
+			"can_accept":        canActions["can_accept"],
+			"can_cancel":        canActions["can_cancel"],
+			"can_cancel_accept": canActions["can_cancel_accept"],
 		})
 	}
 
@@ -77,6 +82,8 @@ func (s *Service) GetErrandDetail(ctx context.Context, principal auth.Principal,
 	role := errandUserRole(item, principal)
 	isOwner := role == "publisher"
 	canView := canViewContact(principal, item.PublisherUserID)
+	actx := bmfs.ActionContext{Principal: principal, IsOwner: isOwner, UserRole: role, Now: time.Now()}
+	canActions := cltypes.ErrandStateMachine().AvailableActions(item.Status, actx)
 	ep, _ := unmarshalPayload[cltypes.ErrandPayload](item.TypePayload)
 	resolvedImages := resolveManagedURLs(ctx, s.storageProvider, item.Images)
 	return map[string]any{
@@ -112,9 +119,10 @@ func (s *Service) GetErrandDetail(ctx context.Context, principal auth.Principal,
 		"is_owner":          isOwner,
 		"can_view_contact":  canView,
 		"can_edit":          canEditContent(isOwner, item.Status),
-		"can_delete":        canDeleteContent(isOwner, item.Status),
-		"can_accept":        !isOwner && item.Status == cltypes.StatusPublished && principal.Authenticated,
-		"can_cancel_accept": role == "acceptor" && item.Status == cltypes.StatusAccepted,
+		"can_delete":        canActions["can_cancel"],
+		"can_accept":        canActions["can_accept"],
+		"can_cancel":        canActions["can_cancel"],
+		"can_cancel_accept": canActions["can_cancel_accept"],
 	}, nil
 }
 
@@ -157,6 +165,7 @@ func (s *Service) PublishErrand(ctx context.Context, principal auth.Principal, r
 }
 
 func (s *Service) AcceptErrand(ctx context.Context, principal auth.Principal, taskID string) error {
+	var execResult *bmfs.ExecuteResult
 	_, err := s.repository.Update(ctx, taskID, func(item *cltypes.CommunityContent) error {
 		if item.ContentType != cltypes.ContentTypeErrand {
 			return httpx.NotFound("跑腿任务不存在", nil)
@@ -164,22 +173,15 @@ func (s *Service) AcceptErrand(ctx context.Context, principal auth.Principal, ta
 		if item.PublisherUserID == principal.UserID {
 			return httpx.BadRequest("不能接自己发布的任务", nil)
 		}
-		switch item.Status {
-		case cltypes.StatusPublished:
-		case cltypes.StatusReviewing:
-			return httpx.BadRequest("该任务仍在审核中，暂不可接单", nil)
-		case cltypes.StatusRejected:
-			return httpx.BadRequest("该任务审核未通过，无法接单", nil)
-		case cltypes.StatusOffline:
-			return httpx.BadRequest("该任务已下线，无法接单", nil)
-		case cltypes.StatusCancelled:
-			return httpx.BadRequest("该任务已取消", nil)
-		case cltypes.StatusAccepted:
-			return httpx.BadRequest("该任务已被接单", nil)
-		default:
+		isOwner := item.PublisherUserID == principal.UserID
+		role := errandUserRole(*item, principal)
+		actx := bmfs.ActionContext{Principal: principal, IsOwner: isOwner, UserRole: role, Now: time.Now()}
+		result, err := cltypes.ErrandStateMachine().Execute(item.Status, cltypes.ActionAccept, actx)
+		if err != nil {
 			return httpx.BadRequest("该任务当前状态无法接单", nil)
 		}
-		item.Status = cltypes.StatusAccepted
+		execResult = result
+		item.Status = result.ToStatus
 		item.UpdatedBy = principal.UserID
 		ep, _ := unmarshalPayload[cltypes.ErrandPayload](item.TypePayload)
 		ep.AcceptorUserID = principal.UserID
@@ -196,10 +198,24 @@ func (s *Service) AcceptErrand(ctx context.Context, principal auth.Principal, ta
 		return httpx.Internal("更新跑腿接单状态失败", err)
 	}
 
+	if execResult != nil {
+		_ = s.repository.WriteTransitionLog(ctx, cltypes.StateTransitionLog{
+			ID:          primitive.NewObjectID(),
+			ContentType: cltypes.ContentTypeErrand,
+			ContentID:   taskID,
+			FromStatus:  execResult.FromStatus,
+			ToStatus:    execResult.ToStatus,
+			Action:      execResult.Action,
+			ActorUserID: principal.UserID,
+			CreatedAt:   time.Now(),
+		})
+	}
+
 	return nil
 }
 
 func (s *Service) CancelErrandPublish(ctx context.Context, principal auth.Principal, taskID string) error {
+	var execResult *bmfs.ExecuteResult
 	_, err := s.repository.Update(ctx, taskID, func(item *cltypes.CommunityContent) error {
 		if item.ContentType != cltypes.ContentTypeErrand {
 			return httpx.NotFound("跑腿任务不存在", nil)
@@ -207,7 +223,15 @@ func (s *Service) CancelErrandPublish(ctx context.Context, principal auth.Princi
 		if item.PublisherUserID != principal.UserID {
 			return httpx.Forbidden("只有发布者可以取消发布", nil)
 		}
-		item.Status = cltypes.StatusCancelled
+		isOwner := item.PublisherUserID == principal.UserID
+		role := errandUserRole(*item, principal)
+		actx := bmfs.ActionContext{Principal: principal, IsOwner: isOwner, UserRole: role, Now: time.Now()}
+		result, err := cltypes.ErrandStateMachine().Execute(item.Status, cltypes.ActionCancel, actx)
+		if err != nil {
+			return httpx.BadRequest("该任务当前状态无法取消", nil)
+		}
+		execResult = result
+		item.Status = result.ToStatus
 		item.UpdatedBy = principal.UserID
 		return nil
 	})
@@ -221,10 +245,24 @@ func (s *Service) CancelErrandPublish(ctx context.Context, principal auth.Princi
 		return httpx.Internal("取消跑腿发布失败", err)
 	}
 
+	if execResult != nil {
+		_ = s.repository.WriteTransitionLog(ctx, cltypes.StateTransitionLog{
+			ID:          primitive.NewObjectID(),
+			ContentType: cltypes.ContentTypeErrand,
+			ContentID:   taskID,
+			FromStatus:  execResult.FromStatus,
+			ToStatus:    execResult.ToStatus,
+			Action:      execResult.Action,
+			ActorUserID: principal.UserID,
+			CreatedAt:   time.Now(),
+		})
+	}
+
 	return nil
 }
 
 func (s *Service) CancelErrandAccept(ctx context.Context, principal auth.Principal, taskID string) error {
+	var execResult *bmfs.ExecuteResult
 	_, err := s.repository.Update(ctx, taskID, func(item *cltypes.CommunityContent) error {
 		if item.ContentType != cltypes.ContentTypeErrand {
 			return httpx.NotFound("跑腿任务不存在", nil)
@@ -233,7 +271,15 @@ func (s *Service) CancelErrandAccept(ctx context.Context, principal auth.Princip
 		if ep.AcceptorUserID != principal.UserID {
 			return httpx.Forbidden("只有接单者可以取消接单", nil)
 		}
-		item.Status = cltypes.StatusPublished
+		isOwner := item.PublisherUserID == principal.UserID
+		role := errandUserRole(*item, principal)
+		actx := bmfs.ActionContext{Principal: principal, IsOwner: isOwner, UserRole: role, Now: time.Now()}
+		result, err := cltypes.ErrandStateMachine().Execute(item.Status, cltypes.ActionCancelAccept, actx)
+		if err != nil {
+			return httpx.BadRequest("该任务当前状态无法取消接单", nil)
+		}
+		execResult = result
+		item.Status = result.ToStatus
 		item.UpdatedBy = principal.UserID
 		ep.AcceptorUserID = ""
 		item.TypePayload = marshalPayload(ep)
@@ -247,6 +293,19 @@ func (s *Service) CancelErrandAccept(ctx context.Context, principal auth.Princip
 			return err
 		}
 		return httpx.Internal("取消跑腿接单失败", err)
+	}
+
+	if execResult != nil {
+		_ = s.repository.WriteTransitionLog(ctx, cltypes.StateTransitionLog{
+			ID:          primitive.NewObjectID(),
+			ContentType: cltypes.ContentTypeErrand,
+			ContentID:   taskID,
+			FromStatus:  execResult.FromStatus,
+			ToStatus:    execResult.ToStatus,
+			Action:      execResult.Action,
+			ActorUserID: principal.UserID,
+			CreatedAt:   time.Now(),
+		})
 	}
 
 	return nil

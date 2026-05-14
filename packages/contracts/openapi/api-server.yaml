@@ -2415,6 +2415,8 @@ components:
       properties:
         id:
           type: string
+          pattern: "^[0-9a-f]{24}$"
+          description: MongoDB ObjectID hex string
         title:
           type: string
         desc:
@@ -2434,7 +2436,7 @@ components:
           format: date-time
         status:
           type: string
-          enum: [reviewing, published, rejected, offline]
+          enum: [reviewing, published, rejected, offline, cancelled, accepted, open, full, resolved]
         user_role:
           type: string
           enum: [publisher, viewer]
@@ -2486,6 +2488,8 @@ components:
       properties:
         id:
           type: string
+          pattern: "^[0-9a-f]{24}$"
+          description: MongoDB ObjectID hex string
         category:
           type: string
         title:
@@ -2506,7 +2510,7 @@ components:
           description: 联系方式，can_view_contact 为 false 时为空
         status:
           type: string
-          enum: [published, accepted, cancelled]
+          enum: [reviewing, published, rejected, offline, cancelled, accepted, open, full, resolved]
         is_accepted:
           type: boolean
         images:
@@ -2542,6 +2546,7 @@ components:
                 type: string
             status:
               type: string
+              enum: [reviewing, published, rejected, offline, cancelled, accepted, open, full, resolved]
             urgent:
               type: boolean
     ErrandDetail:
@@ -2582,6 +2587,8 @@ components:
       properties:
         id:
           type: string
+          pattern: "^[0-9a-f]{24}$"
+          description: MongoDB ObjectID hex string
         title:
           type: string
         desc:
@@ -2595,7 +2602,7 @@ components:
           format: date-time
         status:
           type: string
-          enum: [reviewing, published, rejected, offline]
+          enum: [reviewing, published, rejected, offline, cancelled, accepted, open, full, resolved]
         user_role:
           type: string
           enum: [publisher, viewer]
@@ -2657,6 +2664,8 @@ components:
       properties:
         id:
           type: string
+          pattern: "^[0-9a-f]{24}$"
+          description: MongoDB ObjectID hex string
         title:
           type: string
         desc:
@@ -2670,7 +2679,7 @@ components:
           format: date-time
         status:
           type: string
-          enum: [reviewing, published, rejected, offline, resolved]
+          enum: [reviewing, published, rejected, offline, cancelled, accepted, open, full, resolved]
         user_role:
           type: string
           enum: [publisher, viewer]
@@ -2716,6 +2725,8 @@ components:
       properties:
         id:
           type: string
+          pattern: "^[0-9a-f]{24}$"
+          description: MongoDB ObjectID hex string
         category:
           type: string
         from:
@@ -2742,7 +2753,7 @@ components:
           description: 联系方式，can_view_contact 为 false 时为空
         status:
           type: string
-          enum: [reviewing, published, rejected, offline]
+          enum: [reviewing, published, rejected, offline, cancelled, accepted, open, full, resolved]
         publisher:
           type: string
         publisher_initial:
@@ -2779,6 +2790,8 @@ components:
       properties:
         id:
           type: string
+          pattern: "^[0-9a-f]{24}$"
+          description: MongoDB ObjectID hex string
         category:
           type: string
         title:
@@ -2806,7 +2819,7 @@ components:
           description: 联系方式，can_view_contact 为 false 时为空
         status:
           type: string
-          enum: [open, full, cancelled]
+          enum: [reviewing, published, rejected, offline, cancelled, accepted, open, full, resolved]
         publisher:
           type: string
         publisher_initial:

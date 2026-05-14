@@ -9,6 +9,7 @@ import (
 	clrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/repo"
 	cltypes "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/types"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/auth"
+	"github.com/liangluo/weouc2026/services/api-server/internal/platform/bmfs"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/httpx"
 )
 
@@ -27,6 +28,7 @@ func (s *Service) ListCarpools(ctx context.Context, principal auth.Principal, qu
 	}
 
 	now := time.Now().In(chinaLocation)
+	machine := cltypes.GetMachine(cltypes.ContentTypeCarpool)
 	filtered := make([]map[string]any, 0)
 	for _, item := range items {
 		cp, _ := unmarshalPayload[cltypes.CarpoolPayload](item.TypePayload)
@@ -35,10 +37,17 @@ func (s *Service) ListCarpools(ctx context.Context, principal auth.Principal, qu
 		}
 		canView := canViewContact(principal, item.PublisherUserID)
 		isOwner := item.PublisherUserID == principal.UserID
+		actx := bmfs.ActionContext{
+			Principal: principal,
+			IsOwner:   isOwner,
+			UserRole:  simpleUserRole(item.PublisherUserID, principal),
+			Now:       now,
+		}
+		actions := machine.AvailableActions(item.Status, actx)
 		payload := buildCarpoolPayload(item, cp, canView, now)
 		payload["is_owner"] = isOwner
 		payload["can_edit"] = canEditContent(isOwner, item.Status) && cp.TravelAt.After(now.UTC())
-		payload["can_delete"] = canDeleteContent(isOwner, item.Status)
+		payload["can_delete"] = actions["can_delete"]
 		payload["can_join_carpool"] = !isOwner && item.Status == cltypes.StatusPublished && principal.Authenticated
 		filtered = append(filtered, payload)
 	}
@@ -65,13 +74,20 @@ func (s *Service) GetCarpoolDetail(ctx context.Context, principal auth.Principal
 	role := simpleUserRole(item.PublisherUserID, principal)
 	isOwner := role == "publisher"
 	now := time.Now().In(chinaLocation)
+	actx := bmfs.ActionContext{
+		Principal: principal,
+		IsOwner:   isOwner,
+		UserRole:  role,
+		Now:       now,
+	}
+	actions := cltypes.GetMachine(cltypes.ContentTypeCarpool).AvailableActions(item.Status, actx)
 	cp, _ := unmarshalPayload[cltypes.CarpoolPayload](item.TypePayload)
 	payload := buildCarpoolPayload(item, cp, canView, now)
 	payload["can_view_contact"] = canView
 	payload["user_role"] = role
 	payload["is_owner"] = isOwner
 	payload["can_edit"] = canEditContent(isOwner, item.Status) && cp.TravelAt.After(now.UTC())
-	payload["can_delete"] = canDeleteContent(isOwner, item.Status)
+	payload["can_delete"] = actions["can_delete"]
 	payload["can_join_carpool"] = !isOwner && item.Status == cltypes.StatusPublished && principal.Authenticated
 	return payload, nil
 }
@@ -133,17 +149,28 @@ func (s *Service) PublishCarpool(ctx context.Context, principal auth.Principal, 
 }
 
 func (s *Service) DeleteCarpool(ctx context.Context, principal auth.Principal, id string) error {
+	var result *bmfs.ExecuteResult
 	_, err := s.repository.Update(ctx, id, func(item *cltypes.CommunityContent) error {
 		if item.ContentType != cltypes.ContentTypeCarpool {
 			return httpx.NotFound("拼车行程不存在", nil)
 		}
-		if item.PublisherUserID != principal.UserID {
-			return httpx.Forbidden("只有发布者可以取消发布", nil)
+		isOwner := item.PublisherUserID == principal.UserID
+		actx := bmfs.ActionContext{
+			Principal: principal,
+			IsOwner:   isOwner,
+			UserRole:  simpleUserRole(item.PublisherUserID, principal),
+			Now:       time.Now(),
 		}
-		if item.Status != cltypes.StatusPublished && item.Status != cltypes.StatusReviewing && item.Status != cltypes.StatusRejected {
+		machine := cltypes.GetMachine(cltypes.ContentTypeCarpool)
+		var execErr error
+		result, execErr = machine.Execute(item.Status, cltypes.ActionDelete, actx)
+		if execErr != nil {
+			if !isOwner {
+				return httpx.Forbidden("只有发布者可以取消发布", nil)
+			}
 			return httpx.BadRequest("当前状态不允许取消发布", nil)
 		}
-		item.Status = cltypes.StatusOffline
+		item.Status = result.ToStatus
 		item.UpdatedBy = principal.UserID
 		return nil
 	})
@@ -156,6 +183,14 @@ func (s *Service) DeleteCarpool(ctx context.Context, principal auth.Principal, i
 		}
 		return httpx.Internal("取消拼车发布失败", err)
 	}
+	_ = s.repository.WriteTransitionLog(ctx, cltypes.StateTransitionLog{
+		ContentType: cltypes.ContentTypeCarpool,
+		ContentID:   id,
+		FromStatus:  result.FromStatus,
+		ToStatus:    result.ToStatus,
+		Action:      cltypes.ActionDelete,
+		ActorUserID: principal.UserID,
+	})
 	s.recordAudit(ctx, principal, "campus_life.carpool.delete", "carpool", id, "拼车取消发布成功", nil)
 	return nil
 }

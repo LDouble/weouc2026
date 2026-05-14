@@ -92,7 +92,7 @@ graph TD
 | -------------- | ---------------- | ----------------------------- |
 | `iam`          | 统一身份、角色、组织、租户/校区 | user、role、permission、org                                  |
 | `portal`       | 首页内容、公告、轮播、资讯    | article、banner、notice                                     |
-| `campus_life`  | 跑腿、组局、二手交易、资料、失物招领 | errand、meetup、listing、resource、lost_item、claim、contact_acl |
+| `campus_life`  | 跑腿、组局、二手交易、资料、失物招领、拼车 | community_content（统一集合 + 类型载荷）、contact_acl |
 | `academic`     | 后续教务能力：课程表、考试、成绩、学期信息 | course、schedule、exam、grade                                |
 | `notification` | 站内信、短信、微信订阅消息、推送 | message、template、delivery                                 |
 | `file_center`  | 文件上传、附件引用、媒体资源   | file、bucket、attachment                                    |
@@ -352,8 +352,10 @@ apps/mobile-flutter/
   - 通过 `GORM` 管理模型映射、参数绑定和事务边界
   - 只保留强事务、强关系主数据
 - `MongoDB`：
-  - 以聚合根组织集合，不按“关系表拆分”平移设计
-  - 优先设计统一 `community_content` 与辅助集合，而不是为每个社区类型复制一套结构
+  - 以聚合根组织集合，不按"关系表拆分"平移设计
+  - 统一 `community_content` 集合采用"公共字段 + 类型载荷"模型：公共字段（_id, content_type, title, desc, status, publisher_user_id, contact, images, tags, 审计字段）+ `type_payload`（6 种结构化载荷）
+  - 单一 `status` 字段统一状态模型，包含 reviewing/published/rejected/offline/cancelled/accepted/open/full/resolved
+  - 辅助集合用于审核单、审计日志等，不与主内容混合
 - 审计字段统一：
   - `created_at`
   - `updated_at`
@@ -370,6 +372,29 @@ apps/mobile-flutter/
 - 客户端不得复写状态机规则，只消费后端返回的状态和动作能力
 - 本轮重构不要求迁移历史数据，也不要求兼容旧状态链路
 - 新架构切换后，旧仓储、旧状态判断和旧 DTO 映射代码允许直接删除，不保留 legacy 实现
+
+BMFS 已落地实现（`internal/platform/bmfs`），当前覆盖：
+
+- **通用状态机引擎**：声明式定义状态、动作、转换规则；支持 guard 守卫条件和 onTransition 副作用钩子；自动派生 `can_xxx` 布尔值
+- **6 类社区内容状态机**：errand / meetup / market / lost_found / carpool / resource 各自定义独立状态机，通过 `GetMachine(contentType)` 工厂获取
+- **service 层接入**：所有状态变更操作已改为 `bmfs.Execute()` 调用；`can_xxx` 从 `bmfs.AvailableActions()` 派生；审核接口改为接收 Action 字段（`review_approve` / `review_reject`）
+- **状态转换日志**：每次 BMFS 执行成功后写入 MongoDB `state_transition_logs` 集合
+
+动作命令列表：
+
+| 动作 | 说明 | 典型守卫 |
+|------|------|----------|
+| `review_approve` | 审核通过 | 审核员 |
+| `review_reject` | 审核拒绝 | 审核员 |
+| `review_reapprove` | 重新提交审核 | 发布者 |
+| `cancel` | 取消发布 | 发布者 |
+| `accept` | 接单（跑腿） | 已认证非发布者 |
+| `cancel_accept` | 取消接单（跑腿） | 接单者 |
+| `join` | 报名（组局） | 已认证非发布者 |
+| `cancel_join` | 取消报名（组局） | 参与者 |
+| `delete` | 下架/删除 | 发布者 |
+| `mark_resolved` | 标记已找到（失物招领） | 发布者 |
+| `offline_by_admin` | 管理员下线 | 审核员 |
 
 ### 12.4 外部系统同步
 

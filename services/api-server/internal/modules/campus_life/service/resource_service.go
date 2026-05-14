@@ -10,6 +10,7 @@ import (
 	clrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/repo"
 	cltypes "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/types"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/auth"
+	"github.com/liangluo/weouc2026/services/api-server/internal/platform/bmfs"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/httpx"
 )
 
@@ -73,6 +74,13 @@ func (s *Service) GetResourceDetail(ctx context.Context, principal auth.Principa
 	canView := canViewContact(principal, item.PublisherUserID)
 	role := simpleUserRole(item.PublisherUserID, principal)
 	isOwner := role == "publisher"
+	actx := bmfs.ActionContext{
+		Principal: principal,
+		IsOwner:   isOwner,
+		UserRole:  role,
+		Now:       time.Now(),
+	}
+	actions := cltypes.GetMachine(cltypes.ContentTypeResource).AvailableActions(item.Status, actx)
 	rp, _ := unmarshalPayload[cltypes.ResourcePayload](item.TypePayload)
 	resolvedFiles := resolveResourceFiles(ctx, s.storageProvider, rp.Files)
 	return map[string]any{
@@ -87,7 +95,7 @@ func (s *Service) GetResourceDetail(ctx context.Context, principal auth.Principa
 		"is_owner":          isOwner,
 		"can_view_contact":  canView,
 		"can_edit":          canEditContent(isOwner, item.Status),
-		"can_delete":        canDeleteContent(isOwner, item.Status),
+		"can_delete":        actions["can_delete"],
 		"can_download":      principal.Authenticated && canView,
 		"extra": map[string]any{
 			"category":     rp.Category,
@@ -152,17 +160,28 @@ func (s *Service) PublishResource(ctx context.Context, principal auth.Principal,
 }
 
 func (s *Service) DeleteResource(ctx context.Context, principal auth.Principal, id string) error {
+	var result *bmfs.ExecuteResult
 	_, err := s.repository.Update(ctx, id, func(item *cltypes.CommunityContent) error {
 		if item.ContentType != cltypes.ContentTypeResource {
 			return httpx.NotFound("资料不存在", nil)
 		}
-		if item.PublisherUserID != principal.UserID {
-			return httpx.Forbidden("只有发布者可以下架", nil)
+		isOwner := item.PublisherUserID == principal.UserID
+		actx := bmfs.ActionContext{
+			Principal: principal,
+			IsOwner:   isOwner,
+			UserRole:  simpleUserRole(item.PublisherUserID, principal),
+			Now:       time.Now(),
 		}
-		if item.Status != cltypes.StatusPublished && item.Status != cltypes.StatusReviewing && item.Status != cltypes.StatusRejected {
+		machine := cltypes.GetMachine(cltypes.ContentTypeResource)
+		var execErr error
+		result, execErr = machine.Execute(item.Status, cltypes.ActionDelete, actx)
+		if execErr != nil {
+			if !isOwner {
+				return httpx.Forbidden("只有发布者可以下架", nil)
+			}
 			return httpx.BadRequest("当前状态不允许下架", nil)
 		}
-		item.Status = cltypes.StatusOffline
+		item.Status = result.ToStatus
 		item.UpdatedBy = principal.UserID
 		return nil
 	})
@@ -175,6 +194,14 @@ func (s *Service) DeleteResource(ctx context.Context, principal auth.Principal, 
 		}
 		return httpx.Internal("下架资料失败", err)
 	}
+	_ = s.repository.WriteTransitionLog(ctx, cltypes.StateTransitionLog{
+		ContentType: cltypes.ContentTypeResource,
+		ContentID:   id,
+		FromStatus:  result.FromStatus,
+		ToStatus:    result.ToStatus,
+		Action:      cltypes.ActionDelete,
+		ActorUserID: principal.UserID,
+	})
 	s.recordAudit(ctx, principal, "campus_life.resource.delete", "resource", id, "资料下架成功", nil)
 	return nil
 }

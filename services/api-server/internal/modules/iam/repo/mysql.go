@@ -173,6 +173,8 @@ func newMySQLUserModel(user iamtypes.User) (mysqlUserModel, error) {
 			return mysqlUserModel{}, fmt.Errorf("marshal student profile failed: %w", err)
 		}
 		model.StudentProfileJSON = string(profile)
+	} else {
+		model.StudentProfileJSON = "null"
 	}
 
 	return model, nil

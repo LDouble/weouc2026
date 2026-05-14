@@ -115,6 +115,17 @@ type ResourceFile struct {
 	FileSize string `json:"file_size"`
 }
 
+type StateTransitionLog struct {
+	ID          primitive.ObjectID `bson:"_id"`
+	ContentType string             `bson:"content_type"`
+	ContentID   string             `bson:"content_id"`
+	FromStatus  string             `bson:"from_status"`
+	ToStatus    string             `bson:"to_status"`
+	Action      string             `bson:"action"`
+	ActorUserID string             `bson:"actor_user_id"`
+	CreatedAt   time.Time          `bson:"created_at"`
+}
+
 type Pagination struct {
 	Page     int
 	PageSize int
@@ -239,9 +250,9 @@ type MeetupPublishRequest struct {
 }
 
 type ReviewUpdateRequest struct {
-	ContentType  string `json:"content_type"`
-	ContentID    string `json:"content_id"`
-	ReviewStatus string `json:"review_status"`
+	ContentType string `json:"content_type"`
+	ContentID   string `json:"content_id"`
+	Action      string `json:"action"`
 }
 
 type MeetupActionRequest struct {

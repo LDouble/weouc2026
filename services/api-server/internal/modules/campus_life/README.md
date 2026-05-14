@@ -6,31 +6,44 @@
 - 二手：列表、详情、发布、收藏
 - 跑腿：列表、详情、发布、接单、取消发布、取消接单
 - 资料：列表、详情、发布
-- 失物招领：列表、详情、发布
+- 失物招领：列表、详情、发布、标记已找到
 - 拼车：列表、详情、发布
 - 组局：列表、详情、发布、报名、取消报名、取消组局
-- 六类内容当前已统一切到 `MongoDB` 主链路，状态后续继续向单一 `status` 收口
-- 审核列表与审核状态更新接口
-- 管理端校园生活列表复用真实审核分页数据，并返回列表所需的 `extra` 摘要字段
-- 当前主链路为 `MongoDB`
+- 审核列表与审核状态更新接口（接收 Action 字段：`review_approve` / `review_reject` / `offline_by_admin`）
+- 管理端校园生活列表复用真实审核分页数据
+
+存储架构：
+
+- 统一 `community_content` MongoDB 集合，以聚合根组织
+- "公共字段 + 类型载荷"模型：公共字段（_id, content_type, title, desc, status, publisher_user_id, contact, images, tags, 审计字段）+ `type_payload`（6 种结构化载荷）
+- `_id` 使用 MongoDB 自动生成的 ObjectID
+- 统一状态模型：单一 `status` 字段，包含 reviewing/published/rejected/offline/cancelled/accepted/open/full/resolved
+- 统一审计字段：created_at/updated_at/created_by/updated_by/deleted_at
+- `ext_json` 保留用于未来扩展，严格限制使用范围
+- 软删除通过 `deleted_at` 字段实现
+- 状态转换日志写入 `state_transition_logs` 集合
+
+BMFS 状态驱动（已落地）：
+
+- 通用状态机引擎 `internal/platform/bmfs`：声明式定义状态、动作、转换规则；支持 guard 守卫和 onTransition 钩子；自动派生 `can_xxx`
+- 6 类内容状态机定义在 `types/statemachines.go`，通过 `GetMachine(contentType)` 工厂获取
+- 所有状态变更操作通过 `bmfs.Execute()` 执行，service 层不再直接设置 `item.Status`（发布创建初始状态除外）
+- `can_xxx` 从 `bmfs.AvailableActions()` 派生，不再手写条件分支
+- 客户端只能提交动作命令，不能直接提交目标状态
 
 约束：
 
-- 业务规则只在 `service` 层
-- 数据访问只经 `repo`
+- 业务规则只在 service 层
+- 数据访问只经 repo
 - 文件访问只保存稳定对象路径，展示时由后端按需签 URL
-- 公开列表与详情只展示 `published` 内容；发布者与审核员可继续访问待审内容
+- 公开列表与详情只展示 published 状态内容；发布者与审核员可继续访问待审内容
+- 发布者信息（昵称、首字母）不冗余存储，读取时从 principal 实时解析
+- 不在客户端复制状态机规则
 
-当前边界：
+MongoDB 索引：
 
-- 管理端审核与校园生活管理列表已接入真实数据，后续仍需补更完整的审核审计记录与权限分层
-- 当前 `mongo` 后端默认不会自动插入演示数据，首次启动后列表为空，需通过发布接口产生业务记录
-
-目标重构方向（设计阶段）：
-
-- 社区内容主事实源从当前 `memory / postgres` 调整为 `MongoDB`
-- 不再完全沿用现有各类型分散结构，改为统一 `community_content` 聚合 + 类型载荷
-- 发布、审核、履约、关闭、报名、接单等状态流转改由 `BMFS` 承载，并统一收口到单一 `status`
-- `service` 层继续负责权限裁决、联系方式可见性判定与 `can_xxx` 派生，不把规则下放到客户端
-- 本轮重构不要求保留历史数据迁移或旧链路兼容
-- 新社区模型切换后，旧 `review_status` 判断、旧 `postgres` 仓储和旧 handler/service 分支可直接删除
+- `{content_type, status, created_at}` 按类型+状态列表查询
+- `{status, created_at}` Feed 流查询
+- `{publisher_user_id, created_at}` 我的发布查询
+- `{deleted_at}` sparse 软删除过滤
+- `state_transition_logs`：`{content_type, content_id, created_at}` 和 `{actor_user_id, created_at}`

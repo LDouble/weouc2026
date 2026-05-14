@@ -15,4 +15,5 @@ type Repository interface {
 	Update(ctx context.Context, id string, mutate func(*cltypes.CommunityContent) error) (cltypes.CommunityContent, error)
 	ListByType(ctx context.Context, contentType string, filter cltypes.ContentFilter) ([]cltypes.CommunityContent, int64, error)
 	ListForFeed(ctx context.Context, filter cltypes.FeedFilter) ([]cltypes.CommunityContent, int64, error)
+	WriteTransitionLog(ctx context.Context, log cltypes.StateTransitionLog) error
 }

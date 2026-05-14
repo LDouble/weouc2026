@@ -126,6 +126,11 @@
 ## 当前状态
 
 - `2026-05-13`：已完成设计任务建档、PRD 草案、架构/计划/README 同步；并确认审核态并入统一 `status`、不迁移历史数据、不兼容旧链路、旧代码逻辑可删除；代码尚未迁移
+- `2026-05-14`：BMFS 状态驱动引擎已落地实现
+  - 工作流 C（BMFS 接入）已完成：6 类社区内容状态机已定义，所有状态变更操作已改为 `bmfs.Execute()` 调用，`can_xxx` 从 BMFS 派生，审核接口改为接收 Action 字段
+  - 状态转换日志已实现：每次 BMFS 执行成功后写入 MongoDB `state_transition_logs` 集合
+  - 旧代码已清理：移除 `canDeleteContent`、`isSupportedReviewStatus` 等手写状态判断函数
+  - 测试覆盖：BMFS 核心单元测试 15 个，状态机集成测试 26 个，全部通过
 
 ## 退出条件
 

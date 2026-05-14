@@ -9,6 +9,7 @@ import (
 	clrepo "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/repo"
 	cltypes "github.com/liangluo/weouc2026/services/api-server/internal/modules/campus_life/types"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/auth"
+	"github.com/liangluo/weouc2026/services/api-server/internal/platform/bmfs"
 	"github.com/liangluo/weouc2026/services/api-server/internal/platform/httpx"
 )
 
@@ -29,9 +30,18 @@ func (s *Service) ListLostFound(ctx context.Context, principal auth.Principal, q
 	}
 
 	list := make([]map[string]any, 0, len(items))
+	machine := cltypes.GetMachine(cltypes.ContentTypeLostFound)
+	now := time.Now()
 	for _, item := range items {
 		canView := canViewContact(principal, item.PublisherUserID)
 		isOwner := item.PublisherUserID == principal.UserID
+		actx := bmfs.ActionContext{
+			Principal: principal,
+			IsOwner:   isOwner,
+			UserRole:  simpleUserRole(item.PublisherUserID, principal),
+			Now:       now,
+		}
+		actions := machine.AvailableActions(item.Status, actx)
 		lp, _ := unmarshalPayload[cltypes.LostFoundPayload](item.TypePayload)
 		list = append(list, map[string]any{
 			"id":                item.ID.Hex(),
@@ -43,8 +53,8 @@ func (s *Service) ListLostFound(ctx context.Context, principal auth.Principal, q
 			"status":            item.Status,
 			"is_owner":          isOwner,
 			"can_edit":          canEditContent(isOwner, item.Status),
-			"can_delete":        canDeleteContent(isOwner, item.Status),
-			"can_mark_resolved": isOwner && item.Status == cltypes.StatusPublished,
+			"can_delete":        actions["can_delete"],
+			"can_mark_resolved": actions["can_mark_resolved"],
 			"extra": map[string]any{
 				"type":         lp.Type,
 				"category":     lp.Category,
@@ -75,6 +85,13 @@ func (s *Service) GetLostFoundDetail(ctx context.Context, principal auth.Princip
 	canView := canViewContact(principal, item.PublisherUserID)
 	role := simpleUserRole(item.PublisherUserID, principal)
 	isOwner := role == "publisher"
+	actx := bmfs.ActionContext{
+		Principal: principal,
+		IsOwner:   isOwner,
+		UserRole:  role,
+		Now:       time.Now(),
+	}
+	actions := cltypes.GetMachine(cltypes.ContentTypeLostFound).AvailableActions(item.Status, actx)
 	lp, _ := unmarshalPayload[cltypes.LostFoundPayload](item.TypePayload)
 	return map[string]any{
 		"id":                item.ID.Hex(),
@@ -88,8 +105,8 @@ func (s *Service) GetLostFoundDetail(ctx context.Context, principal auth.Princip
 		"is_owner":          isOwner,
 		"can_view_contact":  canView,
 		"can_edit":          canEditContent(isOwner, item.Status),
-		"can_delete":        canDeleteContent(isOwner, item.Status),
-		"can_mark_resolved": isOwner && item.Status == cltypes.StatusPublished,
+		"can_delete":        actions["can_delete"],
+		"can_mark_resolved": actions["can_mark_resolved"],
 		"extra": map[string]any{
 			"type":         lp.Type,
 			"category":     lp.Category,
@@ -135,17 +152,28 @@ func (s *Service) PublishLostFound(ctx context.Context, principal auth.Principal
 }
 
 func (s *Service) DeleteLostFound(ctx context.Context, principal auth.Principal, id string) error {
+	var result *bmfs.ExecuteResult
 	_, err := s.repository.Update(ctx, id, func(item *cltypes.CommunityContent) error {
 		if item.ContentType != cltypes.ContentTypeLostFound {
 			return httpx.NotFound("失物招领不存在", nil)
 		}
-		if item.PublisherUserID != principal.UserID {
-			return httpx.Forbidden("只有发布者可以下架", nil)
+		isOwner := item.PublisherUserID == principal.UserID
+		actx := bmfs.ActionContext{
+			Principal: principal,
+			IsOwner:   isOwner,
+			UserRole:  simpleUserRole(item.PublisherUserID, principal),
+			Now:       time.Now(),
 		}
-		if item.Status != cltypes.StatusPublished && item.Status != cltypes.StatusReviewing && item.Status != cltypes.StatusRejected {
+		machine := cltypes.GetMachine(cltypes.ContentTypeLostFound)
+		var execErr error
+		result, execErr = machine.Execute(item.Status, cltypes.ActionDelete, actx)
+		if execErr != nil {
+			if !isOwner {
+				return httpx.Forbidden("只有发布者可以下架", nil)
+			}
 			return httpx.BadRequest("当前状态不允许下架", nil)
 		}
-		item.Status = cltypes.StatusOffline
+		item.Status = result.ToStatus
 		item.UpdatedBy = principal.UserID
 		return nil
 	})
@@ -158,22 +186,41 @@ func (s *Service) DeleteLostFound(ctx context.Context, principal auth.Principal,
 		}
 		return httpx.Internal("下架失物招领失败", err)
 	}
+	_ = s.repository.WriteTransitionLog(ctx, cltypes.StateTransitionLog{
+		ContentType: cltypes.ContentTypeLostFound,
+		ContentID:   id,
+		FromStatus:  result.FromStatus,
+		ToStatus:    result.ToStatus,
+		Action:      cltypes.ActionDelete,
+		ActorUserID: principal.UserID,
+	})
 	s.recordAudit(ctx, principal, "campus_life.lost_found.delete", "lostFound", id, "失物招领下架成功", nil)
 	return nil
 }
 
 func (s *Service) MarkLostFoundResolved(ctx context.Context, principal auth.Principal, id string) error {
+	var result *bmfs.ExecuteResult
 	_, err := s.repository.Update(ctx, id, func(item *cltypes.CommunityContent) error {
 		if item.ContentType != cltypes.ContentTypeLostFound {
 			return httpx.NotFound("失物招领不存在", nil)
 		}
-		if item.PublisherUserID != principal.UserID {
-			return httpx.Forbidden("只有发布者可以标记已找到", nil)
+		isOwner := item.PublisherUserID == principal.UserID
+		actx := bmfs.ActionContext{
+			Principal: principal,
+			IsOwner:   isOwner,
+			UserRole:  simpleUserRole(item.PublisherUserID, principal),
+			Now:       time.Now(),
 		}
-		if item.Status != cltypes.StatusPublished {
+		machine := cltypes.GetMachine(cltypes.ContentTypeLostFound)
+		var execErr error
+		result, execErr = machine.Execute(item.Status, cltypes.ActionMarkResolved, actx)
+		if execErr != nil {
+			if !isOwner {
+				return httpx.Forbidden("只有发布者可以标记已找到", nil)
+			}
 			return httpx.BadRequest("当前状态不允许标记已找到", nil)
 		}
-		item.Status = cltypes.StatusResolved
+		item.Status = result.ToStatus
 		item.UpdatedBy = principal.UserID
 		return nil
 	})
@@ -186,6 +233,14 @@ func (s *Service) MarkLostFoundResolved(ctx context.Context, principal auth.Prin
 		}
 		return httpx.Internal("标记失物招领已找到失败", err)
 	}
+	_ = s.repository.WriteTransitionLog(ctx, cltypes.StateTransitionLog{
+		ContentType: cltypes.ContentTypeLostFound,
+		ContentID:   id,
+		FromStatus:  result.FromStatus,
+		ToStatus:    result.ToStatus,
+		Action:      cltypes.ActionMarkResolved,
+		ActorUserID: principal.UserID,
+	})
 	s.recordAudit(ctx, principal, "campus_life.lost_found.resolve", "lostFound", id, "失物招领标记已找到", nil)
 	return nil
 }
